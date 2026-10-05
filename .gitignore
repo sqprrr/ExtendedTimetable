@@ -1,0 +1,4 @@
+/extt
+*.db
+*.db-wal
+*.db-shm

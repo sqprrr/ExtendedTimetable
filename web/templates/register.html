@@ -1,0 +1,27 @@
+{{define "title"}}Register{{end}}
+{{define "content"}}
+<section class="card narrow">
+  <h1>Register</h1>
+  <p class="muted">Ask your group leader for the invite code.</p>
+  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+  <form method="post" action="/register">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <label>Invite code
+      <input name="invite_code" value="{{.Form.InviteCode}}" placeholder="XXXX-XXXX-XXXX" autocomplete="off" required autofocus>
+    </label>
+    <label>Username
+      <input name="username" value="{{.Form.Username}}" autocomplete="username" minlength="3" maxlength="32" required>
+      <small class="muted">3–32 characters: latin letters, digits, <code>_ . -</code></small>
+    </label>
+    <label>Password
+      <input name="password" type="password" autocomplete="new-password" minlength="8" required>
+      <small class="muted">At least 8 characters.</small>
+    </label>
+    <label>Repeat password
+      <input name="password_confirm" type="password" autocomplete="new-password" minlength="8" required>
+    </label>
+    <button type="submit">Create account</button>
+  </form>
+  <p class="muted">Already registered? <a href="/login">Log in</a>.</p>
+</section>
+{{end}}

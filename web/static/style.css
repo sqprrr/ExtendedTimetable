@@ -1,0 +1,102 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #1c1f24;
+  --muted: #646b75;
+  --border: #dde1e6;
+  --accent: #2a62d6;
+  --accent-text: #ffffff;
+  --error: #b42318;
+  --error-bg: #fdecea;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --surface: #1d2026;
+    --text: #e7e9ec;
+    --muted: #9aa1ab;
+    --border: #30353d;
+    --accent: #6d9bff;
+    --accent-text: #0d1117;
+    --error: #ff8a80;
+    --error-bg: #3a1d1b;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a { color: var(--accent); }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.topbar nav { display: flex; align-items: center; gap: 1rem; }
+.brand { font-weight: 600; text-decoration: none; color: var(--text); }
+
+main { max-width: 56rem; margin: 0 auto; padding: 1.5rem 1rem; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+}
+.card.narrow { max-width: 26rem; margin: 2rem auto; }
+.card h1, .card h2 { margin-top: 0; }
+
+label { display: block; margin-bottom: 1rem; font-weight: 500; }
+label small { display: block; font-weight: 400; }
+input {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.625rem;
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+button {
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-weight: 500;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button.secondary { color: var(--text); background: transparent; border: 1px solid var(--border); padding: 0.25rem 0.75rem; }
+button.link { color: var(--accent); background: none; padding: 0; font-weight: 400; }
+
+form.inline { display: inline; margin: 0; }
+
+.muted { color: var(--muted); }
+.error {
+  color: var(--error);
+  background: var(--error-bg);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+}
+
+.invite { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.invite-code { font-size: 1.125rem; letter-spacing: 0.05em; user-select: all; }
