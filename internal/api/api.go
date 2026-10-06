@@ -23,6 +23,7 @@ func New(svc *service.Service) *Handler { return &Handler{svc: svc} }
 // Register adds the API routes to mux.
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/me", h.me)
+	h.registerGroupRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not found")
 	})
@@ -72,7 +73,12 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
+	var ie *service.InputError
 	switch {
+	case errors.As(err, &ie):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": ie.Msg, "field": ie.Field})
+	case errors.Is(err, service.ErrSubjectInUse):
+		writeError(w, r, http.StatusConflict, err.Error())
 	case errors.Is(err, service.ErrUnauthenticated):
 		writeError(w, r, http.StatusUnauthorized, err.Error())
 	case errors.Is(err, service.ErrForbidden):

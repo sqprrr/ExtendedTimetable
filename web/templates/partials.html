@@ -1,0 +1,37 @@
+{{/* Shared pieces of the group pages. */}}
+
+{{define "groupnav"}}
+<header class="group-head">
+  <h1>{{.Group.Name}}{{if ne .Group.Name .Group.Code}} <span class="muted">({{.Group.Code}})</span>{{end}}</h1>
+  <nav class="tabs" aria-label="Group sections">
+    <a href="/g/{{.Group.Code}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>Overview</a>
+    <a href="/g/{{.Group.Code}}/homework"{{if eq .Section "homework"}} aria-current="page"{{end}}>Homework</a>
+    <a href="/g/{{.Group.Code}}/notes"{{if eq .Section "notes"}} aria-current="page"{{end}}>Notes</a>
+    <a href="/g/{{.Group.Code}}/links"{{if eq .Section "links"}} aria-current="page"{{end}}>Class links</a>
+    <a href="/g/{{.Group.Code}}/resources"{{if eq .Section "resources"}} aria-current="page"{{end}}>Recordings &amp; solutions</a>
+    <a href="/g/{{.Group.Code}}/subjects"{{if eq .Section "subjects"}} aria-current="page"{{end}}>Subjects</a>
+  </nav>
+</header>
+{{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+{{end}}
+
+{{/* subjectSelect is the subject picker of a section form. */}}
+{{define "subjectSelect"}}
+<label>Subject
+  <select name="subject_id" required>
+    <option value="">Choose a subject…</option>
+    {{range .Subjects}}
+    <option value="{{.ID}}"{{if eq (idstr .ID) (index $.Fields "subject_id")}} selected{{end}}>{{.Name}}</option>
+    {{end}}
+  </select>
+  {{if not .Subjects}}<small class="muted">Add a subject first on the <a href="/g/{{.Group.Code}}/subjects">Subjects</a> tab.</small>{{end}}
+</label>
+{{end}}
+
+{{/* formButtons ends a section form: Add, or Save and Cancel when editing. */}}
+{{define "formButtons"}}
+<div class="form-actions">
+  <button type="submit">{{if .EditID}}Save{{else}}Add{{end}}</button>
+  {{if .EditID}}<a href="/g/{{.Group.Code}}/{{.Section}}">Cancel</a>{{end}}
+</div>
+{{end}}

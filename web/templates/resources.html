@@ -1,0 +1,71 @@
+{{define "title"}}Recordings & solutions · {{.Group.Code}}{{end}}
+{{define "content"}}
+{{template "groupnav" .}}
+{{if .EditID}}
+<section class="card">
+  <h2>Edit link</h2>
+  {{template "form" .}}
+</section>
+{{else}}
+<section class="card">
+  <h2>Recordings &amp; solutions</h2>
+  {{with .Resources}}
+  <table class="list">
+    <thead><tr><th>Date</th><th>Subject</th><th>Kind</th><th>Link</th>{{if $.Group.CanManage}}<th></th>{{end}}</tr></thead>
+    <tbody>
+      {{range .}}
+      <tr>
+        <td class="nowrap">{{.Date}}</td>
+        <td>{{.SubjectName}}</td>
+        <td>{{kindLabel .Kind}}</td>
+        <td><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a></td>
+        {{if $.Group.CanManage}}
+        <td class="actions">
+          <a href="/g/{{$.Group.Code}}/resources/{{.ID}}/edit">Edit</a>
+          <form method="post" action="/g/{{$.Group.Code}}/resources/{{.ID}}/delete" class="inline" data-confirm="Delete this link?">
+            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            <button type="submit" class="link danger">Delete</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No recordings or solutions yet.</p>
+  {{end}}
+</section>
+{{if .Group.CanManage}}
+<section class="card">
+  <h2>Add a recording or solution</h2>
+  {{template "form" .}}
+</section>
+{{end}}
+{{end}}
+{{end}}
+
+{{define "form"}}
+<form method="post" action="/g/{{.Group.Code}}/resources{{if .EditID}}/{{.EditID}}{{end}}">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  {{template "subjectSelect" .}}
+  <label>Kind
+    <select name="kind" required>
+      <option value="recording"{{if eq (index .Fields "kind") "recording"}} selected{{end}}>Recording</option>
+      <option value="solution"{{if eq (index .Fields "kind") "solution"}} selected{{end}}>Solution</option>
+    </select>
+  </label>
+  <label>Title
+    <input name="title" value="{{index .Fields "title"}}" maxlength="200" required>
+  </label>
+  <label>Link
+    <input name="url" type="url" value="{{index .Fields "url"}}" placeholder="https://…" required>
+    <small class="muted">YouTube, Google Drive, Teams, GitHub… Files are not uploaded here.</small>
+  </label>
+  <label>Date
+    <input name="date" type="date" value="{{index .Fields "date"}}">
+    <small class="muted">Optional: the date of the class.</small>
+  </label>
+  {{template "formButtons" .}}
+</form>
+{{end}}

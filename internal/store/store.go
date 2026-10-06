@@ -24,6 +24,9 @@ var (
 	ErrNotFound = errors.New("store: not found")
 	// ErrConflict is returned when a write violates a UNIQUE or PRIMARY KEY constraint.
 	ErrConflict = errors.New("store: conflict")
+	// ErrReferenced is returned when a write violates a FOREIGN KEY constraint:
+	// deleting a row that others still refer to, or referring to a missing row.
+	ErrReferenced = errors.New("store: foreign key")
 )
 
 // dbtx is satisfied by both *sql.DB and *sql.Tx.
@@ -202,6 +205,8 @@ func mapErr(err error) error {
 		switch se.Code() {
 		case sqlite3.SQLITE_CONSTRAINT_UNIQUE, sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY:
 			return fmt.Errorf("%w: %v", ErrConflict, err)
+		case sqlite3.SQLITE_CONSTRAINT_FOREIGNKEY:
+			return fmt.Errorf("%w: %v", ErrReferenced, err)
 		}
 	}
 	return err

@@ -11,9 +11,12 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
+	"github.com/sqprrr/ExtendedTimetable/internal/markdown"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
+	"github.com/sqprrr/ExtendedTimetable/internal/store"
 	assets "github.com/sqprrr/ExtendedTimetable/web"
 )
 
@@ -22,6 +25,7 @@ type Handler struct {
 	svc        *service.Service
 	cookies    auth.Cookies
 	trustProxy bool
+	loc        *time.Location
 	pages      map[string]*template.Template
 }
 
@@ -30,13 +34,27 @@ type Config struct {
 	Cookies auth.Cookies
 	// TrustProxy uses X-Real-IP for the client address (behind nginx).
 	TrustProxy bool
+	// Location is the time zone dates are shown and entered in; UTC if nil.
+	Location *time.Location
+}
+
+// pages lists the page templates; each is parsed with layout.html and
+// partials.html.
+var pages = []string{
+	"home", "login", "register", "error",
+	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources",
 }
 
 // New parses the templates and returns a Handler.
 func New(svc *service.Service, cfg Config) (*Handler, error) {
-	h := &Handler{svc: svc, cookies: cfg.Cookies, trustProxy: cfg.TrustProxy, pages: map[string]*template.Template{}}
-	for _, page := range []string{"home", "login", "register", "error"} {
-		t, err := template.ParseFS(assets.Templates, "templates/layout.html", "templates/"+page+".html")
+	h := &Handler{svc: svc, cookies: cfg.Cookies, trustProxy: cfg.TrustProxy, loc: cfg.Location, pages: map[string]*template.Template{}}
+	if h.loc == nil {
+		h.loc = time.UTC
+	}
+	funcs := h.templateFuncs()
+	for _, page := range pages {
+		t, err := template.New(page).Funcs(funcs).ParseFS(assets.Templates,
+			"templates/layout.html", "templates/partials.html", "templates/"+page+".html")
 		if err != nil {
 			return nil, fmt.Errorf("parse template %s: %w", page, err)
 		}
@@ -56,6 +74,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /register", h.registerForm)
 	mux.HandleFunc("POST /register", h.register)
 	mux.HandleFunc("POST /logout", h.logout)
+	h.registerGroupRoutes(mux)
 }
 
 // pageData is passed to every template.
@@ -68,6 +87,63 @@ type pageData struct {
 	Groups    []service.GroupSummary
 	// JoinableGroups fills the group picker on the registration form.
 	JoinableGroups []service.JoinableGroup
+
+	// Group pages.
+	Group *service.GroupView
+	// Section is the active group tab.
+	Section string
+	// Fields fills the create or edit form of a group section.
+	Fields map[string]string
+	// EditID is the item being edited; 0 shows the list and the create form.
+	EditID       int64
+	Subjects     []*store.Subject
+	ClassLinks   []*service.ClassLink
+	HomeworkList []*service.Homework
+	Homework     *service.Homework
+	Notes        []*store.Note
+	Resources    []*service.ResourceLink
+}
+
+func (h *Handler) templateFuncs() template.FuncMap {
+	return template.FuncMap{
+		// markdown renders sanitized HTML, so it is safe to mark as such.
+		"markdown": func(s string) template.HTML { return template.HTML(markdown.ToHTML(s)) },
+		"datetime": func(t *time.Time) string {
+			if t == nil {
+				return ""
+			}
+			return t.In(h.loc).Format("Mon 02.01.2006 15:04")
+		},
+		"date": func(t time.Time) string { return t.In(h.loc).Format("02.01.2006") },
+		"points": func(p *float64) string {
+			if p == nil {
+				return ""
+			}
+			return formatPoints(*p)
+		},
+		"lessonTypes": func() []store.LessonType { return service.LessonTypes },
+		"lessonLabel": func(t store.LessonType) string {
+			switch t {
+			case store.LessonLecture:
+				return "Lecture"
+			case store.LessonPractice:
+				return "Practice"
+			case store.LessonLab:
+				return "Lab"
+			}
+			return string(t)
+		},
+		"kindLabel": func(k store.ResourceKind) string {
+			switch k {
+			case store.ResourceRecording:
+				return "Recording"
+			case store.ResourceSolution:
+				return "Solution"
+			}
+			return string(k)
+		},
+		"idstr": func(id int64) string { return strconv.FormatInt(id, 10) },
+	}
 }
 
 // formValues echoes non-secret fields back into a form after an error.

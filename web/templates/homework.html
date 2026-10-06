@@ -1,0 +1,66 @@
+{{define "title"}}Homework · {{.Group.Code}}{{end}}
+{{define "content"}}
+{{template "groupnav" .}}
+{{if .EditID}}
+<section class="card">
+  <h2>Edit assignment</h2>
+  {{template "form" .}}
+</section>
+{{else}}
+{{if .Group.CanManage}}
+<details class="card"{{if .Error}} open{{end}}>
+  <summary><h2>New assignment</h2></summary>
+  {{template "form" .}}
+</details>
+{{end}}
+<section class="card">
+  <h2>Homework</h2>
+  {{with .HomeworkList}}
+  <ul class="items">
+    {{range .}}
+    <li{{if .Overdue}} class="overdue"{{end}}>
+      <a href="/g/{{$.Group.Code}}/homework/{{.ID}}"><strong>{{.Title}}</strong></a>
+      <span class="muted">· {{.SubjectName}}</span>
+      <div class="small">
+        {{with .DueAt}}<span class="due">due {{datetime .}}</span>{{else}}<span class="muted">no deadline</span>{{end}}
+        {{if .Overdue}}<span class="badge warn">Overdue</span>{{end}}
+        {{with .MaxPoints}}<span class="muted">· max {{points .}} pts</span>{{end}}
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">No homework yet.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}
+
+{{define "form"}}
+<form method="post" action="/g/{{.Group.Code}}/homework{{if .EditID}}/{{.EditID}}{{end}}">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  {{template "subjectSelect" .}}
+  <label>Title
+    <input name="title" value="{{index .Fields "title"}}" maxlength="200" required>
+  </label>
+  <label>Description
+    <textarea name="description" rows="8">{{index .Fields "description"}}</textarea>
+    <small class="muted">Markdown: <code>**bold**</code>, <code>- list</code>, <code>[text](https://…)</code>.</small>
+  </label>
+  <div class="row">
+    <label>Due
+      <input name="due_at" type="datetime-local" value="{{index .Fields "due_at"}}">
+      <small class="muted">Leave empty for no deadline.</small>
+    </label>
+    <label>Max points
+      <input name="max_points" inputmode="decimal" value="{{index .Fields "max_points"}}">
+      <small class="muted">Optional.</small>
+    </label>
+  </div>
+  <label>Links
+    <textarea name="links" rows="3" placeholder="Lab manual https://…">{{index .Fields "links"}}</textarea>
+    <small class="muted">One per line: an optional title, then the address.</small>
+  </label>
+  {{template "formButtons" .}}
+</form>
+{{end}}
