@@ -10,6 +10,7 @@
     <a href="/g/{{.Group.Code}}/links"{{if eq .Section "links"}} aria-current="page"{{end}}>Class links</a>
     <a href="/g/{{.Group.Code}}/resources"{{if eq .Section "resources"}} aria-current="page"{{end}}>Recordings &amp; solutions</a>
     <a href="/g/{{.Group.Code}}/subjects"{{if eq .Section "subjects"}} aria-current="page"{{end}}>Subjects</a>
+    {{if .Group.CanTrack}}<a href="/g/{{.Group.Code}}/grades"{{if eq .Section "grades"}} aria-current="page"{{end}}>My grades</a>{{end}}
   </nav>
 </header>
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
@@ -65,4 +66,70 @@
   <button type="submit">{{if .EditID}}Save{{else}}Add{{end}}</button>
   {{if .EditID}}<a href="/g/{{.Group.Code}}/{{.Section}}">Cancel</a>{{end}}
 </div>
+{{end}}
+
+{{/* homeworkItem is one assignment in a homework list, with the viewer's
+   status toggle. Called with (hwItem $ . "<page>"); the progress endpoint
+   renders it on its own to answer an htmx toggle. */}}
+{{define "homeworkItem"}}
+<li class="hw{{if .HW.Overdue}} overdue{{end}}{{if eq .HW.Status "done"}} done{{end}}">
+  {{if .HW.Tracked}}
+  <form class="status-toggle" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
+        hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="closest li" hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <input type="hidden" name="view" value="item">
+    <input type="hidden" name="from" value="{{.From}}">
+    <input type="hidden" name="status" value="{{nextStatus .HW.Status}}">
+    <button type="submit" class="status status-{{.HW.Status}}" title="Mark as {{statusLabel (nextStatus .HW.Status)}}">{{statusLabel .HW.Status}}</button>
+  </form>
+  {{end}}
+  <div class="hw-main">
+    <a href="/g/{{.Code}}/homework/{{.HW.ID}}"><strong>{{.HW.Title}}</strong></a>
+    <span class="muted">· {{.HW.SubjectName}}</span>
+    <div class="small">
+      {{with .HW.DueAt}}<span class="due">due {{datetime .}}</span>{{else}}<span class="muted">no deadline</span>{{end}}
+      {{if .HW.Overdue}}<span class="badge warn">Overdue</span>{{end}}
+      {{with .HW.MaxPoints}}<span class="muted">· max {{points .}} pts</span>{{end}}
+      {{with .HW.Grade}}<span class="muted">· your grade {{points .}}</span>{{end}}
+    </div>
+  </div>
+</li>
+{{end}}
+
+{{/* progressPanel is the viewer's status and grade on the homework page.
+   Both forms work without JavaScript; with htmx they replace the panel. */}}
+{{define "progressPanel"}}
+{{if .HW.Tracked}}
+<section class="card" id="progress">
+  <div class="card-head">
+    <h3>My progress</h3>
+    <span class="muted small">Only you can see this.</span>
+  </div>
+  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+  {{if .HW.GradeOverMax}}
+  <p class="warn-text small" role="note">Your grade is above the current max points ({{points .HW.MaxPoints}}), which the leader changed after you saved it. It counts as {{points .HW.MaxPoints}} in My grades.</p>
+  {{end}}
+  <form class="segmented" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
+        hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <input type="hidden" name="view" value="panel">
+    {{range statuses}}
+    <button type="submit" name="status" value="{{.}}" class="status status-{{.}}" aria-pressed="{{eq . $.HW.Status}}">{{statusLabel .}}</button>
+    {{end}}
+  </form>
+  <form class="grade-form" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
+        hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <input type="hidden" name="view" value="panel">
+    <label>My grade
+      <span class="grade-input">
+        <input name="grade" inputmode="decimal" value="{{or .GradeInput (points .HW.Grade)}}" placeholder="—">
+        {{with .HW.MaxPoints}}<span class="muted">/ {{points .}}</span>{{end}}
+      </span>
+    </label>
+    <button type="submit" class="secondary">Save grade</button>
+  </form>
+</section>
+{{if .UpdateBadge}}<span id="overdue-badge" hx-swap-oob="true">{{if .HW.Overdue}}<span class="badge warn">Overdue</span>{{end}}</span>{{end}}
+{{end}}
 {{end}}

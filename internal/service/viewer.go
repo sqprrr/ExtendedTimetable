@@ -35,6 +35,14 @@ func (v *Viewer) CanViewGroup(groupID int64) bool {
 	return ok
 }
 
+// CanTrackGroup reports whether the viewer keeps a homework tracker in a
+// group: its members, leaders included. A superadmin who is not a member
+// has none.
+func (v *Viewer) CanTrackGroup(groupID int64) bool {
+	_, ok := v.RoleIn(groupID)
+	return ok
+}
+
 // CanManageGroup reports whether the viewer may edit a group's content:
 // its leaders and superadmins.
 func (v *Viewer) CanManageGroup(groupID int64) bool {

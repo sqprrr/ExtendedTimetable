@@ -37,6 +37,8 @@ var ErrSubjectInUse = errors.New("this subject still has class links, homework o
 type GroupView struct {
 	*store.Group
 	CanManage bool
+	// CanTrack is true when the viewer has a homework tracker here.
+	CanTrack bool
 }
 
 // Group returns the group with the given code if the viewer may see it.
@@ -52,7 +54,7 @@ func (s *Service) Group(ctx context.Context, code string) (*GroupView, error) {
 	if !v.CanViewGroup(g.ID) {
 		return nil, ErrForbidden
 	}
-	return &GroupView{Group: g, CanManage: v.CanManageGroup(g.ID)}, nil
+	return &GroupView{Group: g, CanManage: v.CanManageGroup(g.ID), CanTrack: v.CanTrackGroup(g.ID)}, nil
 }
 
 // canView checks that the viewer may read the group's content.

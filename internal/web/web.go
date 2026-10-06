@@ -42,7 +42,7 @@ type Config struct {
 // partials.html.
 var pages = []string{
 	"home", "login", "register", "error",
-	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources",
+	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources", "grades",
 }
 
 // New parses the templates and returns a Handler.
@@ -102,6 +102,27 @@ type pageData struct {
 	Homework     *service.Homework
 	Notes        []*store.Note
 	Resources    []*store.ResourceLink
+	Grades       *service.Grades
+	// ProgressPanel replaces the progress panel of the homework page, to show
+	// a rejected grade with its error.
+	ProgressPanel *hwItem
+}
+
+// hwItem is what the homeworkItem and progressPanel templates render: one
+// assignment with the viewer's progress.
+type hwItem struct {
+	Code string
+	CSRF string
+	HW   *service.Homework
+	// From is the page the item is on (overview, list, detail), to come back
+	// to after a form post without JavaScript.
+	From string
+	// Error and GradeInput redisplay a rejected grade in the progress panel.
+	Error      string
+	GradeInput string
+	// UpdateBadge also updates the Overdue badge on the homework page when
+	// the panel is swapped in by htmx.
+	UpdateBadge bool
 }
 
 func (h *Handler) templateFuncs() template.FuncMap {
@@ -122,6 +143,29 @@ func (h *Handler) templateFuncs() template.FuncMap {
 			return formatPoints(*p)
 		},
 		"lessonTypes": func() []store.LessonType { return service.LessonTypes },
+		"hwItem": func(d pageData, hw *service.Homework, from string) hwItem {
+			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from}
+		},
+		"statuses":   func() []store.ProgressStatus { return service.Statuses },
+		"nextStatus": service.NextStatus,
+		"statusLabel": func(st store.ProgressStatus) string {
+			switch st {
+			case store.StatusNotStarted:
+				return "Not started"
+			case store.StatusInProgress:
+				return "In progress"
+			case store.StatusDone:
+				return "Done"
+			}
+			return string(st)
+		},
+		"num": formatPoints,
+		"percent": func(earned, max float64) string {
+			if max <= 0 {
+				return "—"
+			}
+			return strconv.FormatFloat(earned/max*100, 'f', 0, 64) + "%"
+		},
 		"lessonLabel": func(t store.LessonType) string {
 			switch t {
 			case store.LessonLecture:
@@ -163,6 +207,20 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
+	buf.WriteTo(w)
+}
+
+// renderFragment renders one shared template on its own, as the answer to an
+// htmx request.
+func (h *Handler) renderFragment(w http.ResponseWriter, r *http.Request, name string, data any) {
+	var buf bytes.Buffer
+	// Every page set holds partials.html; any of them will do.
+	if err := h.pages["homework"].ExecuteTemplate(&buf, name, data); err != nil {
+		slog.ErrorContext(r.Context(), "render fragment", "name", name, "err", err)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	buf.WriteTo(w)
 }
 

@@ -18,7 +18,7 @@
   <p class="muted">
     {{.SubjectName}}
     · {{with .DueAt}}due {{datetime .}}{{else}}no deadline{{end}}
-    {{if .Overdue}}<span class="badge warn">Overdue</span>{{end}}
+    <span id="overdue-badge">{{if .Overdue}}<span class="badge warn">Overdue</span>{{end}}</span>
     {{with .MaxPoints}}· max {{points .}} pts{{end}}
   </p>
   {{with .DescriptionMD}}<div class="md">{{markdown .}}</div>{{end}}
@@ -29,6 +29,7 @@
   </ul>
   {{end}}
 </article>
+{{template "progressPanel" (or $.ProgressPanel (hwItem $ . "detail"))}}
 {{end}}
 <p><a href="/g/{{.Group.Code}}/homework">← All homework</a></p>
 {{end}}

@@ -4,7 +4,7 @@ A small hub for KHNURE student groups: class schedule, class links, homework,
 notes, and a private homework tracker per student. See
 [docs/design.md](docs/design.md) for the full design and milestones.
 
-**Status:** M2 (leader tools) done.
+**Status:** M3 (student tracker) done.
 
 - **M1:** open registration (anyone can join any group), login/logout, the
   admin CLI and a home page. Leaders (старости) are appointed only by the
@@ -14,6 +14,11 @@ notes, and a private homework tracker per student. See
   group's leaders and superadmins add, edit and delete it. Homework
   descriptions and notes are Markdown (sanitized). The same content is
   available as JSON under `/api/v1/groups/<code>/…`.
+- **M3:** every group member keeps a private homework tracker: a status
+  (not started → in progress → done, toggled with htmx without a reload)
+  and the grade they got, capped at the assignment's max points. "My grades"
+  (`/g/<code>/grades`) sums grades per subject and overall. Nobody else,
+  leaders and superadmins included, can see someone's status or grades.
 
 ## Quick start (local)
 
@@ -80,6 +85,11 @@ header (get the token from `GET /api/v1/me`).
 | `homework` | `GET`, `GET /{id}` (with links and rendered HTML), `POST`, `PUT /{id}`, `DELETE /{id}` |
 | `notes` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
 | `resources` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
+| `homework/{id}/progress` | `PUT` — the viewer's own `{"status", "grade"}` |
+| `grades` | `GET` — the viewer's totals per subject and overall |
+
+Homework items carry the viewer's own `"progress": {"status", "grade"}`
+(absent for a superadmin who is not a member of the group).
 
 `PUT` changes only the fields present in the body; send `null` to clear
 `due_at` or `max_points`, and `"links": []` to remove all homework links.
