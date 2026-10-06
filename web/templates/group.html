@@ -1,0 +1,313 @@
+{{define "title"}}{{.Page.Group.Name}}{{end}}
+{{define "content"}}
+{{$p := .Page}}
+{{$code := $p.Group.Code}}
+<header class="group-head">
+  <h1>{{$p.Group.Name}}{{if ne $p.Group.Name $code}} <span class="muted">({{$code}})</span>{{end}}</h1>
+  <nav class="sections">
+    <a href="#notes">Notes</a>
+    <a href="#homework">Homework</a>
+    <a href="#class-links">Class links</a>
+    <a href="#resources">Recordings &amp; solutions</a>
+    {{if $p.CanManage}}<a href="#subjects">Subjects</a>{{end}}
+  </nav>
+</header>
+{{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+
+<section id="notes" class="card">
+  <h2>Notes</h2>
+  {{if $p.CanManage}}
+  <details class="add">
+    <summary>New note</summary>
+    <form method="post" action="/groups/{{$code}}/notes" class="stack">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <label>Title <input name="title" maxlength="200" required></label>
+      <label>Text (Markdown) <textarea name="body_md" rows="6"></textarea></label>
+      <label class="check"><input type="checkbox" name="pinned"> Pin to top</label>
+      <button type="submit">Post note</button>
+    </form>
+  </details>
+  {{end}}
+  {{range $p.Notes}}
+  {{$note := .}}
+  <article class="item">
+    <h3>{{if .Pinned}}<span class="badge">pinned</span> {{end}}{{.Title}}</h3>
+    <div class="md">{{markdown .BodyMD}}</div>
+    <p class="meta">Updated {{fmtDateTime .UpdatedAt}}</p>
+    {{if $p.CanManage}}
+    <details>
+      <summary>Edit</summary>
+      <form method="post" action="/groups/{{$code}}/notes/{{.ID}}" class="stack">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <label>Title <input name="title" value="{{.Title}}" maxlength="200" required></label>
+        <label>Text (Markdown) <textarea name="body_md" rows="6">{{.BodyMD}}</textarea></label>
+        <label class="check"><input type="checkbox" name="pinned"{{if .Pinned}} checked{{end}}> Pin to top</label>
+        <button type="submit">Save</button>
+      </form>
+    </details>
+    <form method="post" action="/groups/{{$code}}/notes/{{$note.ID}}/delete" class="inline" data-confirm="Delete this note?">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <button type="submit" class="link danger">Delete</button>
+    </form>
+    {{end}}
+  </article>
+  {{else}}
+  <p class="muted">No notes yet.</p>
+  {{end}}
+</section>
+
+<section id="homework" class="card">
+  <h2>Homework</h2>
+  {{if $p.CanManage}}
+  <details class="add">
+    <summary>New assignment</summary>
+    <form method="post" action="/groups/{{$code}}/homework" class="stack">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <label>Subject
+        <select name="subject_id" required>
+          {{range $p.Subjects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+        </select>
+      </label>
+      <label>Title <input name="title" maxlength="200" required></label>
+      <label>Description (Markdown) <textarea name="description_md" rows="5"></textarea></label>
+      <label>Due <input type="datetime-local" name="due" required></label>
+      <label>Max points <input name="max_points" inputmode="decimal" placeholder="optional"></label>
+      <button type="submit">Add assignment</button>
+    </form>
+  </details>
+  {{end}}
+  {{range $p.Homework}}
+  {{$hw := .}}
+  {{$sid := .SubjectID}}
+  <article class="item{{if .Overdue}} overdue{{end}}">
+    <h3>{{.Title}}</h3>
+    <p class="meta">
+      {{.SubjectName}} · due {{fmtDateTime .DueAt}}
+      {{if .Overdue}}<span class="badge warn">overdue</span>{{end}}
+      {{with .MaxPoints}} · max {{.}} pts{{end}}
+    </p>
+    <div class="md">{{markdown .DescriptionMD}}</div>
+    {{with .Links}}
+    <ul class="links">
+      {{range .}}
+      <li>
+        <a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a>
+        {{if $p.CanManage}}
+        <form method="post" action="/groups/{{$code}}/homework-links/{{.ID}}/delete" class="inline">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <button type="submit" class="link danger">remove</button>
+        </form>
+        {{end}}
+      </li>
+      {{end}}
+    </ul>
+    {{end}}
+    {{if $p.CanManage}}
+    <details>
+      <summary>Add link</summary>
+      <form method="post" action="/groups/{{$code}}/homework/{{.ID}}/links" class="stack">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <label>Title <input name="title" maxlength="200" required></label>
+        <label>URL <input name="url" type="url" required></label>
+        <button type="submit">Add link</button>
+      </form>
+    </details>
+    <details>
+      <summary>Edit</summary>
+      <form method="post" action="/groups/{{$code}}/homework/{{.ID}}" class="stack">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <label>Subject
+          <select name="subject_id" required>
+            {{range $p.Subjects}}<option value="{{.ID}}"{{if eq .ID $sid}} selected{{end}}>{{.Name}}</option>{{end}}
+          </select>
+        </label>
+        <label>Title <input name="title" value="{{.Title}}" maxlength="200" required></label>
+        <label>Description (Markdown) <textarea name="description_md" rows="5">{{.DescriptionMD}}</textarea></label>
+        <label>Due <input type="datetime-local" name="due" value="{{dateTimeInput .DueAt}}" required></label>
+        <label>Max points <input name="max_points" inputmode="decimal" value="{{with .MaxPoints}}{{.}}{{end}}"></label>
+        <button type="submit">Save</button>
+      </form>
+    </details>
+    <form method="post" action="/groups/{{$code}}/homework/{{$hw.ID}}/delete" class="inline" data-confirm="Delete this assignment and its links?">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <button type="submit" class="link danger">Delete</button>
+    </form>
+    {{end}}
+  </article>
+  {{else}}
+  <p class="muted">No homework yet.</p>
+  {{end}}
+</section>
+
+<section id="class-links" class="card">
+  <h2>Class links</h2>
+  {{if $p.CanManage}}
+  <details class="add">
+    <summary>New class link</summary>
+    <form method="post" action="/groups/{{$code}}/class-links" class="stack">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <label>Subject
+        <select name="subject_id" required>
+          {{range $p.Subjects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+        </select>
+      </label>
+      <label>Type
+        <select name="lesson_type" required>
+          <option value="lecture">Lecture</option>
+          <option value="practice">Practice</option>
+          <option value="lab">Lab</option>
+        </select>
+      </label>
+      <label>URL <input name="url" type="url" required></label>
+      <label>Note <input name="note" maxlength="500"></label>
+      <button type="submit">Add link</button>
+    </form>
+  </details>
+  {{end}}
+  <ul class="list">
+    {{range $p.ClassLinks}}
+    {{$cl := .}}
+    {{$sid := .SubjectID}}
+    {{$ltype := .LessonType}}
+    <li>
+      <strong>{{.SubjectName}}</strong> · {{.LessonType}}{{if .Note}} · <span class="muted">{{.Note}}</span>{{end}}
+      <a href="{{.URL}}" target="_blank" rel="noopener noreferrer">open</a>
+      {{if $p.CanManage}}
+      <details>
+        <summary>Edit</summary>
+        <form method="post" action="/groups/{{$code}}/class-links/{{.ID}}" class="stack">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <label>Subject
+            <select name="subject_id" required>
+              {{range $p.Subjects}}<option value="{{.ID}}"{{if eq .ID $sid}} selected{{end}}>{{.Name}}</option>{{end}}
+            </select>
+          </label>
+          <label>Type
+            <select name="lesson_type" required>
+              <option value="lecture"{{if eq $ltype "lecture"}} selected{{end}}>Lecture</option>
+              <option value="practice"{{if eq $ltype "practice"}} selected{{end}}>Practice</option>
+              <option value="lab"{{if eq $ltype "lab"}} selected{{end}}>Lab</option>
+            </select>
+          </label>
+          <label>URL <input name="url" type="url" value="{{.URL}}" required></label>
+          <label>Note <input name="note" value="{{.Note}}" maxlength="500"></label>
+          <button type="submit">Save</button>
+        </form>
+      </details>
+      <form method="post" action="/groups/{{$code}}/class-links/{{$cl.ID}}/delete" class="inline" data-confirm="Delete this class link?">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="link danger">Delete</button>
+      </form>
+      {{end}}
+    </li>
+    {{else}}
+    <li class="muted">No class links yet.</li>
+    {{end}}
+  </ul>
+</section>
+
+<section id="resources" class="card">
+  <h2>Recordings &amp; solutions</h2>
+  {{if $p.CanManage}}
+  <details class="add">
+    <summary>New link</summary>
+    <form method="post" action="/groups/{{$code}}/resources" class="stack">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <label>Subject
+        <select name="subject_id" required>
+          {{range $p.Subjects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+        </select>
+      </label>
+      <label>Kind
+        <select name="kind" required>
+          <option value="recording">Recording</option>
+          <option value="solution">Solution</option>
+        </select>
+      </label>
+      <label>Title <input name="title" maxlength="200" required></label>
+      <label>URL <input name="url" type="url" required></label>
+      <label>Date <input type="date" name="date"></label>
+      <button type="submit">Add link</button>
+    </form>
+  </details>
+  {{end}}
+  <ul class="list">
+    {{range $p.Resources}}
+    {{$r := .}}
+    {{$sid := .SubjectID}}
+    {{$kind := .Kind}}
+    <li>
+      <strong>{{.SubjectName}}</strong> · {{.Kind}}{{if .Date}} · {{.Date}}{{end}}
+      — <a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a>
+      {{if $p.CanManage}}
+      <details>
+        <summary>Edit</summary>
+        <form method="post" action="/groups/{{$code}}/resources/{{.ID}}" class="stack">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <label>Subject
+            <select name="subject_id" required>
+              {{range $p.Subjects}}<option value="{{.ID}}"{{if eq .ID $sid}} selected{{end}}>{{.Name}}</option>{{end}}
+            </select>
+          </label>
+          <label>Kind
+            <select name="kind" required>
+              <option value="recording"{{if eq $kind "recording"}} selected{{end}}>Recording</option>
+              <option value="solution"{{if eq $kind "solution"}} selected{{end}}>Solution</option>
+            </select>
+          </label>
+          <label>Title <input name="title" value="{{.Title}}" maxlength="200" required></label>
+          <label>URL <input name="url" type="url" value="{{.URL}}" required></label>
+          <label>Date <input type="date" name="date" value="{{.Date}}"></label>
+          <button type="submit">Save</button>
+        </form>
+      </details>
+      <form method="post" action="/groups/{{$code}}/resources/{{$r.ID}}/delete" class="inline" data-confirm="Delete this link?">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="link danger">Delete</button>
+      </form>
+      {{end}}
+    </li>
+    {{else}}
+    <li class="muted">Nothing here yet.</li>
+    {{end}}
+  </ul>
+</section>
+
+{{if $p.CanManage}}
+<section id="subjects" class="card">
+  <h2>Subjects</h2>
+  <ul class="list">
+    {{range $p.Subjects}}
+    {{$subj := .}}
+    <li>
+      <strong>{{.Name}}</strong>{{if .ShortName}} <span class="muted">({{.ShortName}})</span>{{end}}
+      <details>
+        <summary>Edit</summary>
+        <form method="post" action="/groups/{{$code}}/subjects/{{.ID}}" class="stack">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <label>Name <input name="name" value="{{.Name}}" maxlength="100" required></label>
+          <label>Short name <input name="short_name" value="{{.ShortName}}" maxlength="20"></label>
+          <button type="submit">Save</button>
+        </form>
+      </details>
+      <form method="post" action="/groups/{{$code}}/subjects/{{$subj.ID}}/delete" class="inline" data-confirm="Delete this subject with all its homework, class links and resources?">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="link danger">Delete</button>
+      </form>
+    </li>
+    {{else}}
+    <li class="muted">No subjects yet. Add one below before posting homework or links.</li>
+    {{end}}
+  </ul>
+  <details class="add">
+    <summary>New subject</summary>
+    <form method="post" action="/groups/{{$code}}/subjects" class="stack">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <label>Name <input name="name" maxlength="100" required></label>
+      <label>Short name <input name="short_name" maxlength="20"></label>
+      <button type="submit">Add subject</button>
+    </form>
+  </details>
+</section>
+{{end}}
+{{end}}

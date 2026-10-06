@@ -98,3 +98,46 @@ form.inline { display: inline; margin: 0; }
   border-radius: 6px;
 }
 
+
+.group-head { margin-bottom: 1rem; }
+.group-head h1 { margin: 0 0 0.25rem; }
+.sections { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.95rem; }
+.card > h2 { margin-bottom: 0.75rem; }
+.item { border-top: 1px solid var(--border); padding: 0.75rem 0; }
+.item h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.meta, .small { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0; }
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  vertical-align: middle;
+}
+.badge.warn { color: var(--error); border-color: var(--error); }
+.danger { color: var(--error) !important; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md pre, .md table { overflow-x: auto; display: block; }
+.md code { font-size: 0.9em; }
+.links, .list { padding-left: 1.25rem; margin: 0.5rem 0; }
+.list > li { margin-bottom: 0.5rem; }
+details { margin: 0.5rem 0; }
+details summary { cursor: pointer; color: var(--accent); }
+details.add { margin-bottom: 1rem; }
+details .stack { margin-top: 0.75rem; max-width: 36rem; }
+.stack label textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.625rem;
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: vertical;
+}
+label.check { display: flex; align-items: center; gap: 0.5rem; }
+label.check input { width: auto; margin: 0; }
