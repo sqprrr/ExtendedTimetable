@@ -62,7 +62,7 @@ main { max-width: 56rem; margin: 0 auto; padding: 1.5rem 1rem; }
 
 label { display: block; margin-bottom: 1rem; font-weight: 500; }
 label small { display: block; font-weight: 400; }
-input {
+input, select {
   display: block;
   width: 100%;
   margin-top: 0.25rem;
@@ -73,7 +73,7 @@ input {
   border: 1px solid var(--border);
   border-radius: 6px;
 }
-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 button {
   padding: 0.5rem 1rem;
@@ -98,5 +98,3 @@ form.inline { display: inline; margin: 0; }
   border-radius: 6px;
 }
 
-.invite { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
-.invite-code { font-size: 1.125rem; letter-spacing: 0.05em; user-select: all; }

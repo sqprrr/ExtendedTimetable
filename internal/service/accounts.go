@@ -19,6 +19,8 @@ const (
 	defaultLocale  = "uk"
 )
 
+var errChooseGroup = &InputError{Field: "group", Msg: "choose your group from the list"}
+
 // NewSession is a freshly issued session; Token goes into the cookie.
 type NewSession struct {
 	Token     string
@@ -27,14 +29,15 @@ type NewSession struct {
 
 // RegisterInput is the self-registration form.
 type RegisterInput struct {
-	Username   string
-	Password   string
-	InviteCode string
-	ClientIP   string
+	Username string
+	Password string
+	// GroupCode is the group to join; every group is open to everyone.
+	GroupCode string
+	ClientIP  string
 }
 
-// Register creates a student account in the group the invite code belongs to
-// and signs the user in.
+// Register creates an account, makes it a student of the chosen group and
+// signs the user in. Leaders are only ever appointed through the admin CLI.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, error) {
 	if !s.registerByIP.Allow(in.ClientIP) {
 		return nil, ErrRateLimited
@@ -46,9 +49,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 	if err := validatePassword(in.Password); err != nil {
 		return nil, err
 	}
-	invite := NormalizeInviteCode(in.InviteCode)
-	if invite == "" {
-		return nil, &InputError{Field: "invite_code", Msg: "enter the invite code from your group leader"}
+	groupCode := strings.TrimSpace(in.GroupCode)
+	if groupCode == "" {
+		return nil, errChooseGroup
 	}
 	hash, err := auth.HashPassword(in.Password)
 	if err != nil {
@@ -58,9 +61,9 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 	now := s.now()
 	var userID int64
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
-		g, err := q.GroupByInviteCode(ctx, invite)
+		g, err := q.GroupByCode(ctx, groupCode)
 		if errors.Is(err, store.ErrNotFound) {
-			return ErrInvalidInviteCode
+			return errChooseGroup
 		} else if err != nil {
 			return err
 		}
@@ -187,20 +190,4 @@ func validatePassword(p string) error {
 		return &InputError{Field: "password", Msg: "password is too long"}
 	}
 	return nil
-}
-
-// NormalizeInviteCode canonicalizes user input: case-insensitive, and dashes
-// or spaces are optional.
-func NormalizeInviteCode(raw string) string {
-	var b strings.Builder
-	for _, r := range strings.ToUpper(raw) {
-		if (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-		}
-	}
-	s := b.String()
-	if len(s) != 12 {
-		return s
-	}
-	return s[0:4] + "-" + s[4:8] + "-" + s[8:12]
 }

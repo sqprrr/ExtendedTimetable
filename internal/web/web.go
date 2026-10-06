@@ -56,7 +56,6 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /register", h.registerForm)
 	mux.HandleFunc("POST /register", h.register)
 	mux.HandleFunc("POST /logout", h.logout)
-	mux.HandleFunc("POST /groups/{id}/invite-code", h.regenerateInviteCode)
 }
 
 // pageData is passed to every template.
@@ -67,12 +66,14 @@ type pageData struct {
 	Status    string
 	Form      formValues
 	Groups    []service.GroupSummary
+	// JoinableGroups fills the group picker on the registration form.
+	JoinableGroups []service.JoinableGroup
 }
 
 // formValues echoes non-secret fields back into a form after an error.
 type formValues struct {
-	Username   string
-	InviteCode string
+	Username string
+	Group    string
 }
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, page string, data pageData) {
@@ -114,7 +115,6 @@ func userMessage(err error) (msg string, status int, ok bool) {
 	case errors.As(err, &ie):
 		return capitalize(ie.Msg), http.StatusUnprocessableEntity, true
 	case errors.Is(err, service.ErrInvalidCredentials),
-		errors.Is(err, service.ErrInvalidInviteCode),
 		errors.Is(err, service.ErrUsernameTaken):
 		return capitalize(err.Error()), http.StatusUnprocessableEntity, true
 	case errors.Is(err, service.ErrRateLimited):

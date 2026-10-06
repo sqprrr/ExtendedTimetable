@@ -66,7 +66,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(stdout, "group %s created\ninvite code: %s\n", g.Code, g.InviteCode)
+		fmt.Fprintf(stdout, "group %s created; anyone can now register into it\n", g.Code)
 
 	case "promote", "demote":
 		group := fs.String("group", "", "group code")
@@ -86,19 +86,6 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			return err
 		}
 		fmt.Fprintf(stdout, "%s is now a %s of %s\n", pos[0], role, strings.ToUpper(*group))
-
-	case "invite-code":
-		regenerate := fs.Bool("regenerate", false, "replace the current code with a new one")
-		pos, st, err := open(1)
-		if err != nil {
-			return err
-		}
-		defer st.Close()
-		code, err := newService(st).AdminInviteCode(ctx, pos[0], *regenerate)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintln(stdout, code)
 
 	case "reset-password":
 		pos, st, err := open(1)

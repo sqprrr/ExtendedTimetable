@@ -4,26 +4,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 )
-
-func TestInviteCodeFormat(t *testing.T) {
-	re := regexp.MustCompile(`^[` + inviteAlphabet + `]{4}-[` + inviteAlphabet + `]{4}-[` + inviteAlphabet + `]{4}$`)
-	seen := map[string]bool{}
-	for range 200 {
-		c := NewInviteCode()
-		if !re.MatchString(c) {
-			t.Fatalf("bad invite code %q", c)
-		}
-		if seen[c] {
-			t.Fatalf("duplicate invite code %q", c)
-		}
-		seen[c] = true
-	}
-}
 
 func TestPasswordHashing(t *testing.T) {
 	BcryptCost = 4

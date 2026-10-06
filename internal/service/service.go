@@ -16,7 +16,6 @@ var (
 	ErrForbidden          = errors.New("forbidden")
 	ErrNotFound           = errors.New("not found")
 	ErrInvalidCredentials = errors.New("invalid username or password")
-	ErrInvalidInviteCode  = errors.New("invalid invite code")
 	ErrUsernameTaken      = errors.New("username is already taken")
 	ErrRateLimited        = errors.New("too many attempts, try again later")
 )
@@ -79,12 +78,4 @@ func (s *Service) RunMaintenance(ctx context.Context, every time.Duration) error
 		case <-t.C:
 		}
 	}
-}
-
-// mapStoreErr translates store sentinels to service errors.
-func mapStoreErr(err error) error {
-	if errors.Is(err, store.ErrNotFound) {
-		return ErrNotFound
-	}
-	return err
 }

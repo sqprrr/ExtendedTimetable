@@ -36,7 +36,7 @@ func (s *Service) AdminCreateSuperadmin(ctx context.Context, username, password 
 	return err
 }
 
-// AdminCreateGroup creates a group and returns it with its first invite code.
+// AdminCreateGroup creates a group. Anyone can register into it right away.
 func (s *Service) AdminCreateGroup(ctx context.Context, code, name string, cistGroupID *int64) (*store.Group, error) {
 	code = strings.ToUpper(strings.TrimSpace(code))
 	if code == "" || len(code) > 32 {
@@ -52,21 +52,12 @@ func (s *Service) AdminCreateGroup(ctx context.Context, code, name string, cistG
 		name = code
 	}
 	g := &store.Group{Code: code, Name: name, CISTGroupID: cistGroupID, CreatedAt: s.now()}
-	for range 5 {
-		g.InviteCode = auth.NewInviteCode()
-		err := s.store.CreateGroup(ctx, g)
-		if err == nil {
-			return g, nil
-		}
-		if !errors.Is(err, store.ErrConflict) {
-			return nil, err
-		}
-		if _, err := s.store.GroupByCode(ctx, code); err == nil {
-			return nil, fmt.Errorf("group %s already exists", code)
-		}
-		// Otherwise the invite code collided; try another one.
+	if err := s.store.CreateGroup(ctx, g); errors.Is(err, store.ErrConflict) {
+		return nil, fmt.Errorf("group %s already exists", code)
+	} else if err != nil {
+		return nil, err
 	}
-	return nil, errors.New("could not generate a unique invite code")
+	return g, nil
 }
 
 // AdminSetRole makes username a member of groupCode with the given role,
@@ -79,20 +70,6 @@ func (s *Service) AdminSetRole(ctx context.Context, username, groupCode string, 
 	return s.store.UpsertMembership(ctx, &store.Membership{
 		UserID: u.ID, GroupID: g.ID, Role: role, JoinedAt: s.now(),
 	})
-}
-
-// AdminInviteCode returns a group's invite code, optionally regenerating it.
-func (s *Service) AdminInviteCode(ctx context.Context, groupCode string, regenerate bool) (string, error) {
-	g, err := s.store.GroupByCode(ctx, strings.TrimSpace(groupCode))
-	if errors.Is(err, store.ErrNotFound) {
-		return "", fmt.Errorf("group %q not found", groupCode)
-	} else if err != nil {
-		return "", err
-	}
-	if !regenerate {
-		return g.InviteCode, nil
-	}
-	return s.setNewInviteCode(ctx, g.ID)
 }
 
 // AdminResetPassword sets a new password and signs the user out everywhere.

@@ -68,7 +68,13 @@ func (s *Store) Close() error { return s.db.Close() }
 
 // InTx runs fn inside a transaction, committing if fn returns nil.
 func (s *Store) InTx(ctx context.Context, fn func(q *Queries) error) error {
-	tx, err := s.db.BeginTx(ctx, nil)
+	return inTx(ctx, s.db, fn)
+}
+
+func inTx(ctx context.Context, db interface {
+	BeginTx(context.Context, *sql.TxOptions) (*sql.Tx, error)
+}, fn func(q *Queries) error) error {
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -80,14 +86,13 @@ func (s *Store) InTx(ctx context.Context, fn func(q *Queries) error) error {
 }
 
 // Migrate applies every migration in fsys that has not been applied yet.
-func (s *Store) Migrate(ctx context.Context, fsys fs.FS) error {
-	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
-		version    INTEGER PRIMARY KEY,
-		applied_at INTEGER NOT NULL
-	) STRICT`); err != nil {
-		return fmt.Errorf("create schema_migrations: %w", err)
-	}
-
+//
+// Migrations run with foreign keys off, as SQLite requires for rebuilding a
+// table (the only way to drop a UNIQUE column or change a constraint):
+// otherwise dropping the old table would cascade into the rows that reference
+// it. Each migration must leave every foreign key valid, which is checked
+// before it commits.
+func (s *Store) Migrate(ctx context.Context, fsys fs.FS) (err error) {
 	names, err := fs.Glob(fsys, "*.sql")
 	if err != nil {
 		return err
@@ -112,9 +117,32 @@ func (s *Store) Migrate(ctx context.Context, fsys fs.FS) error {
 	}
 	sort.Slice(ms, func(i, j int) bool { return ms[i].version < ms[j].version })
 
+	// PRAGMA foreign_keys is per connection and ignored inside a transaction,
+	// so pin one connection and turn it back on before returning it to the pool.
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if _, err := conn.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
+		return err
+	}
+	defer func() {
+		if _, ferr := conn.ExecContext(context.WithoutCancel(ctx), `PRAGMA foreign_keys = ON`); ferr != nil && err == nil {
+			err = fmt.Errorf("re-enable foreign keys: %w", ferr)
+		}
+	}()
+
+	if _, err := conn.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
+		version    INTEGER PRIMARY KEY,
+		applied_at INTEGER NOT NULL
+	) STRICT`); err != nil {
+		return fmt.Errorf("create schema_migrations: %w", err)
+	}
+
 	for _, m := range ms {
 		var applied bool
-		if err := s.db.QueryRowContext(ctx,
+		if err := conn.QueryRowContext(ctx,
 			`SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = ?)`, m.version,
 		).Scan(&applied); err != nil {
 			return err
@@ -126,8 +154,11 @@ func (s *Store) Migrate(ctx context.Context, fsys fs.FS) error {
 		if err != nil {
 			return err
 		}
-		err = s.InTx(ctx, func(q *Queries) error {
+		err = inTx(ctx, conn, func(q *Queries) error {
 			if _, err := q.db.ExecContext(ctx, string(body)); err != nil {
+				return err
+			}
+			if err := q.checkForeignKeys(ctx); err != nil {
 				return err
 			}
 			_, err := q.db.ExecContext(ctx,
@@ -140,6 +171,25 @@ func (s *Store) Migrate(ctx context.Context, fsys fs.FS) error {
 		}
 	}
 	return nil
+}
+
+// checkForeignKeys fails if any row references a missing parent.
+func (q *Queries) checkForeignKeys(ctx context.Context) error {
+	rows, err := q.db.QueryContext(ctx, `PRAGMA foreign_key_check`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	if rows.Next() {
+		var table, parent string
+		var rowid sql.NullInt64
+		var fkid int64
+		if err := rows.Scan(&table, &rowid, &parent, &fkid); err != nil {
+			return err
+		}
+		return fmt.Errorf("foreign key violation: %s row %d references a missing %s", table, rowid.Int64, parent)
+	}
+	return rows.Err()
 }
 
 // mapErr converts driver errors into store sentinel errors.

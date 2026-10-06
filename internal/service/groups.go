@@ -2,9 +2,7 @@ package service
 
 import (
 	"context"
-	"errors"
 
-	"github.com/sqprrr/ExtendedTimetable/internal/auth"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
@@ -14,10 +12,8 @@ type GroupSummary struct {
 	Code string
 	Name string
 	// Role is empty when a superadmin sees a group they are not a member of.
-	Role store.Role
-	// InviteCode is only set when the viewer can manage the group.
-	InviteCode string
-	CanManage  bool
+	Role      store.Role
+	CanManage bool
 }
 
 // MyGroups lists the viewer's groups. Superadmins see every group.
@@ -44,39 +40,27 @@ func (s *Service) MyGroups(ctx context.Context) ([]GroupSummary, error) {
 	for _, g := range groups {
 		gs := GroupSummary{ID: g.ID, Code: g.Code, Name: g.Name, CanManage: v.CanManageGroup(g.ID)}
 		gs.Role, _ = v.RoleIn(g.ID)
-		if gs.CanManage {
-			gs.InviteCode = g.InviteCode
-		}
 		out = append(out, gs)
 	}
 	return out, nil
 }
 
-// RegenerateInviteCode replaces a group's invite code, invalidating the old
-// one. Allowed for the group's leaders and superadmins.
-func (s *Service) RegenerateInviteCode(ctx context.Context, groupID int64) (string, error) {
-	v, err := requireViewer(ctx)
-	if err != nil {
-		return "", err
-	}
-	if !v.CanManageGroup(groupID) {
-		return "", ErrForbidden
-	}
-	return s.setNewInviteCode(ctx, groupID)
+// JoinableGroup is a group offered on the registration form.
+type JoinableGroup struct {
+	Code string
+	Name string
 }
 
-func (s *Service) setNewInviteCode(ctx context.Context, groupID int64) (string, error) {
-	// Collisions are astronomically unlikely, but retry rather than fail.
-	for range 5 {
-		code := auth.NewInviteCode()
-		err := s.store.SetInviteCode(ctx, groupID, code)
-		if errors.Is(err, store.ErrConflict) {
-			continue
-		}
-		if err != nil {
-			return "", mapStoreErr(err)
-		}
-		return code, nil
+// JoinableGroups lists the groups a new user can register into: all of them.
+// It is public, so it exposes only the code and name.
+func (s *Service) JoinableGroups(ctx context.Context) ([]JoinableGroup, error) {
+	groups, err := s.store.ListGroups(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return "", errors.New("could not generate a unique invite code")
+	out := make([]JoinableGroup, 0, len(groups))
+	for _, g := range groups {
+		out = append(out, JoinableGroup{Code: g.Code, Name: g.Name})
+	}
+	return out, nil
 }
