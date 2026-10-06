@@ -37,6 +37,7 @@ Environment:
   EXTT_ADDR           listen address for serve        (default 127.0.0.1:8080)
   EXTT_SECURE_COOKIES set to "false" for local HTTP   (default true)
   EXTT_TRUST_PROXY    "true" to use X-Real-IP         (default false)
+  EXTT_TZ             time zone for dates             (default Europe/Kyiv)
 `
 
 func main() {

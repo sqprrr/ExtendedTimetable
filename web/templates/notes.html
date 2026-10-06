@@ -1,0 +1,54 @@
+{{define "title"}}Notes · {{.Group.Code}}{{end}}
+{{define "content"}}
+{{template "groupnav" .}}
+{{if .EditID}}
+<section class="card">
+  <h2>Edit note</h2>
+  {{template "form" .}}
+</section>
+{{else}}
+{{if .Group.CanManage}}
+<details class="card"{{if .Error}} open{{end}}>
+  <summary><h2>New note</h2></summary>
+  {{template "form" .}}
+</details>
+{{end}}
+{{range .Notes}}
+<article class="card note{{if .Pinned}} pinned{{end}}">
+  <div class="card-head">
+    <h2>{{if .Pinned}}<span class="badge">Pinned</span> {{end}}{{.Title}}</h2>
+    {{if $.Group.CanManage}}
+    <div class="actions">
+      <a href="/g/{{$.Group.Code}}/notes/{{.ID}}/edit">Edit</a>
+      <form method="post" action="/g/{{$.Group.Code}}/notes/{{.ID}}/delete" class="inline" data-confirm="Delete this note?">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="link danger">Delete</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+  <p class="muted small">{{date .CreatedAt}}</p>
+  <div class="md">{{markdown .BodyMD}}</div>
+</article>
+{{else}}
+<section class="card"><p class="muted">No notes yet.</p></section>
+{{end}}
+{{end}}
+{{end}}
+
+{{define "form"}}
+<form method="post" action="/g/{{.Group.Code}}/notes{{if .EditID}}/{{.EditID}}{{end}}">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <label>Title
+    <input name="title" value="{{index .Fields "title"}}" maxlength="200" required>
+  </label>
+  <label>Text
+    <textarea name="body" rows="8">{{index .Fields "body"}}</textarea>
+    <small class="muted">Markdown is supported.</small>
+  </label>
+  <label class="check">
+    <input name="pinned" type="checkbox"{{if index .Fields "pinned"}} checked{{end}}> Pin to the top
+  </label>
+  {{template "formButtons" .}}
+</form>
+{{end}}

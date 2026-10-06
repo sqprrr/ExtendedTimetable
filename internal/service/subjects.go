@@ -1,0 +1,92 @@
+package service
+
+import (
+	"context"
+	"errors"
+
+	"github.com/sqprrr/ExtendedTimetable/internal/store"
+)
+
+// SubjectInput is the subject form.
+type SubjectInput struct {
+	Name      string
+	ShortName string
+}
+
+func (in SubjectInput) validate() (SubjectInput, error) {
+	var err error
+	if in.Name, err = text("name", "name", in.Name, true, maxNameLen); err != nil {
+		return in, err
+	}
+	if in.ShortName, err = text("short_name", "short name", in.ShortName, false, maxShortNameLen); err != nil {
+		return in, err
+	}
+	return in, nil
+}
+
+var errSubjectExists = &InputError{Field: "name", Msg: "the group already has a subject with this name"}
+
+// Subjects lists the group's subjects.
+func (s *Service) Subjects(ctx context.Context, groupID int64) ([]*store.Subject, error) {
+	if _, err := canView(ctx, groupID); err != nil {
+		return nil, err
+	}
+	return s.store.ListSubjects(ctx, groupID)
+}
+
+// Subject returns one of the group's subjects.
+func (s *Service) Subject(ctx context.Context, groupID, id int64) (*store.Subject, error) {
+	if _, err := canView(ctx, groupID); err != nil {
+		return nil, err
+	}
+	sub, err := s.store.SubjectByID(ctx, groupID, id)
+	return sub, notFound(err)
+}
+
+// CreateSubject adds a subject to the group.
+func (s *Service) CreateSubject(ctx context.Context, groupID int64, in SubjectInput) (*store.Subject, error) {
+	if _, err := canManage(ctx, groupID); err != nil {
+		return nil, err
+	}
+	in, err := in.validate()
+	if err != nil {
+		return nil, err
+	}
+	sub := &store.Subject{GroupID: groupID, Name: in.Name, ShortName: in.ShortName}
+	if err := s.store.CreateSubject(ctx, sub); errors.Is(err, store.ErrConflict) {
+		return nil, errSubjectExists
+	} else if err != nil {
+		return nil, err
+	}
+	return sub, nil
+}
+
+// UpdateSubject renames a subject.
+func (s *Service) UpdateSubject(ctx context.Context, groupID, id int64, in SubjectInput) (*store.Subject, error) {
+	if _, err := canManage(ctx, groupID); err != nil {
+		return nil, err
+	}
+	in, err := in.validate()
+	if err != nil {
+		return nil, err
+	}
+	sub := &store.Subject{ID: id, GroupID: groupID, Name: in.Name, ShortName: in.ShortName}
+	if err := s.store.UpdateSubject(ctx, sub); errors.Is(err, store.ErrConflict) {
+		return nil, errSubjectExists
+	} else if err != nil {
+		return nil, notFound(err)
+	}
+	return sub, nil
+}
+
+// DeleteSubject removes a subject that nothing refers to any more.
+func (s *Service) DeleteSubject(ctx context.Context, groupID, id int64) error {
+	if _, err := canManage(ctx, groupID); err != nil {
+		return err
+	}
+	err := s.store.DeleteSubject(ctx, groupID, id)
+	if errors.Is(err, store.ErrReferenced) {
+		return ErrSubjectInUse
+	}
+	return notFound(err)
+}

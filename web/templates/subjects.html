@@ -1,0 +1,58 @@
+{{define "title"}}Subjects · {{.Group.Code}}{{end}}
+{{define "content"}}
+{{template "groupnav" .}}
+{{if .EditID}}
+<section class="card">
+  <h2>Edit subject</h2>
+  {{template "form" .}}
+</section>
+{{else}}
+<section class="card">
+  <h2>Subjects</h2>
+  {{with .Subjects}}
+  <table class="list">
+    <thead><tr><th>Name</th><th>Short name</th>{{if $.Group.CanManage}}<th></th>{{end}}</tr></thead>
+    <tbody>
+      {{range .}}
+      <tr>
+        <td>{{.Name}}</td>
+        <td>{{.ShortName}}</td>
+        {{if $.Group.CanManage}}
+        <td class="actions">
+          <a href="/g/{{$.Group.Code}}/subjects/{{.ID}}/edit">Edit</a>
+          <form method="post" action="/g/{{$.Group.Code}}/subjects/{{.ID}}/delete" class="inline" data-confirm="Delete subject “{{.Name}}”?">
+            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            <button type="submit" class="link danger">Delete</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">No subjects yet.</p>
+  {{end}}
+</section>
+{{if .Group.CanManage}}
+<section class="card">
+  <h2>Add a subject</h2>
+  {{template "form" .}}
+</section>
+{{end}}
+{{end}}
+{{end}}
+
+{{define "form"}}
+<form method="post" action="/g/{{.Group.Code}}/subjects{{if .EditID}}/{{.EditID}}{{end}}">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <label>Name
+    <input name="name" value="{{index .Fields "name"}}" maxlength="100" required>
+  </label>
+  <label>Short name
+    <input name="short_name" value="{{index .Fields "short_name"}}" maxlength="20">
+    <small class="muted">Optional, e.g. “ОП” or “ВМ”.</small>
+  </label>
+  {{template "formButtons" .}}
+</form>
+{{end}}

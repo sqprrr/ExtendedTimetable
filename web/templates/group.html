@@ -1,0 +1,49 @@
+{{define "title"}}{{.Group.Code}}{{end}}
+{{define "content"}}
+{{template "groupnav" .}}
+
+<section class="card">
+  <div class="card-head">
+    <h2>Homework</h2>
+    <a href="/g/{{.Group.Code}}/homework">All homework</a>
+  </div>
+  {{with .HomeworkList}}
+  <ul class="items">
+    {{range .}}
+    <li{{if .Overdue}} class="overdue"{{end}}>
+      <a href="/g/{{$.Group.Code}}/homework/{{.ID}}"><strong>{{.Title}}</strong></a>
+      <span class="muted">· {{.SubjectName}}</span>
+      {{with .DueAt}}<span class="due small">· due {{datetime .}}</span>{{end}}
+      {{if .Overdue}}<span class="badge warn">Overdue</span>{{end}}
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">Nothing due.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Notes</h2>
+    <a href="/g/{{.Group.Code}}/notes">All notes</a>
+  </div>
+  {{range .Notes}}
+  <article class="note{{if .Pinned}} pinned{{end}}">
+    <h3>{{if .Pinned}}<span class="badge">Pinned</span> {{end}}{{.Title}}</h3>
+    <p class="muted small">{{date .CreatedAt}}</p>
+    <div class="md">{{markdown .BodyMD}}</div>
+  </article>
+  {{else}}
+  <p class="muted">No notes yet.</p>
+  {{end}}
+</section>
+
+<section class="card">
+  <div class="card-head">
+    <h2>Class links</h2>
+    <a href="/g/{{.Group.Code}}/links">{{if .Group.CanManage}}Manage{{else}}All links{{end}}</a>
+  </div>
+  {{template "classLinkTable" .}}
+</section>
+{{end}}

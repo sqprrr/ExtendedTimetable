@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/api"
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
@@ -18,12 +19,14 @@ type Config struct {
 	SecureCookies bool
 	// TrustProxy takes the client IP from X-Real-IP (set by nginx).
 	TrustProxy bool
+	// Location is the time zone dates are shown and entered in; UTC if nil.
+	Location *time.Location
 }
 
 // New returns the application's root handler.
 func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	cookies := auth.Cookies{Secure: cfg.SecureCookies}
-	webH, err := web.New(svc, web.Config{Cookies: cookies, TrustProxy: cfg.TrustProxy})
+	webH, err := web.New(svc, web.Config{Cookies: cookies, TrustProxy: cfg.TrustProxy, Location: cfg.Location})
 	if err != nil {
 		return nil, err
 	}

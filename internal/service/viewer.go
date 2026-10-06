@@ -25,6 +25,16 @@ func (v *Viewer) RoleIn(groupID int64) (store.Role, bool) {
 	return "", false
 }
 
+// CanViewGroup reports whether the viewer may read a group's content: its
+// members and superadmins.
+func (v *Viewer) CanViewGroup(groupID int64) bool {
+	if v.IsSuperadmin {
+		return true
+	}
+	_, ok := v.RoleIn(groupID)
+	return ok
+}
+
 // CanManageGroup reports whether the viewer may edit a group's content:
 // its leaders and superadmins.
 func (v *Viewer) CanManageGroup(groupID int64) bool {

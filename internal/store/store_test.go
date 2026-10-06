@@ -152,3 +152,26 @@ func TestMigrateRejectsForeignKeyViolations(t *testing.T) {
 		t.Fatalf("failed migration was not rolled back: %v", err)
 	}
 }
+
+func TestSubjectNamesUniqueIgnoringCase(t *testing.T) {
+	ctx := context.Background()
+	st := openTest(t)
+	g := &store.Group{Code: "G", Name: "G", CreatedAt: time.Now()}
+	if err := st.CreateGroup(ctx, g); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.CreateSubject(ctx, &store.Subject{GroupID: g.ID, Name: "Фізика"}); err != nil {
+		t.Fatal(err)
+	}
+	other := &store.Subject{GroupID: g.ID, Name: "Хімія"}
+	if err := st.CreateSubject(ctx, other); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.CreateSubject(ctx, &store.Subject{GroupID: g.ID, Name: "ФІЗИКА"}); !errors.Is(err, store.ErrConflict) {
+		t.Fatalf("create: got %v, want ErrConflict", err)
+	}
+	other.Name = "фізика"
+	if err := st.UpdateSubject(ctx, other); !errors.Is(err, store.ErrConflict) {
+		t.Fatalf("rename: got %v, want ErrConflict", err)
+	}
+}

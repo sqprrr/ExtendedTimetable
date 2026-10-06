@@ -1,0 +1,34 @@
+{{define "title"}}{{.Homework.Title}} · {{.Group.Code}}{{end}}
+{{define "content"}}
+{{template "groupnav" .}}
+{{with .Homework}}
+<article class="card">
+  <div class="card-head">
+    <h2>{{.Title}}</h2>
+    {{if $.Group.CanManage}}
+    <div class="actions">
+      <a href="/g/{{$.Group.Code}}/homework/{{.ID}}/edit">Edit</a>
+      <form method="post" action="/g/{{$.Group.Code}}/homework/{{.ID}}/delete" class="inline" data-confirm="Delete this assignment?">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="link danger">Delete</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+  <p class="muted">
+    {{.SubjectName}}
+    · {{with .DueAt}}due {{datetime .}}{{else}}no deadline{{end}}
+    {{if .Overdue}}<span class="badge warn">Overdue</span>{{end}}
+    {{with .MaxPoints}}· max {{points .}} pts{{end}}
+  </p>
+  {{with .DescriptionMD}}<div class="md">{{markdown .}}</div>{{end}}
+  {{with .Links}}
+  <h3>Links</h3>
+  <ul>
+    {{range .}}<li><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{or .Title .URL}}</a></li>{{end}}
+  </ul>
+  {{end}}
+</article>
+{{end}}
+<p><a href="/g/{{.Group.Code}}/homework">← All homework</a></p>
+{{end}}
