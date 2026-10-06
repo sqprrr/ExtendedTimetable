@@ -35,8 +35,13 @@ type Config struct {
 // New parses the templates and returns a Handler.
 func New(svc *service.Service, cfg Config) (*Handler, error) {
 	h := &Handler{svc: svc, cookies: cfg.Cookies, trustProxy: cfg.TrustProxy, pages: map[string]*template.Template{}}
-	for _, page := range []string{"home", "login", "register", "error"} {
-		t, err := template.ParseFS(assets.Templates, "templates/layout.html", "templates/"+page+".html")
+	funcs := template.FuncMap{
+		"markdown":      renderMarkdown,
+		"fmtDateTime":   fmtDateTime,
+		"dateTimeInput": dateTimeInput,
+	}
+	for _, page := range []string{"home", "login", "register", "group", "error"} {
+		t, err := template.New("").Funcs(funcs).ParseFS(assets.Templates, "templates/layout.html", "templates/"+page+".html")
 		if err != nil {
 			return nil, fmt.Errorf("parse template %s: %w", page, err)
 		}
@@ -56,6 +61,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /register", h.registerForm)
 	mux.HandleFunc("POST /register", h.register)
 	mux.HandleFunc("POST /logout", h.logout)
+	h.registerGroupRoutes(mux)
 }
 
 // pageData is passed to every template.
@@ -68,6 +74,8 @@ type pageData struct {
 	Groups    []service.GroupSummary
 	// JoinableGroups fills the group picker on the registration form.
 	JoinableGroups []service.JoinableGroup
+	// Page is the group page content.
+	Page *service.GroupPage
 }
 
 // formValues echoes non-secret fields back into a form after an error.

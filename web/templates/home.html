@@ -4,9 +4,9 @@
 {{with .Groups}}
   {{range .}}
   <section class="card">
-    <h2>{{.Name}}{{if ne .Name .Code}} <span class="muted">({{.Code}})</span>{{end}}</h2>
+    <h2><a href="/groups/{{.Code}}">{{.Name}}</a>{{if ne .Name .Code}} <span class="muted">({{.Code}})</span>{{end}}</h2>
     {{with .Role}}<p>Your role: <strong>{{.}}</strong></p>{{end}}
-    <p class="muted">Schedule, homework and notes are coming soon.</p>
+    {{if .CanManage}}<p><a href="/groups/{{.Code}}">Manage homework, notes and links</a></p>{{end}}
   </section>
   {{end}}
 {{else}}

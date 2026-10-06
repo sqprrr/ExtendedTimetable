@@ -4,9 +4,11 @@ A small hub for KHNURE student groups: class schedule, class links, homework,
 notes, and a private homework tracker per student. See
 [docs/design.md](docs/design.md) for the full design and milestones.
 
-**Status:** M1 (skeleton & auth) done — open registration (anyone can join
-any group), login/logout, the admin CLI and a home page. Leaders (старости)
-are appointed only by the superadmin through the CLI.
+**Status:** M1 (skeleton & auth) and M2 (leader tools) done. Open registration
+(anyone can join any group), login/logout, the admin CLI and a home page.
+Leaders (старости) are appointed only by the superadmin through the CLI. Leaders
+manage subjects, class links, homework (with links), notes and recording or
+solution links from the group page at `/groups/<code>`.
 
 ## Quick start (local)
 
