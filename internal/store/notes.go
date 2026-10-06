@@ -63,6 +63,15 @@ func (q *Queries) NoteByID(ctx context.Context, groupID, id int64) (*Note, error
 		`SELECT `+noteColumns+` FROM notes WHERE id = ? AND group_id = ?`, id, groupID))
 }
 
+// RecentNotes returns every pinned note of the group and the latest limit
+// unpinned ones, in the order of ListNotes.
+func (q *Queries) RecentNotes(ctx context.Context, groupID int64, limit int) ([]*Note, error) {
+	return queryAll(ctx, q, scanNote,
+		`SELECT `+noteColumns+` FROM notes WHERE group_id = ? AND (pinned = 1 OR id IN (
+			SELECT id FROM notes WHERE group_id = ? AND pinned = 0 ORDER BY created_at DESC, id DESC LIMIT ?))
+		 ORDER BY pinned DESC, created_at DESC, id DESC`, groupID, groupID, limit)
+}
+
 // ListNotes returns the group's notes, pinned first, newest first.
 func (q *Queries) ListNotes(ctx context.Context, groupID int64) ([]*Note, error) {
 	return queryAll(ctx, q, scanNote,

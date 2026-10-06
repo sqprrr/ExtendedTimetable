@@ -13,6 +13,10 @@ import (
 
 // Group content endpoints. Lists and items are readable by the group's
 // members; POST, PUT and DELETE need a leader (the service checks both).
+//
+// PUT updates only the fields present in the body: the body is decoded over
+// the current item. Send null to clear an optional field (due_at, max_points)
+// and [] to remove all homework links.
 func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	const g = "/api/v1/groups/{code}"
 	mux.HandleFunc("GET "+g+"/subjects", h.listSubjects)
@@ -78,17 +82,22 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
-// write sends v, or the error when err is set.
-func (h *Handler) write(w http.ResponseWriter, r *http.Request, status int, v any, err error) {
+// reply sends conv(v) with status, or the error when err is set.
+func reply[T, J any](h *Handler, w http.ResponseWriter, r *http.Request, status int, v T, err error, conv func(T) J) {
 	if err != nil {
 		h.fail(w, r, err)
 		return
 	}
-	if v == nil {
-		w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, status, conv(v))
+}
+
+// deleted sends 204, or the error when err is set.
+func (h *Handler) deleted(w http.ResponseWriter, r *http.Request, err error) {
+	if err != nil {
+		h.fail(w, r, err)
 		return
 	}
-	writeJSON(w, status, v)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func list[T, J any](items []T, conv func(T) J) []J {
@@ -119,7 +128,7 @@ func toSubject(s *store.Subject) subjectJSON {
 func (h *Handler) listSubjects(w http.ResponseWriter, r *http.Request) {
 	if gid := h.group(w, r); gid != 0 {
 		subs, err := h.svc.Subjects(r.Context(), gid)
-		h.write(w, r, http.StatusOK, list(subs, toSubject), err)
+		reply(h, w, r, http.StatusOK, subs, err, func(s []*store.Subject) []subjectJSON { return list(s, toSubject) })
 	}
 }
 
@@ -127,29 +136,30 @@ func (h *Handler) createSubject(w http.ResponseWriter, r *http.Request) {
 	var req subjectRequest
 	if gid := h.group(w, r); gid != 0 && decode(w, r, &req) {
 		s, err := h.svc.CreateSubject(r.Context(), gid, service.SubjectInput(req))
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusCreated, toSubject(s))
+		reply(h, w, r, http.StatusCreated, s, err, toSubject)
 	}
 }
 
 func (h *Handler) updateSubject(w http.ResponseWriter, r *http.Request) {
-	var req subjectRequest
-	if gid, id, ok := h.groupAndID(w, r); ok && decode(w, r, &req) {
+	gid, id, ok := h.groupAndID(w, r)
+	if !ok {
+		return
+	}
+	cur, err := h.svc.Subject(r.Context(), gid, id)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	req := subjectRequest{Name: cur.Name, ShortName: cur.ShortName}
+	if decode(w, r, &req) {
 		s, err := h.svc.UpdateSubject(r.Context(), gid, id, service.SubjectInput(req))
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, toSubject(s))
+		reply(h, w, r, http.StatusOK, s, err, toSubject)
 	}
 }
 
 func (h *Handler) deleteSubject(w http.ResponseWriter, r *http.Request) {
 	if gid, id, ok := h.groupAndID(w, r); ok {
-		h.write(w, r, 0, nil, h.svc.DeleteSubject(r.Context(), gid, id))
+		h.deleted(w, r, h.svc.DeleteSubject(r.Context(), gid, id))
 	}
 }
 
@@ -158,7 +168,7 @@ func (h *Handler) deleteSubject(w http.ResponseWriter, r *http.Request) {
 type classLinkJSON struct {
 	ID          int64            `json:"id"`
 	SubjectID   int64            `json:"subject_id"`
-	SubjectName string           `json:"subject_name,omitempty"`
+	SubjectName string           `json:"subject_name"`
 	LessonType  store.LessonType `json:"lesson_type"`
 	URL         string           `json:"url"`
 	Note        string           `json:"note"`
@@ -172,17 +182,15 @@ type classLinkRequest struct {
 }
 
 func toClassLink(l *store.ClassLink) classLinkJSON {
-	return classLinkJSON{ID: l.ID, SubjectID: l.SubjectID, LessonType: l.LessonType, URL: l.URL, Note: l.Note}
+	return classLinkJSON{
+		ID: l.ID, SubjectID: l.SubjectID, SubjectName: l.SubjectName, LessonType: l.LessonType, URL: l.URL, Note: l.Note,
+	}
 }
 
 func (h *Handler) listClassLinks(w http.ResponseWriter, r *http.Request) {
 	if gid := h.group(w, r); gid != 0 {
 		links, err := h.svc.ClassLinks(r.Context(), gid)
-		h.write(w, r, http.StatusOK, list(links, func(l *service.ClassLink) classLinkJSON {
-			j := toClassLink(&l.ClassLink)
-			j.SubjectName = l.SubjectName
-			return j
-		}), err)
+		reply(h, w, r, http.StatusOK, links, err, func(l []*store.ClassLink) []classLinkJSON { return list(l, toClassLink) })
 	}
 }
 
@@ -190,29 +198,30 @@ func (h *Handler) createClassLink(w http.ResponseWriter, r *http.Request) {
 	var req classLinkRequest
 	if gid := h.group(w, r); gid != 0 && decode(w, r, &req) {
 		l, err := h.svc.CreateClassLink(r.Context(), gid, service.ClassLinkInput(req))
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusCreated, toClassLink(l))
+		reply(h, w, r, http.StatusCreated, l, err, toClassLink)
 	}
 }
 
 func (h *Handler) updateClassLink(w http.ResponseWriter, r *http.Request) {
-	var req classLinkRequest
-	if gid, id, ok := h.groupAndID(w, r); ok && decode(w, r, &req) {
+	gid, id, ok := h.groupAndID(w, r)
+	if !ok {
+		return
+	}
+	cur, err := h.svc.ClassLink(r.Context(), gid, id)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	req := classLinkRequest{SubjectID: cur.SubjectID, LessonType: cur.LessonType, URL: cur.URL, Note: cur.Note}
+	if decode(w, r, &req) {
 		l, err := h.svc.UpdateClassLink(r.Context(), gid, id, service.ClassLinkInput(req))
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, toClassLink(l))
+		reply(h, w, r, http.StatusOK, l, err, toClassLink)
 	}
 }
 
 func (h *Handler) deleteClassLink(w http.ResponseWriter, r *http.Request) {
 	if gid, id, ok := h.groupAndID(w, r); ok {
-		h.write(w, r, 0, nil, h.svc.DeleteClassLink(r.Context(), gid, id))
+		h.deleted(w, r, h.svc.DeleteClassLink(r.Context(), gid, id))
 	}
 }
 
@@ -224,16 +233,17 @@ type linkJSON struct {
 }
 
 type homeworkJSON struct {
-	ID              int64      `json:"id"`
-	SubjectID       int64      `json:"subject_id"`
-	SubjectName     string     `json:"subject_name,omitempty"`
-	Title           string     `json:"title"`
-	DescriptionMD   string     `json:"description_md"`
+	ID            int64  `json:"id"`
+	SubjectID     int64  `json:"subject_id"`
+	SubjectName   string `json:"subject_name"`
+	Title         string `json:"title"`
+	DescriptionMD string `json:"description_md"`
+	// DescriptionHTML and Links are left out of lists.
 	DescriptionHTML string     `json:"description_html,omitempty"`
+	Links           []linkJSON `json:"links,omitempty"`
 	DueAt           *time.Time `json:"due_at"`
 	MaxPoints       *float64   `json:"max_points"`
 	Overdue         bool       `json:"overdue"`
-	Links           []linkJSON `json:"links,omitempty"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 }
@@ -255,69 +265,73 @@ func (req homeworkRequest) input() service.HomeworkInput {
 	}
 }
 
-func toHomework(hw *store.Homework) homeworkJSON {
+func toLinks(links []*store.HomeworkLink) []linkJSON {
+	return list(links, func(l *store.HomeworkLink) linkJSON { return linkJSON{Title: l.Title, URL: l.URL} })
+}
+
+// toHomeworkSummary converts an assignment for a list.
+func toHomeworkSummary(hw *service.Homework) homeworkJSON {
 	return homeworkJSON{
-		ID: hw.ID, SubjectID: hw.SubjectID, Title: hw.Title, DescriptionMD: hw.DescriptionMD,
-		DueAt: hw.DueAt, MaxPoints: hw.MaxPoints, CreatedAt: hw.CreatedAt, UpdatedAt: hw.UpdatedAt,
+		ID: hw.ID, SubjectID: hw.SubjectID, SubjectName: hw.SubjectName, Title: hw.Title,
+		DescriptionMD: hw.DescriptionMD, DueAt: hw.DueAt, MaxPoints: hw.MaxPoints, Overdue: hw.Overdue,
+		CreatedAt: hw.CreatedAt, UpdatedAt: hw.UpdatedAt,
 	}
 }
 
-func toHomeworkView(hw *service.Homework) homeworkJSON {
-	j := toHomework(&hw.Homework)
-	j.SubjectName, j.Overdue = hw.SubjectName, hw.Overdue
+// toHomework converts a single assignment, with its links and rendered
+// description.
+func toHomework(hw *service.Homework) homeworkJSON {
+	j := toHomeworkSummary(hw)
+	j.DescriptionHTML = markdown.ToHTML(hw.DescriptionMD)
+	j.Links = toLinks(hw.Links)
 	return j
 }
 
 func (h *Handler) listHomework(w http.ResponseWriter, r *http.Request) {
 	if gid := h.group(w, r); gid != 0 {
 		hws, err := h.svc.HomeworkList(r.Context(), gid)
-		h.write(w, r, http.StatusOK, list(hws, toHomeworkView), err)
+		reply(h, w, r, http.StatusOK, hws, err, func(hws []*service.Homework) []homeworkJSON { return list(hws, toHomeworkSummary) })
 	}
 }
 
 func (h *Handler) getHomework(w http.ResponseWriter, r *http.Request) {
-	gid, id, ok := h.groupAndID(w, r)
-	if !ok {
-		return
+	if gid, id, ok := h.groupAndID(w, r); ok {
+		hw, err := h.svc.Homework(r.Context(), gid, id)
+		reply(h, w, r, http.StatusOK, hw, err, toHomework)
 	}
-	hw, err := h.svc.Homework(r.Context(), gid, id)
-	if err != nil {
-		h.fail(w, r, err)
-		return
-	}
-	j := toHomeworkView(hw)
-	j.DescriptionHTML = markdown.ToHTML(hw.DescriptionMD)
-	j.Links = list(hw.Links, func(l *store.HomeworkLink) linkJSON { return linkJSON{Title: l.Title, URL: l.URL} })
-	writeJSON(w, http.StatusOK, j)
 }
 
 func (h *Handler) createHomework(w http.ResponseWriter, r *http.Request) {
 	var req homeworkRequest
 	if gid := h.group(w, r); gid != 0 && decode(w, r, &req) {
 		hw, err := h.svc.CreateHomework(r.Context(), gid, req.input())
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusCreated, toHomework(hw))
+		reply(h, w, r, http.StatusCreated, hw, err, toHomework)
 	}
 }
 
 func (h *Handler) updateHomework(w http.ResponseWriter, r *http.Request) {
-	var req homeworkRequest
-	if gid, id, ok := h.groupAndID(w, r); ok && decode(w, r, &req) {
+	gid, id, ok := h.groupAndID(w, r)
+	if !ok {
+		return
+	}
+	cur, err := h.svc.Homework(r.Context(), gid, id)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	req := homeworkRequest{
+		SubjectID: cur.SubjectID, Title: cur.Title, DescriptionMD: cur.DescriptionMD,
+		DueAt: cur.DueAt, MaxPoints: cur.MaxPoints, Links: toLinks(cur.Links),
+	}
+	if decode(w, r, &req) {
 		hw, err := h.svc.UpdateHomework(r.Context(), gid, id, req.input())
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, toHomework(hw))
+		reply(h, w, r, http.StatusOK, hw, err, toHomework)
 	}
 }
 
 func (h *Handler) deleteHomework(w http.ResponseWriter, r *http.Request) {
 	if gid, id, ok := h.groupAndID(w, r); ok {
-		h.write(w, r, 0, nil, h.svc.DeleteHomework(r.Context(), gid, id))
+		h.deleted(w, r, h.svc.DeleteHomework(r.Context(), gid, id))
 	}
 }
 
@@ -339,6 +353,10 @@ type noteRequest struct {
 	Pinned bool   `json:"pinned"`
 }
 
+func (req noteRequest) input() service.NoteInput {
+	return service.NoteInput{Title: req.Title, Body: req.BodyMD, Pinned: req.Pinned}
+}
+
 func toNote(n *store.Note) noteJSON {
 	return noteJSON{
 		ID: n.ID, Title: n.Title, BodyMD: n.BodyMD, BodyHTML: markdown.ToHTML(n.BodyMD), Pinned: n.Pinned,
@@ -349,37 +367,38 @@ func toNote(n *store.Note) noteJSON {
 func (h *Handler) listNotes(w http.ResponseWriter, r *http.Request) {
 	if gid := h.group(w, r); gid != 0 {
 		notes, err := h.svc.Notes(r.Context(), gid)
-		h.write(w, r, http.StatusOK, list(notes, toNote), err)
+		reply(h, w, r, http.StatusOK, notes, err, func(n []*store.Note) []noteJSON { return list(n, toNote) })
 	}
 }
 
 func (h *Handler) createNote(w http.ResponseWriter, r *http.Request) {
 	var req noteRequest
 	if gid := h.group(w, r); gid != 0 && decode(w, r, &req) {
-		n, err := h.svc.CreateNote(r.Context(), gid, service.NoteInput{Title: req.Title, Body: req.BodyMD, Pinned: req.Pinned})
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusCreated, toNote(n))
+		n, err := h.svc.CreateNote(r.Context(), gid, req.input())
+		reply(h, w, r, http.StatusCreated, n, err, toNote)
 	}
 }
 
 func (h *Handler) updateNote(w http.ResponseWriter, r *http.Request) {
-	var req noteRequest
-	if gid, id, ok := h.groupAndID(w, r); ok && decode(w, r, &req) {
-		n, err := h.svc.UpdateNote(r.Context(), gid, id, service.NoteInput{Title: req.Title, Body: req.BodyMD, Pinned: req.Pinned})
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, toNote(n))
+	gid, id, ok := h.groupAndID(w, r)
+	if !ok {
+		return
+	}
+	cur, err := h.svc.Note(r.Context(), gid, id)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	req := noteRequest{Title: cur.Title, BodyMD: cur.BodyMD, Pinned: cur.Pinned}
+	if decode(w, r, &req) {
+		n, err := h.svc.UpdateNote(r.Context(), gid, id, req.input())
+		reply(h, w, r, http.StatusOK, n, err, toNote)
 	}
 }
 
 func (h *Handler) deleteNote(w http.ResponseWriter, r *http.Request) {
 	if gid, id, ok := h.groupAndID(w, r); ok {
-		h.write(w, r, 0, nil, h.svc.DeleteNote(r.Context(), gid, id))
+		h.deleted(w, r, h.svc.DeleteNote(r.Context(), gid, id))
 	}
 }
 
@@ -388,7 +407,7 @@ func (h *Handler) deleteNote(w http.ResponseWriter, r *http.Request) {
 type resourceJSON struct {
 	ID          int64              `json:"id"`
 	SubjectID   int64              `json:"subject_id"`
-	SubjectName string             `json:"subject_name,omitempty"`
+	SubjectName string             `json:"subject_name"`
 	Kind        store.ResourceKind `json:"kind"`
 	Title       string             `json:"title"`
 	URL         string             `json:"url"`
@@ -406,18 +425,15 @@ type resourceRequest struct {
 
 func toResource(l *store.ResourceLink) resourceJSON {
 	return resourceJSON{
-		ID: l.ID, SubjectID: l.SubjectID, Kind: l.Kind, Title: l.Title, URL: l.URL, Date: l.Date, CreatedAt: l.CreatedAt,
+		ID: l.ID, SubjectID: l.SubjectID, SubjectName: l.SubjectName, Kind: l.Kind, Title: l.Title, URL: l.URL,
+		Date: l.Date, CreatedAt: l.CreatedAt,
 	}
 }
 
 func (h *Handler) listResources(w http.ResponseWriter, r *http.Request) {
 	if gid := h.group(w, r); gid != 0 {
 		links, err := h.svc.ResourceLinks(r.Context(), gid)
-		h.write(w, r, http.StatusOK, list(links, func(l *service.ResourceLink) resourceJSON {
-			j := toResource(&l.ResourceLink)
-			j.SubjectName = l.SubjectName
-			return j
-		}), err)
+		reply(h, w, r, http.StatusOK, links, err, func(l []*store.ResourceLink) []resourceJSON { return list(l, toResource) })
 	}
 }
 
@@ -425,28 +441,29 @@ func (h *Handler) createResource(w http.ResponseWriter, r *http.Request) {
 	var req resourceRequest
 	if gid := h.group(w, r); gid != 0 && decode(w, r, &req) {
 		l, err := h.svc.CreateResourceLink(r.Context(), gid, service.ResourceLinkInput(req))
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusCreated, toResource(l))
+		reply(h, w, r, http.StatusCreated, l, err, toResource)
 	}
 }
 
 func (h *Handler) updateResource(w http.ResponseWriter, r *http.Request) {
-	var req resourceRequest
-	if gid, id, ok := h.groupAndID(w, r); ok && decode(w, r, &req) {
+	gid, id, ok := h.groupAndID(w, r)
+	if !ok {
+		return
+	}
+	cur, err := h.svc.ResourceLink(r.Context(), gid, id)
+	if err != nil {
+		h.fail(w, r, err)
+		return
+	}
+	req := resourceRequest{SubjectID: cur.SubjectID, Kind: cur.Kind, Title: cur.Title, URL: cur.URL, Date: cur.Date}
+	if decode(w, r, &req) {
 		l, err := h.svc.UpdateResourceLink(r.Context(), gid, id, service.ResourceLinkInput(req))
-		if err != nil {
-			h.fail(w, r, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, toResource(l))
+		reply(h, w, r, http.StatusOK, l, err, toResource)
 	}
 }
 
 func (h *Handler) deleteResource(w http.ResponseWriter, r *http.Request) {
 	if gid, id, ok := h.groupAndID(w, r); ok {
-		h.write(w, r, 0, nil, h.svc.DeleteResourceLink(r.Context(), gid, id))
+		h.deleted(w, r, h.svc.DeleteResourceLink(r.Context(), gid, id))
 	}
 }

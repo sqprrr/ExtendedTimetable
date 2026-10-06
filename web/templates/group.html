@@ -4,15 +4,17 @@
 
 <section class="card">
   <div class="card-head">
-    <h2>Upcoming homework</h2>
+    <h2>Homework</h2>
     <a href="/g/{{.Group.Code}}/homework">All homework</a>
   </div>
   {{with .HomeworkList}}
   <ul class="items">
     {{range .}}
-    <li>
+    <li{{if .Overdue}} class="overdue"{{end}}>
       <a href="/g/{{$.Group.Code}}/homework/{{.ID}}"><strong>{{.Title}}</strong></a>
-      <span class="muted">· {{.SubjectName}}{{with .DueAt}} · due {{datetime .}}{{end}}</span>
+      <span class="muted">· {{.SubjectName}}</span>
+      {{with .DueAt}}<span class="due small">· due {{datetime .}}</span>{{end}}
+      {{if .Overdue}}<span class="badge warn">Overdue</span>{{end}}
     </li>
     {{end}}
   </ul>
@@ -40,27 +42,8 @@
 <section class="card">
   <div class="card-head">
     <h2>Class links</h2>
-    <a href="/g/{{.Group.Code}}/links">Manage</a>
+    <a href="/g/{{.Group.Code}}/links">{{if .Group.CanManage}}Manage{{else}}All links{{end}}</a>
   </div>
   {{template "classLinkTable" .}}
 </section>
-{{end}}
-
-{{define "classLinkTable"}}
-{{with .ClassLinks}}
-<table class="list">
-  <thead><tr><th>Subject</th><th>Type</th><th>Link</th></tr></thead>
-  <tbody>
-    {{range .}}
-    <tr>
-      <td>{{.SubjectName}}</td>
-      <td>{{lessonLabel .LessonType}}</td>
-      <td><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Join</a>{{with .Note}} <span class="muted">· {{.}}</span>{{end}}</td>
-    </tr>
-    {{end}}
-  </tbody>
-</table>
-{{else}}
-<p class="muted">No class links yet.</p>
-{{end}}
 {{end}}

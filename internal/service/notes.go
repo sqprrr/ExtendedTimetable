@@ -73,6 +73,7 @@ func (s *Service) UpdateNote(ctx context.Context, groupID, id int64, in NoteInpu
 	}
 	var n *store.Note
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
+		var err error
 		if n, err = q.NoteByID(ctx, groupID, id); err != nil {
 			return notFound(err)
 		}

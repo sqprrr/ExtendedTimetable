@@ -5,12 +5,16 @@
 -- A subject cannot be deleted while anything still refers to it (the default
 -- NO ACTION), so a leader never wipes homework by accident.
 
+-- name_key is the lowercased name, set by the store on every write. It makes
+-- names unique per group ignoring case, which COLLATE NOCASE cannot do since it
+-- only folds ASCII and the names are Ukrainian.
 CREATE TABLE subjects (
     id         INTEGER PRIMARY KEY,
     group_id   INTEGER NOT NULL REFERENCES groups (id) ON DELETE CASCADE,
     name       TEXT    NOT NULL,
+    name_key   TEXT    NOT NULL,
     short_name TEXT    NOT NULL DEFAULT '',
-    UNIQUE (group_id, name COLLATE NOCASE),
+    UNIQUE (group_id, name_key),
     UNIQUE (group_id, id)
 ) STRICT;
 

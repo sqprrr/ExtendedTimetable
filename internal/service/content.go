@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
@@ -25,6 +26,7 @@ const (
 	maxURLLen       = 2000
 	maxMarkdownLen  = 20000
 	maxHomeworkURLs = 20
+	maxPoints       = 10000
 )
 
 // ErrSubjectInUse is returned when deleting a subject that still has class
@@ -85,19 +87,6 @@ func notFound(err error) error {
 	return err
 }
 
-// subjectNames maps the group's subject ids to their display names.
-func (s *Service) subjectNames(ctx context.Context, groupID int64) (map[int64]string, error) {
-	subjects, err := s.store.ListSubjects(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
-	names := make(map[int64]string, len(subjects))
-	for _, sub := range subjects {
-		names[sub.ID] = sub.Name
-	}
-	return names, nil
-}
-
 // checkSubject verifies that subjectID is one of the group's subjects.
 func checkSubject(ctx context.Context, q *store.Queries, groupID, subjectID int64) error {
 	if _, err := q.SubjectByID(ctx, groupID, subjectID); errors.Is(err, store.ErrNotFound) {
@@ -116,6 +105,9 @@ func text(field, label, s string, required bool, maxLen int) (string, error) {
 	}
 	if utf8.RuneCountInString(s) > maxLen {
 		return "", &InputError{Field: field, Msg: fmt.Sprintf("%s must be at most %d characters", label, maxLen)}
+	}
+	if strings.ContainsFunc(s, unicode.IsControl) {
+		return "", &InputError{Field: field, Msg: label + " must be a single line"}
 	}
 	return s, nil
 }
@@ -152,8 +144,11 @@ func points(field string, p *float64) (*float64, error) {
 	if p == nil {
 		return nil, nil
 	}
-	if math.IsNaN(*p) || math.IsInf(*p, 0) || *p <= 0 || *p > 10000 {
+	if math.IsNaN(*p) || math.IsInf(*p, 0) || *p <= 0 {
 		return nil, &InputError{Field: field, Msg: "max points must be a positive number"}
+	}
+	if *p > maxPoints {
+		return nil, &InputError{Field: field, Msg: fmt.Sprintf("max points must be at most %d", maxPoints)}
 	}
 	v := *p
 	return &v, nil

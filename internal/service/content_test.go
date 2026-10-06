@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -196,9 +197,19 @@ func TestContentValidation(t *testing.T) {
 
 	_, err = f.svc.CreateHomework(lead, gid, service.HomeworkInput{SubjectID: sub.ID})
 	wantInputError(t, err, "title")
-	zero := 0.0
+	zero, huge := 0.0, 12000.0
 	_, err = f.svc.CreateHomework(lead, gid, service.HomeworkInput{SubjectID: sub.ID, Title: "T", MaxPoints: &zero})
 	wantInputError(t, err, "max_points")
+	_, err = f.svc.CreateHomework(lead, gid, service.HomeworkInput{SubjectID: sub.ID, Title: "T", MaxPoints: &huge})
+	wantInputError(t, err, "max_points")
+	if !strings.Contains(err.Error(), "at most 10000") {
+		t.Errorf("max points over the limit: %v", err)
+	}
+	_, err = f.svc.CreateHomework(lead, gid, service.HomeworkInput{SubjectID: sub.ID, Title: "two\nlines"})
+	wantInputError(t, err, "title")
+	_, err = f.svc.CreateHomework(lead, gid, service.HomeworkInput{SubjectID: sub.ID, Title: "T",
+		Links: []service.LinkInput{{Title: "a\nb", URL: "https://x.org"}}})
+	wantInputError(t, err, "links")
 	_, err = f.svc.CreateHomework(lead, gid, service.HomeworkInput{SubjectID: sub.ID, Title: "T",
 		Links: []service.LinkInput{{URL: "javascript:alert(1)"}}})
 	wantInputError(t, err, "links")
@@ -249,7 +260,7 @@ func TestHomeworkUpdateAndOrder(t *testing.T) {
 	}
 	now := time.Now()
 	past, soon, later := now.Add(-time.Hour), now.Add(time.Hour), now.Add(48*time.Hour)
-	mk := func(title string, due *time.Time) *store.Homework {
+	mk := func(title string, due *time.Time) *service.Homework {
 		hw, err := f.svc.CreateHomework(lead, gid, service.HomeworkInput{SubjectID: sub.ID, Title: title, DueAt: due,
 			Links: []service.LinkInput{{URL: "https://a.example"}, {URL: "https://b.example"}}})
 		if err != nil {
@@ -261,6 +272,9 @@ func TestHomeworkUpdateAndOrder(t *testing.T) {
 	mk("later", &later)
 	mk("past", &past)
 	hw := mk("soon", &soon)
+	if hw.SubjectName != "Physics" || len(hw.Links) != 2 {
+		t.Fatalf("create should return the full assignment: %+v", hw)
+	}
 
 	list, err := f.svc.HomeworkList(lead, gid)
 	if err != nil {
@@ -315,5 +329,42 @@ func TestNotesPinnedFirst(t *testing.T) {
 	n, err := f.svc.UpdateNote(lead, gid, notes[0].ID, service.NoteInput{Title: "unpinned"})
 	if err != nil || n.Pinned || n.Title != "unpinned" {
 		t.Fatalf("update note: %v %+v", err, n)
+	}
+}
+
+func TestGroupOverview(t *testing.T) {
+	f := setup(t)
+	lead := f.leader(t, "lead")
+	gid := f.group.ID
+	sub, err := f.svc.CreateSubject(lead, gid, service.SubjectInput{Name: "Physics"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	for title, due := range map[string]time.Duration{"long ago": -30 * 24 * time.Hour, "yesterday": -24 * time.Hour, "tomorrow": 24 * time.Hour} {
+		d := now.Add(due)
+		if _, err := f.svc.CreateHomework(lead, gid, service.HomeworkInput{SubjectID: sub.ID, Title: title, DueAt: &d}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i, title := range []string{"n1", "n2", "pinned", "n3", "n4"} {
+		if _, err := f.svc.CreateNote(lead, gid, service.NoteInput{Title: title, Pinned: i == 2}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ov, err := f.svc.GroupOverview(f.as(t, f.register(t, "stud")), gid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ov.Homework) != 2 || ov.Homework[0].Title != "yesterday" || !ov.Homework[0].Overdue || ov.Homework[1].Title != "tomorrow" {
+		t.Fatalf("overview homework: %+v", ov.Homework)
+	}
+	var notes []string
+	for _, n := range ov.Notes {
+		notes = append(notes, n.Title)
+	}
+	if strings.Join(notes, ",") != "pinned,n4,n3,n2" {
+		t.Fatalf("overview notes = %v", notes)
 	}
 }

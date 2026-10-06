@@ -97,11 +97,11 @@ type pageData struct {
 	// EditID is the item being edited; 0 shows the list and the create form.
 	EditID       int64
 	Subjects     []*store.Subject
-	ClassLinks   []*service.ClassLink
+	ClassLinks   []*store.ClassLink
 	HomeworkList []*service.Homework
 	Homework     *service.Homework
 	Notes        []*store.Note
-	Resources    []*service.ResourceLink
+	Resources    []*store.ResourceLink
 }
 
 func (h *Handler) templateFuncs() template.FuncMap {

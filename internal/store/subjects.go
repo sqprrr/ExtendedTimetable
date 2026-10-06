@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -27,12 +28,15 @@ func scanSubject(row interface{ Scan(...any) error }) (*Subject, error) {
 	return &s, nil
 }
 
+// subjectKey is the value subject names must be unique by within a group.
+func subjectKey(name string) string { return strings.ToLower(name) }
+
 // CreateSubject inserts a subject and sets s.ID. Returns ErrConflict if the
-// group already has a subject with that name.
+// group already has a subject with that name, ignoring case.
 func (q *Queries) CreateSubject(ctx context.Context, s *Subject) error {
 	res, err := q.db.ExecContext(ctx,
-		`INSERT INTO subjects (group_id, name, short_name) VALUES (?, ?, ?)`,
-		s.GroupID, s.Name, s.ShortName)
+		`INSERT INTO subjects (group_id, name, name_key, short_name) VALUES (?, ?, ?, ?)`,
+		s.GroupID, s.Name, subjectKey(s.Name), s.ShortName)
 	if err != nil {
 		return mapErr(err)
 	}
@@ -40,11 +44,12 @@ func (q *Queries) CreateSubject(ctx context.Context, s *Subject) error {
 	return err
 }
 
-// UpdateSubject saves the name and short name of a subject.
+// UpdateSubject saves the name and short name of a subject. Returns
+// ErrConflict like CreateSubject.
 func (q *Queries) UpdateSubject(ctx context.Context, s *Subject) error {
 	return expectOne(q.db.ExecContext(ctx,
-		`UPDATE subjects SET name = ?, short_name = ? WHERE id = ? AND group_id = ?`,
-		s.Name, s.ShortName, s.ID, s.GroupID))
+		`UPDATE subjects SET name = ?, name_key = ?, short_name = ? WHERE id = ? AND group_id = ?`,
+		s.Name, subjectKey(s.Name), s.ShortName, s.ID, s.GroupID))
 }
 
 // DeleteSubject removes a subject. Returns ErrReferenced while class links,

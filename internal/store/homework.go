@@ -21,6 +21,8 @@ type Homework struct {
 	CreatedBy *int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	// SubjectName is read from subjects; writes ignore it.
+	SubjectName string
 }
 
 // HomeworkLink is a row of the homework_links table.
@@ -31,7 +33,10 @@ type HomeworkLink struct {
 	URL        string
 }
 
-const homeworkColumns = `id, group_id, subject_id, title, description_md, due_at, max_points, created_by, created_at, updated_at`
+// homeworkSelect reads assignments with their subject's name; add a WHERE on h.
+const homeworkSelect = `SELECT h.id, h.group_id, h.subject_id, h.title, h.description_md, h.due_at, h.max_points,
+	h.created_by, h.created_at, h.updated_at, s.name
+	FROM homework h JOIN subjects s ON s.id = h.subject_id `
 
 func scanHomework(row interface{ Scan(...any) error }) (*Homework, error) {
 	var h Homework
@@ -39,7 +44,7 @@ func scanHomework(row interface{ Scan(...any) error }) (*Homework, error) {
 	var maxPoints sql.NullFloat64
 	var created, updated int64
 	if err := row.Scan(&h.ID, &h.GroupID, &h.SubjectID, &h.Title, &h.DescriptionMD,
-		&due, &maxPoints, &createdBy, &created, &updated); err != nil {
+		&due, &maxPoints, &createdBy, &created, &updated, &h.SubjectName); err != nil {
 		return nil, mapErr(err)
 	}
 	h.DueAt = unixPtr(due)
@@ -82,15 +87,22 @@ func (q *Queries) DeleteHomework(ctx context.Context, groupID, id int64) error {
 // HomeworkByID returns an assignment of the group.
 func (q *Queries) HomeworkByID(ctx context.Context, groupID, id int64) (*Homework, error) {
 	return scanHomework(q.db.QueryRowContext(ctx,
-		`SELECT `+homeworkColumns+` FROM homework WHERE id = ? AND group_id = ?`, id, groupID))
+		homeworkSelect+`WHERE h.id = ? AND h.group_id = ?`, id, groupID))
 }
 
 // ListHomework returns the group's assignments by due date, those without a
 // deadline last.
 func (q *Queries) ListHomework(ctx context.Context, groupID int64) ([]*Homework, error) {
 	return queryAll(ctx, q, scanHomework,
-		`SELECT `+homeworkColumns+` FROM homework WHERE group_id = ?
-		 ORDER BY due_at IS NULL, due_at, id`, groupID)
+		homeworkSelect+`WHERE h.group_id = ? ORDER BY h.due_at IS NULL, h.due_at, h.id`, groupID)
+}
+
+// UpcomingHomework returns up to limit of the group's assignments due at or
+// after since, or without a deadline, in the order of ListHomework.
+func (q *Queries) UpcomingHomework(ctx context.Context, groupID int64, since time.Time, limit int) ([]*Homework, error) {
+	return queryAll(ctx, q, scanHomework,
+		homeworkSelect+`WHERE h.group_id = ? AND (h.due_at IS NULL OR h.due_at >= ?)
+		 ORDER BY h.due_at IS NULL, h.due_at, h.id LIMIT ?`, groupID, since.Unix(), limit)
 }
 
 // HomeworkLinks returns an assignment's links in the order they were added.

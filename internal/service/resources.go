@@ -6,12 +6,6 @@ import (
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
-// ResourceLink is a recording or solution link with its subject's name.
-type ResourceLink struct {
-	store.ResourceLink
-	SubjectName string
-}
-
 // ResourceLinkInput is the recording / solution form.
 type ResourceLinkInput struct {
 	SubjectID int64
@@ -39,39 +33,20 @@ func (in ResourceLinkInput) validate() (ResourceLinkInput, error) {
 }
 
 // ResourceLinks lists the group's recordings and solutions, newest first.
-func (s *Service) ResourceLinks(ctx context.Context, groupID int64) ([]*ResourceLink, error) {
+func (s *Service) ResourceLinks(ctx context.Context, groupID int64) ([]*store.ResourceLink, error) {
 	if _, err := canView(ctx, groupID); err != nil {
 		return nil, err
 	}
-	links, err := s.store.ListResourceLinks(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
-	names, err := s.subjectNames(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]*ResourceLink, 0, len(links))
-	for _, l := range links {
-		out = append(out, &ResourceLink{ResourceLink: *l, SubjectName: names[l.SubjectID]})
-	}
-	return out, nil
+	return s.store.ListResourceLinks(ctx, groupID)
 }
 
 // ResourceLink returns one of the group's recordings or solutions.
-func (s *Service) ResourceLink(ctx context.Context, groupID, id int64) (*ResourceLink, error) {
+func (s *Service) ResourceLink(ctx context.Context, groupID, id int64) (*store.ResourceLink, error) {
 	if _, err := canView(ctx, groupID); err != nil {
 		return nil, err
 	}
 	l, err := s.store.ResourceLinkByID(ctx, groupID, id)
-	if err != nil {
-		return nil, notFound(err)
-	}
-	sub, err := s.store.SubjectByID(ctx, groupID, l.SubjectID)
-	if err != nil {
-		return nil, err
-	}
-	return &ResourceLink{ResourceLink: *l, SubjectName: sub.Name}, nil
+	return l, notFound(err)
 }
 
 // CreateResourceLink adds a recording or solution link.
@@ -92,7 +67,12 @@ func (s *Service) CreateResourceLink(ctx context.Context, groupID int64, in Reso
 		if err := checkSubject(ctx, q, groupID, in.SubjectID); err != nil {
 			return err
 		}
-		return q.CreateResourceLink(ctx, l)
+		if err := q.CreateResourceLink(ctx, l); err != nil {
+			return err
+		}
+		var err error
+		l, err = q.ResourceLinkByID(ctx, groupID, l.ID)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -111,14 +91,19 @@ func (s *Service) UpdateResourceLink(ctx context.Context, groupID, id int64, in 
 	}
 	var l *store.ResourceLink
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
-		if l, err = q.ResourceLinkByID(ctx, groupID, id); err != nil {
+		old, err := q.ResourceLinkByID(ctx, groupID, id)
+		if err != nil {
 			return notFound(err)
 		}
 		if err := checkSubject(ctx, q, groupID, in.SubjectID); err != nil {
 			return err
 		}
-		l.SubjectID, l.Kind, l.Title, l.URL, l.Date = in.SubjectID, in.Kind, in.Title, in.URL, in.Date
-		return q.UpdateResourceLink(ctx, l)
+		old.SubjectID, old.Kind, old.Title, old.URL, old.Date = in.SubjectID, in.Kind, in.Title, in.URL, in.Date
+		if err := q.UpdateResourceLink(ctx, old); err != nil {
+			return err
+		}
+		l, err = q.ResourceLinkByID(ctx, groupID, id)
+		return err
 	})
 	if err != nil {
 		return nil, err

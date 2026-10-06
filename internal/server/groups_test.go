@@ -100,7 +100,7 @@ func TestLeaderManagesGroupPages(t *testing.T) {
 
 	// The edit form is prefilled.
 	code, body, _ = lead.get(hwURL + "/edit")
-	if code != http.StatusOK || !strings.Contains(body, `value="2099-09-01T09:30"`) || !strings.Contains(body, "Manual https://example.com/m.pdf") {
+	if code != http.StatusOK || !strings.Contains(body, `value="2099-09-01T09:30"`) || !strings.Contains(body, "Manual — https://example.com/m.pdf") {
 		t.Fatalf("edit homework form: %d\n%s", code, body)
 	}
 
@@ -114,8 +114,14 @@ func TestLeaderManagesGroupPages(t *testing.T) {
 		t.Fatalf("create resource: %d", code)
 	}
 
-	// The overview shows it all to the student.
+	// The overview shows it all to the student, without leader controls.
 	code, body, _ = stud.get(g)
+	if strings.Contains(body, ">Manage<") || !strings.Contains(body, ">All links<") {
+		t.Error("students should not be offered to manage class links")
+	}
+	if _, lb, _ := lead.get(g); !strings.Contains(lb, ">Manage<") {
+		t.Error("leaders should get the Manage link")
+	}
 	for _, want := range []string{"Lab &lt;1&gt;", "Exam moved", "<em>Friday</em>", "subgroup 1", "https://meet.example/lab"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("overview missing %q", want)
@@ -223,9 +229,24 @@ func TestAPIGroupContent(t *testing.T) {
 		"subject_id": sub.ID, "title": "Lab 1", "description_md": "**x**", "due_at": "2099-01-01T10:00:00Z", "max_points": 5,
 		"links": []map[string]string{{"title": "M", "url": "https://example.com"}},
 	})
-	var hw struct{ ID int64 }
-	if code != http.StatusCreated || json.Unmarshal(body, &hw) != nil {
-		t.Fatalf("create homework: %d %s", code, body)
+	var hw struct {
+		ID          int64
+		SubjectName string `json:"subject_name"`
+		Links       []struct{ URL string }
+	}
+	if code != http.StatusCreated || json.Unmarshal(body, &hw) != nil || hw.SubjectName != "Physics" || len(hw.Links) != 1 {
+		t.Fatalf("create homework should return the full item: %d %s", code, body)
+	}
+
+	// PUT keeps the fields it does not mention.
+	code, body = lead.api("PUT", g+"/homework/"+itoa(hw.ID), tok, map[string]any{"title": "Lab 1 (fixed)"})
+	if code != http.StatusOK || !strings.Contains(string(body), `"max_points":5`) || !strings.Contains(string(body), `"url":"https://example.com"`) ||
+		!strings.Contains(string(body), `"due_at":"2099-01-01T10:00:00Z"`) {
+		t.Fatalf("partial PUT: %d %s", code, body)
+	}
+	code, body = lead.api("PUT", g+"/homework/"+itoa(hw.ID), tok, map[string]any{"title": "Lab 1", "due_at": nil, "links": []any{}})
+	if code != http.StatusOK || !strings.Contains(string(body), `"due_at":null`) || strings.Contains(string(body), `"links"`) {
+		t.Fatalf("PUT clearing fields: %d %s", code, body)
 	}
 	code, body = lead.api("POST", g+"/homework", tok, map[string]any{"subject_id": sub.ID, "title": ""})
 	if code != http.StatusUnprocessableEntity || !strings.Contains(string(body), `"field":"title"`) {
@@ -243,7 +264,7 @@ func TestAPIGroupContent(t *testing.T) {
 	if code != http.StatusOK || json.Unmarshal(body, &got) != nil {
 		t.Fatalf("get homework: %d %s", code, body)
 	}
-	if got.Title != "Lab 1" || got.SubjectName != "Physics" || !strings.Contains(got.DescriptionHTML, "<strong>x</strong>") || len(got.Links) != 1 {
+	if got.Title != "Lab 1" || got.SubjectName != "Physics" || !strings.Contains(got.DescriptionHTML, "<strong>x</strong>") || len(got.Links) != 0 {
 		t.Fatalf("homework JSON: %s", body)
 	}
 	if code, _ := stud.api("DELETE", g+"/homework/"+itoa(hw.ID), stok, nil); code != http.StatusForbidden {

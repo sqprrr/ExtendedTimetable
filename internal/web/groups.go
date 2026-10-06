@@ -366,50 +366,14 @@ func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {
 	if g == nil {
 		return
 	}
-	ctx := r.Context()
-	d := pageData{Group: g, Section: "overview"}
-	var err error
-	if d.Notes, err = h.svc.Notes(ctx, g.ID); err != nil {
-		h.renderError(w, r, err)
-		return
-	}
-	d.Notes = overviewNotes(d.Notes)
-	hws, err := h.svc.HomeworkList(ctx, g.ID)
+	ov, err := h.svc.GroupOverview(r.Context(), g.ID)
 	if err != nil {
 		h.renderError(w, r, err)
 		return
 	}
-	for _, hw := range hws {
-		if !hw.Overdue && len(d.HomeworkList) < overviewHomeworkCount {
-			d.HomeworkList = append(d.HomeworkList, hw)
-		}
-	}
-	if d.ClassLinks, err = h.svc.ClassLinks(ctx, g.ID); err != nil {
-		h.renderError(w, r, err)
-		return
-	}
-	h.render(w, r, http.StatusOK, "group", d)
-}
-
-const (
-	overviewHomeworkCount = 5
-	overviewNoteCount     = 3
-)
-
-// overviewNotes keeps every pinned note and the latest few others.
-func overviewNotes(notes []*store.Note) []*store.Note {
-	var out []*store.Note
-	others := 0
-	for _, n := range notes {
-		if !n.Pinned {
-			if others == overviewNoteCount {
-				continue
-			}
-			others++
-		}
-		out = append(out, n)
-	}
-	return out
+	h.render(w, r, http.StatusOK, "group", pageData{
+		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes, ClassLinks: ov.ClassLinks,
+	})
 }
 
 func (h *Handler) homeworkDetail(w http.ResponseWriter, r *http.Request) {
@@ -505,26 +469,41 @@ func (h *Handler) homeworkInput(r *http.Request) (service.HomeworkInput, error) 
 }
 
 // parseLinks reads one link per line: an address, optionally preceded by a
-// title ("Lab manual https://…"). Blank lines are skipped.
+// title ("Lab manual — https://…"). One separator standing on its own before
+// the address is dropped, so what formatLinks writes reads back unchanged.
+// Blank lines are skipped.
 func parseLinks(s string) []service.LinkInput {
 	var out []service.LinkInput
 	for line := range strings.Lines(s) {
+		line = strings.TrimSpace(line)
 		f := strings.Fields(line)
 		if len(f) == 0 {
 			continue
 		}
 		u := f[len(f)-1]
-		title := strings.TrimRight(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(line), u)), " -–—:|")
+		title := strings.TrimSpace(strings.TrimSuffix(line, u))
+		for _, sep := range linkSeparators {
+			if title == sep {
+				title = ""
+				break
+			}
+			if t, ok := strings.CutSuffix(title, " "+sep); ok {
+				title = strings.TrimSpace(t)
+				break
+			}
+		}
 		out = append(out, service.LinkInput{Title: title, URL: u})
 	}
 	return out
 }
 
+var linkSeparators = []string{"—", "–", "-", "|"}
+
 func formatLinks(links []*store.HomeworkLink) string {
 	var b strings.Builder
 	for _, l := range links {
 		if l.Title != "" {
-			b.WriteString(l.Title + " ")
+			b.WriteString(l.Title + " — ")
 		}
 		b.WriteString(l.URL + "\n")
 	}

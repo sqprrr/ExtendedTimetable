@@ -8,11 +8,10 @@ import (
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
-// Homework is an assignment with its subject's name.
+// Homework is an assignment as shown to the viewer.
 type Homework struct {
 	store.Homework
-	SubjectName string
-	// Links is filled only by Service.Homework, not by the list.
+	// Links is filled for a single assignment, not for lists.
 	Links []*store.HomeworkLink
 	// Overdue is true once the deadline has passed.
 	Overdue bool
@@ -74,16 +73,20 @@ func (s *Service) HomeworkList(ctx context.Context, groupID int64) ([]*Homework,
 	if err != nil {
 		return nil, err
 	}
-	names, err := s.subjectNames(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
+	return s.homeworkViews(hws), nil
+}
+
+func (s *Service) homeworkViews(hws []*store.Homework) []*Homework {
 	now := s.now()
 	out := make([]*Homework, 0, len(hws))
 	for _, h := range hws {
-		out = append(out, s.homeworkView(h, names[h.SubjectID], now))
+		out = append(out, homeworkView(h, now))
 	}
-	return out, nil
+	return out
+}
+
+func homeworkView(h *store.Homework, now time.Time) *Homework {
+	return &Homework{Homework: *h, Overdue: h.DueAt != nil && h.DueAt.Before(now)}
 }
 
 // Homework returns one of the group's assignments with its links.
@@ -91,27 +94,23 @@ func (s *Service) Homework(ctx context.Context, groupID, id int64) (*Homework, e
 	if _, err := canView(ctx, groupID); err != nil {
 		return nil, err
 	}
-	h, err := s.store.HomeworkByID(ctx, groupID, id)
+	return s.homeworkWithLinks(ctx, s.store.Queries, groupID, id)
+}
+
+func (s *Service) homeworkWithLinks(ctx context.Context, q *store.Queries, groupID, id int64) (*Homework, error) {
+	h, err := q.HomeworkByID(ctx, groupID, id)
 	if err != nil {
 		return nil, notFound(err)
 	}
-	sub, err := s.store.SubjectByID(ctx, groupID, h.SubjectID)
-	if err != nil {
-		return nil, err
-	}
-	out := s.homeworkView(h, sub.Name, s.now())
-	if out.Links, err = s.store.HomeworkLinks(ctx, h.ID); err != nil {
+	out := homeworkView(h, s.now())
+	if out.Links, err = q.HomeworkLinks(ctx, h.ID); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (s *Service) homeworkView(h *store.Homework, subject string, now time.Time) *Homework {
-	return &Homework{Homework: *h, SubjectName: subject, Overdue: h.DueAt != nil && h.DueAt.Before(now)}
-}
-
 // CreateHomework posts an assignment.
-func (s *Service) CreateHomework(ctx context.Context, groupID int64, in HomeworkInput) (*store.Homework, error) {
+func (s *Service) CreateHomework(ctx context.Context, groupID int64, in HomeworkInput) (*Homework, error) {
 	v, err := canManage(ctx, groupID)
 	if err != nil {
 		return nil, err
@@ -125,6 +124,7 @@ func (s *Service) CreateHomework(ctx context.Context, groupID int64, in Homework
 		GroupID: groupID, SubjectID: in.SubjectID, Title: in.Title, DescriptionMD: in.Description,
 		DueAt: in.DueAt, MaxPoints: in.MaxPoints, CreatedBy: &v.UserID, CreatedAt: now, UpdatedAt: now,
 	}
+	var out *Homework
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
 		if err := checkSubject(ctx, q, groupID, in.SubjectID); err != nil {
 			return err
@@ -132,16 +132,21 @@ func (s *Service) CreateHomework(ctx context.Context, groupID int64, in Homework
 		if err := q.CreateHomework(ctx, h); err != nil {
 			return err
 		}
-		return q.ReplaceHomeworkLinks(ctx, h.ID, links)
+		if err := q.ReplaceHomeworkLinks(ctx, h.ID, links); err != nil {
+			return err
+		}
+		var err error
+		out, err = s.homeworkWithLinks(ctx, q, groupID, h.ID)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	return h, nil
+	return out, nil
 }
 
 // UpdateHomework changes an assignment and replaces its links.
-func (s *Service) UpdateHomework(ctx context.Context, groupID, id int64, in HomeworkInput) (*store.Homework, error) {
+func (s *Service) UpdateHomework(ctx context.Context, groupID, id int64, in HomeworkInput) (*Homework, error) {
 	if _, err := canManage(ctx, groupID); err != nil {
 		return nil, err
 	}
@@ -149,9 +154,10 @@ func (s *Service) UpdateHomework(ctx context.Context, groupID, id int64, in Home
 	if err != nil {
 		return nil, err
 	}
-	var h *store.Homework
+	var out *Homework
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
-		if h, err = q.HomeworkByID(ctx, groupID, id); err != nil {
+		h, err := q.HomeworkByID(ctx, groupID, id)
+		if err != nil {
 			return notFound(err)
 		}
 		if err := checkSubject(ctx, q, groupID, in.SubjectID); err != nil {
@@ -162,12 +168,16 @@ func (s *Service) UpdateHomework(ctx context.Context, groupID, id int64, in Home
 		if err := q.UpdateHomework(ctx, h); err != nil {
 			return err
 		}
-		return q.ReplaceHomeworkLinks(ctx, h.ID, links)
+		if err := q.ReplaceHomeworkLinks(ctx, h.ID, links); err != nil {
+			return err
+		}
+		out, err = s.homeworkWithLinks(ctx, q, groupID, id)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	return h, nil
+	return out, nil
 }
 
 // DeleteHomework removes an assignment and its links.

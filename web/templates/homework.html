@@ -58,8 +58,8 @@
     </label>
   </div>
   <label>Links
-    <textarea name="links" rows="3" placeholder="Lab manual https://…">{{index .Fields "links"}}</textarea>
-    <small class="muted">One per line: an optional title, then the address.</small>
+    <textarea name="links" rows="3" placeholder="Lab manual — https://…">{{index .Fields "links"}}</textarea>
+    <small class="muted">One per line: an optional title, then the address, e.g. <code>Lab manual — https://…</code></small>
   </label>
   {{template "formButtons" .}}
 </form>

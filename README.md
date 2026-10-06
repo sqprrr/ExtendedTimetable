@@ -81,5 +81,8 @@ header (get the token from `GET /api/v1/me`).
 | `notes` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
 | `resources` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
 
-Validation errors return `422` with `{"error", "field"}`; deleting a subject
-that is still in use returns `409`.
+`PUT` changes only the fields present in the body; send `null` to clear
+`due_at` or `max_points`, and `"links": []` to remove all homework links.
+Create and update return the same object as `GET`. Validation errors return
+`422` with `{"error", "field"}`; deleting a subject that is still in use
+returns `409`.

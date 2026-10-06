@@ -9,31 +9,7 @@
 {{else}}
 <section class="card">
   <h2>Class links</h2>
-  {{with .ClassLinks}}
-  <table class="list">
-    <thead><tr><th>Subject</th><th>Type</th><th>Link</th>{{if $.Group.CanManage}}<th></th>{{end}}</tr></thead>
-    <tbody>
-      {{range .}}
-      <tr>
-        <td>{{.SubjectName}}</td>
-        <td>{{lessonLabel .LessonType}}</td>
-        <td><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Join</a>{{with .Note}} <span class="muted">· {{.}}</span>{{end}}</td>
-        {{if $.Group.CanManage}}
-        <td class="actions">
-          <a href="/g/{{$.Group.Code}}/links/{{.ID}}/edit">Edit</a>
-          <form method="post" action="/g/{{$.Group.Code}}/links/{{.ID}}/delete" class="inline" data-confirm="Delete this class link?">
-            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-            <button type="submit" class="link danger">Delete</button>
-          </form>
-        </td>
-        {{end}}
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <p class="muted">No class links yet.</p>
-  {{end}}
+  {{template "classLinkTable" .}}
 </section>
 {{if .Group.CanManage}}
 <section class="card">

@@ -9,12 +9,6 @@ import (
 // LessonTypes lists the lesson types in display order.
 var LessonTypes = []store.LessonType{store.LessonLecture, store.LessonPractice, store.LessonLab}
 
-// ClassLink is a class link with its subject's name.
-type ClassLink struct {
-	store.ClassLink
-	SubjectName string
-}
-
 // ClassLinkInput is the class link form.
 type ClassLinkInput struct {
 	SubjectID  int64
@@ -42,39 +36,20 @@ func (in ClassLinkInput) validate() (ClassLinkInput, error) {
 }
 
 // ClassLinks lists the group's class links by subject and lesson type.
-func (s *Service) ClassLinks(ctx context.Context, groupID int64) ([]*ClassLink, error) {
+func (s *Service) ClassLinks(ctx context.Context, groupID int64) ([]*store.ClassLink, error) {
 	if _, err := canView(ctx, groupID); err != nil {
 		return nil, err
 	}
-	links, err := s.store.ListClassLinks(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
-	names, err := s.subjectNames(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]*ClassLink, 0, len(links))
-	for _, l := range links {
-		out = append(out, &ClassLink{ClassLink: *l, SubjectName: names[l.SubjectID]})
-	}
-	return out, nil
+	return s.store.ListClassLinks(ctx, groupID)
 }
 
 // ClassLink returns one of the group's class links.
-func (s *Service) ClassLink(ctx context.Context, groupID, id int64) (*ClassLink, error) {
+func (s *Service) ClassLink(ctx context.Context, groupID, id int64) (*store.ClassLink, error) {
 	if _, err := canView(ctx, groupID); err != nil {
 		return nil, err
 	}
 	l, err := s.store.ClassLinkByID(ctx, groupID, id)
-	if err != nil {
-		return nil, notFound(err)
-	}
-	sub, err := s.store.SubjectByID(ctx, groupID, l.SubjectID)
-	if err != nil {
-		return nil, err
-	}
-	return &ClassLink{ClassLink: *l, SubjectName: sub.Name}, nil
+	return l, notFound(err)
 }
 
 // CreateClassLink adds a meeting link for a subject's lesson type.
@@ -91,7 +66,12 @@ func (s *Service) CreateClassLink(ctx context.Context, groupID int64, in ClassLi
 		if err := checkSubject(ctx, q, groupID, in.SubjectID); err != nil {
 			return err
 		}
-		return q.CreateClassLink(ctx, l)
+		if err := q.CreateClassLink(ctx, l); err != nil {
+			return err
+		}
+		var err error
+		l, err = q.ClassLinkByID(ctx, groupID, l.ID)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -113,7 +93,12 @@ func (s *Service) UpdateClassLink(ctx context.Context, groupID, id int64, in Cla
 		if err := checkSubject(ctx, q, groupID, in.SubjectID); err != nil {
 			return err
 		}
-		return notFound(q.UpdateClassLink(ctx, l))
+		if err := q.UpdateClassLink(ctx, l); err != nil {
+			return notFound(err)
+		}
+		var err error
+		l, err = q.ClassLinkByID(ctx, groupID, id)
+		return err
 	})
 	if err != nil {
 		return nil, err
