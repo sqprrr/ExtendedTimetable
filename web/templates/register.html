@@ -2,15 +2,20 @@
 {{define "content"}}
 <section class="card narrow">
   <h1>Register</h1>
-  <p class="muted">Ask your group leader for the invite code.</p>
   {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+  {{if .JoinableGroups}}
   <form method="post" action="/register">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <label>Invite code
-      <input name="invite_code" value="{{.Form.InviteCode}}" placeholder="XXXX-XXXX-XXXX" autocomplete="off" required autofocus>
+    <label>Group
+      <select name="group" required>
+        {{if ne (len .JoinableGroups) 1}}<option value="">Choose your group…</option>{{end}}
+        {{range .JoinableGroups}}
+        <option value="{{.Code}}"{{if eq .Code $.Form.Group}} selected{{end}}>{{.Name}}{{if ne .Name .Code}} ({{.Code}}){{end}}</option>
+        {{end}}
+      </select>
     </label>
     <label>Username
-      <input name="username" value="{{.Form.Username}}" autocomplete="username" minlength="3" maxlength="32" required>
+      <input name="username" value="{{.Form.Username}}" autocomplete="username" minlength="3" maxlength="32" required autofocus>
       <small class="muted">3–32 characters: latin letters, digits, <code>_ . -</code></small>
     </label>
     <label>Password
@@ -22,6 +27,9 @@
     </label>
     <button type="submit">Create account</button>
   </form>
+  {{else}}
+  <p class="muted">Registration is not open yet: no groups have been created.</p>
+  {{end}}
   <p class="muted">Already registered? <a href="/login">Log in</a>.</p>
 </section>
 {{end}}

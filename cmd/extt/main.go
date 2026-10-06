@@ -22,10 +22,10 @@ Commands:
   migrate                                 Apply database migrations and exit
   admin create-superadmin <username>      Create a superadmin account
   admin create-group <code> [--cist-id N] [--name NAME]
-                                          Create a group and print its invite code
-  admin promote <username> --group CODE   Make a user a leader of a group
+                                          Create a group; anyone can register into it
+  admin promote <username> --group CODE   Make a user a leader (староста) of a group;
+                                          this is the only way to appoint one
   admin demote <username> --group CODE    Make a leader a regular student again
-  admin invite-code <code> [--regenerate] Print (or regenerate) a group's invite code
   admin reset-password <username>         Set a new password and sign the user out
 
 Every command accepts --db PATH (default $EXTT_DB or ./extt.db).

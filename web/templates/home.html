@@ -6,18 +6,6 @@
   <section class="card">
     <h2>{{.Name}}{{if ne .Name .Code}} <span class="muted">({{.Code}})</span>{{end}}</h2>
     {{with .Role}}<p>Your role: <strong>{{.}}</strong></p>{{end}}
-    {{if .CanManage}}
-      <div class="invite">
-        <span>Invite code:</span>
-        <code class="invite-code">{{.InviteCode}}</code>
-        <form method="post" action="/groups/{{.ID}}/invite-code" class="inline"
-              data-confirm="Generate a new code? The current one will stop working.">
-          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-          <button type="submit" class="secondary">Regenerate</button>
-        </form>
-      </div>
-      <p class="muted">Share this code in the group chat so classmates can register.</p>
-    {{end}}
     <p class="muted">Schedule, homework and notes are coming soon.</p>
   </section>
   {{end}}

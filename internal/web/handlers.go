@@ -2,7 +2,7 @@ package web
 
 import (
 	"net/http"
-	"strconv"
+	"strings"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
@@ -48,28 +48,48 @@ func (h *Handler) registerForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	// Allow sharing a prefilled link: /register?code=XXXX-XXXX-XXXX
-	h.render(w, r, http.StatusOK, "register", pageData{Form: formValues{InviteCode: r.URL.Query().Get("code")}})
+	// Allow sharing a link with the group preselected: /register?group=KIUKI-25-3
+	h.renderRegister(w, r, http.StatusOK, formValues{Group: r.URL.Query().Get("group")}, "")
 }
 
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
-	form := formValues{Username: r.PostFormValue("username"), InviteCode: r.PostFormValue("invite_code")}
+	form := formValues{Username: r.PostFormValue("username"), Group: r.PostFormValue("group")}
 	password := r.PostFormValue("password")
 	if password != r.PostFormValue("password_confirm") {
-		h.render(w, r, http.StatusUnprocessableEntity, "register", pageData{Form: form, Error: "Passwords do not match."})
+		h.renderRegister(w, r, http.StatusUnprocessableEntity, form, "Passwords do not match.")
 		return
 	}
 	sess, err := h.svc.Register(r.Context(), service.RegisterInput{
-		Username:   form.Username,
-		Password:   password,
-		InviteCode: form.InviteCode,
-		ClientIP:   auth.ClientIP(r, h.trustProxy),
+		Username:  form.Username,
+		Password:  password,
+		GroupCode: form.Group,
+		ClientIP:  auth.ClientIP(r, h.trustProxy),
 	})
 	if err != nil {
-		h.formError(w, r, "register", form, err)
+		msg, status, ok := userMessage(err)
+		if !ok {
+			h.renderError(w, r, err)
+			return
+		}
+		h.renderRegister(w, r, status, form, msg)
 		return
 	}
 	h.startSession(w, r, sess)
+}
+
+// renderRegister renders the registration form with the group picker. With a
+// single group, it is preselected.
+func (h *Handler) renderRegister(w http.ResponseWriter, r *http.Request, status int, form formValues, errMsg string) {
+	groups, err := h.svc.JoinableGroups(r.Context())
+	if err != nil {
+		h.renderError(w, r, err)
+		return
+	}
+	form.Group = strings.ToUpper(strings.TrimSpace(form.Group))
+	if form.Group == "" && len(groups) == 1 {
+		form.Group = groups[0].Code
+	}
+	h.render(w, r, status, "register", pageData{Form: form, Error: errMsg, JoinableGroups: groups})
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
@@ -79,19 +99,6 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	}
 	h.cookies.ClearSession(w)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
-}
-
-func (h *Handler) regenerateInviteCode(w http.ResponseWriter, r *http.Request) {
-	groupID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		h.renderError(w, r, service.ErrNotFound)
-		return
-	}
-	if _, err := h.svc.RegenerateInviteCode(r.Context(), groupID); err != nil {
-		h.renderError(w, r, err)
-		return
-	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, sess *service.NewSession) {

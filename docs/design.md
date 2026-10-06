@@ -19,8 +19,8 @@ ExtendedTimetable is a small blog-like hub for KHNURE student groups. Each group
 | Role | Who | How they get it |
 |---|---|---|
 | **Superadmin** | Site owner | Created through CLI on the server |
-| **Group leader** | Class representative (староста) | Superadmin promotes a registered student |
-| **Student** | Group member | Self-registers with the group's invite code |
+| **Group leader** | Class representative (староста) | Superadmin promotes a registered user with the server CLI (`extt admin promote`). There is no web UI for this |
+| **Student** | Group member | Self-registers and picks their group. Every group is open to everyone |
 
 A user belongs to a group through a membership. The membership carries the role (`student` or `leader`). Superadmin is a flag on the user.
 
@@ -32,8 +32,7 @@ A user belongs to a group through a membership. The membership carries the role 
 | Set **own** homework status / grade | ✅ | ✅ | — |
 | See other users' status / grades | ❌ | ❌ | ❌ |
 | CRUD class links, homework, notes, recording & solution links | ❌ | ✅ | ✅ |
-| Regenerate group invite code | ❌ | ✅ | ✅ |
-| Create groups, promote/demote leaders | ❌ | ❌ | ✅ |
+| Create groups, promote/demote leaders | ❌ | ❌ | ✅ (CLI only) |
 | Reset a user's password | ❌ | ✅ (own group) | ✅ |
 
 Homework status and grades are **private to the student**. Nobody else can see them, including the leader and the superadmin through the UI.
@@ -48,7 +47,8 @@ extt admin promote <username> --group KIUKI-25-3
 
 ## 3. Onboarding & authentication
 
-- **Registration:** username + password + **invite code**. The code decides which group the student joins as `student`. The leader shares the code in the group chat and can regenerate it at any time; regenerating invalidates the old code.
+- **Registration:** username + password + **group**. Groups are open: anyone can register into any group and joins it as `student`. The form lists every group (for now only KIUKI-25-3, preselected when it is the only one); `/register?group=<code>` preselects a group for sharing in the group chat.
+- **Leaders:** only the superadmin can appoint a leader, from the server CLI (`extt admin promote <username> --group <code>`). Nobody can become a leader through the website.
 - **Login:** username + password. Passwords are hashed with **bcrypt**.
 - **Sessions:** random session ID in an HttpOnly cookie, with sessions stored in the DB. That way they can be revoked, and the setup also works for a same-origin SPA later.
 - **Password reset:** no email in MVP. The leader (for their group) or the superadmin sets a temporary password.
@@ -83,7 +83,7 @@ extt admin promote <username> --group KIUKI-25-3
 ## 5. Data model (SQLite)
 
 ```
-groups            (id, code, name, cist_group_id, invite_code, created_at)
+groups            (id, code, name, cist_group_id, created_at)
 users             (id, username UNIQUE, password_hash, is_superadmin, locale, created_at)
 memberships       (user_id, group_id, role[student|leader], joined_at)   PK(user_id, group_id)
 sessions          (id, user_id, expires_at, created_at)
@@ -167,7 +167,7 @@ docs/
 
 ## 10. Milestones
 
-1. **M1 — Skeleton & auth:** project layout, migrations, register (invite code) / login / logout, admin CLI.
+1. **M1 — Skeleton & auth:** project layout, migrations, register (open groups) / login / logout, admin CLI.
 2. **M2 — Leader tools:** CRUD for subjects, class links, homework, notes, recording/solution links.
 3. **M3 — Student tracker:** homework status toggle, grades, "my grades" totals.
 4. **M4 — Schedule:** CIST client, sync job, schedule views.

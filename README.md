@@ -4,9 +4,9 @@ A small hub for KHNURE student groups: class schedule, class links, homework,
 notes, and a private homework tracker per student. See
 [docs/design.md](docs/design.md) for the full design and milestones.
 
-**Status:** M1 (skeleton & auth) done — invite-code registration,
-login/logout, the admin CLI, and a home page where leaders can see and
-regenerate the group invite code.
+**Status:** M1 (skeleton & auth) done — open registration (anyone can join
+any group), login/logout, the admin CLI and a home page. Leaders (старости)
+are appointed only by the superadmin through the CLI.
 
 ## Quick start (local)
 
@@ -17,21 +17,22 @@ go build -o extt ./cmd/extt
 
 # Bootstrap: superadmin, group, leader
 ./extt admin create-superadmin root          # prompts for a password
-./extt admin create-group KIUKI-25-3 --cist-id <id>   # prints the invite code
+./extt admin create-group KIUKI-25-3 --cist-id <id> --name "<display name>"
 
 # Run over plain HTTP locally (Secure cookies need HTTPS)
 ./extt serve --secure-cookies=false          # http://127.0.0.1:8080
 ```
 
-Register at `/register` with the invite code (or share
-`/register?code=XXXX-XXXX-XXXX`), then make that user the group leader:
+Register at `/register` and pick the group (share
+`/register?group=KIUKI-25-3` to preselect it). Everyone joins as a student;
+the superadmin makes someone the group leader from the server:
 
 ```sh
 ./extt admin promote <username> --group KIUKI-25-3
 ```
 
 Run `./extt help` for all commands. Other admin commands: `demote`,
-`invite-code [--regenerate]`, `reset-password`.
+`reset-password`.
 
 ## Configuration
 

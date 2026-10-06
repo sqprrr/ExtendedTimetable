@@ -12,7 +12,6 @@ type Group struct {
 	Code        string
 	Name        string
 	CISTGroupID *int64
-	InviteCode  string
 	CreatedAt   time.Time
 }
 
@@ -32,13 +31,13 @@ type Membership struct {
 	JoinedAt time.Time
 }
 
-const groupColumns = `id, code, name, cist_group_id, invite_code, created_at`
+const groupColumns = `id, code, name, cist_group_id, created_at`
 
 func scanGroup(row interface{ Scan(...any) error }) (*Group, error) {
 	var g Group
 	var cist sql.NullInt64
 	var created int64
-	if err := row.Scan(&g.ID, &g.Code, &g.Name, &cist, &g.InviteCode, &created); err != nil {
+	if err := row.Scan(&g.ID, &g.Code, &g.Name, &cist, &created); err != nil {
 		return nil, mapErr(err)
 	}
 	if cist.Valid {
@@ -49,11 +48,11 @@ func scanGroup(row interface{ Scan(...any) error }) (*Group, error) {
 }
 
 // CreateGroup inserts a group and sets g.ID. Returns ErrConflict if the code
-// or invite code is taken.
+// is taken.
 func (q *Queries) CreateGroup(ctx context.Context, g *Group) error {
 	res, err := q.db.ExecContext(ctx,
-		`INSERT INTO groups (code, name, cist_group_id, invite_code, created_at) VALUES (?, ?, ?, ?, ?)`,
-		g.Code, g.Name, g.CISTGroupID, g.InviteCode, g.CreatedAt.Unix())
+		`INSERT INTO groups (code, name, cist_group_id, created_at) VALUES (?, ?, ?, ?)`,
+		g.Code, g.Name, g.CISTGroupID, g.CreatedAt.Unix())
 	if err != nil {
 		return mapErr(err)
 	}
@@ -69,11 +68,6 @@ func (q *Queries) GroupByID(ctx context.Context, id int64) (*Group, error) {
 // GroupByCode returns the group with the given code (case-insensitive).
 func (q *Queries) GroupByCode(ctx context.Context, code string) (*Group, error) {
 	return scanGroup(q.db.QueryRowContext(ctx, `SELECT `+groupColumns+` FROM groups WHERE code = ?`, code))
-}
-
-// GroupByInviteCode returns the group whose current invite code matches.
-func (q *Queries) GroupByInviteCode(ctx context.Context, invite string) (*Group, error) {
-	return scanGroup(q.db.QueryRowContext(ctx, `SELECT `+groupColumns+` FROM groups WHERE invite_code = ?`, invite))
 }
 
 // ListGroups returns all groups ordered by code.
@@ -92,15 +86,6 @@ func (q *Queries) ListGroups(ctx context.Context) ([]*Group, error) {
 		gs = append(gs, g)
 	}
 	return gs, rows.Err()
-}
-
-// SetInviteCode replaces a group's invite code.
-func (q *Queries) SetInviteCode(ctx context.Context, groupID int64, invite string) error {
-	res, err := q.db.ExecContext(ctx, `UPDATE groups SET invite_code = ? WHERE id = ?`, invite, groupID)
-	if err != nil {
-		return mapErr(err)
-	}
-	return expectOne(res, nil)
 }
 
 // UpsertMembership adds a user to a group, or updates the role if they are
