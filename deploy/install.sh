@@ -48,7 +48,10 @@ fi
 # binary's backup command does not migrate.
 if [ -f /var/lib/extt/extt.db ]; then
   log "backing up the database before the upgrade"
-  (set -a; . /etc/extt/extt.env; set +a; runuser -u extt -- /usr/local/lib/extt/backup.sh pre-upgrade)
+  # Run from a directory extt can enter: this script's directory is usually
+  # the deploying user's private home.
+  (cd /var/lib/extt && set -a && . /etc/extt/extt.env && set +a &&
+    runuser -u extt -- /usr/local/lib/extt/backup.sh pre-upgrade)
 fi
 
 log "installing systemd units"
