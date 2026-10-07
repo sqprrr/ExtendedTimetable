@@ -9,6 +9,9 @@ DIR=${BACKUP_DIR:-/var/backups/extt}
 KEEP_DAYS=${KEEP_DAYS:-14}
 EXTT=${EXTT_BIN:-/usr/local/bin/extt}
 
+# find returns to the starting directory, which may be one extt cannot enter.
+cd "$DIR"
+
 name="extt-$(date +%Y-%m-%dT%H%M%S)${1:+-$1}.db"
 tmp="$DIR/.$name"
 trap 'rm -f "$tmp" "$tmp.gz"' EXIT
