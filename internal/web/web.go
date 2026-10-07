@@ -29,6 +29,7 @@ type Handler struct {
 	cookies    auth.Cookies
 	trustProxy bool
 	loc        *time.Location
+	icons      iconSet
 	// pages holds the parsed templates per language, then per page.
 	pages map[string]map[string]*template.Template
 }
@@ -56,6 +57,11 @@ func New(svc *service.Service, cfg Config) (*Handler, error) {
 	if h.loc == nil {
 		h.loc = time.UTC
 	}
+	icons, err := loadIcons(assets.Icons)
+	if err != nil {
+		return nil, fmt.Errorf("load icons: %w", err)
+	}
+	h.icons = icons
 	// Each language gets its own template set, so the translation functions
 	// are bound once at startup instead of per request.
 	for _, lang := range i18n.Languages {
@@ -160,6 +166,7 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 	return template.FuncMap{
 		"lang": l.Lang,
 		"t":    l.T,
+		"icon": h.icons.html,
 		// th is for translations that hold markup (links, <code>). The
 		// messages are ours; the values put into them are escaped.
 		"th": func(id string, kv ...any) template.HTML {

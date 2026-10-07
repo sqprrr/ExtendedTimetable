@@ -1,5 +1,9 @@
 {{/* Shared pieces of the group pages. */}}
 
+{{/* icon inlines a Lucide icon from web/icons by name:
+   {{template "icon" "calendar-days"}}. */}}
+{{define "icon"}}{{icon .}}{{end}}
+
 {{define "groupnav"}}
 <header class="group-head">
   <h1>{{.Group.Name}}{{if ne .Group.Name .Group.Code}} <span class="muted">({{.Group.Code}})</span>{{end}}</h1>
