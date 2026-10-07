@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{template "title" .}} · ExtendedTimetable</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="/static/legacy.css">
+  <link rel="stylesheet" href="{{asset "style.css"}}">
+  <link rel="stylesheet" href="{{asset "legacy.css"}}">
   {{/* htmx would inject an inline <style>, which the CSP blocks. */}}
   <meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false}'>
-  <script src="/static/htmx.min.js" defer></script>
-  <script src="/static/app.js" defer></script>
+  <script src="{{asset "htmx.min.js"}}" defer></script>
+  <script src="{{asset "app.js"}}" defer></script>
 </head>
 <body class="legacy" hx-headers='{"X-CSRF-Token": "{{.CSRFToken}}"}'
       data-msg-save-failed="{{t "js.save_failed"}}" data-msg-offline="{{t "js.offline"}}">

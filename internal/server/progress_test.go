@@ -63,7 +63,7 @@ func TestStatusToggleWithHtmx(t *testing.T) {
 	if !strings.Contains(body, `class="status status-not_started"`) || !strings.Contains(body, `name="status" value="in_progress"`) {
 		t.Fatalf("list should offer the toggle:\n%s", body)
 	}
-	if !strings.Contains(body, `<script src="/static/htmx.min.js"`) {
+	if !strings.Contains(body, `<script src="/static/htmx.min.js?v=`) {
 		t.Fatal("htmx is not loaded")
 	}
 	tok := stud.csrf()

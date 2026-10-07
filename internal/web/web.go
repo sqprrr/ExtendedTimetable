@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -30,6 +29,7 @@ type Handler struct {
 	trustProxy bool
 	loc        *time.Location
 	icons      iconSet
+	static     *staticAssets
 	// pages holds the parsed templates per language, then per page.
 	pages map[string]map[string]*template.Template
 }
@@ -62,6 +62,9 @@ func New(svc *service.Service, cfg Config) (*Handler, error) {
 		return nil, fmt.Errorf("load icons: %w", err)
 	}
 	h.icons = icons
+	if h.static, err = loadStatic(assets.Static); err != nil {
+		return nil, fmt.Errorf("load static files: %w", err)
+	}
 	// Each language gets its own template set, so the translation functions
 	// are bound once at startup instead of per request.
 	for _, lang := range i18n.Languages {
@@ -81,8 +84,7 @@ func New(svc *service.Service, cfg Config) (*Handler, error) {
 
 // Register adds the HTML routes to mux.
 func (h *Handler) Register(mux *http.ServeMux) {
-	static, _ := fs.Sub(assets.Static, "static")
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
+	mux.Handle("GET /static/", h.static)
 
 	mux.HandleFunc("GET /{$}", h.home)
 	mux.HandleFunc("GET /login", h.loginForm)
@@ -167,6 +169,8 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		"lang": l.Lang,
 		"t":    l.T,
 		"icon": h.icons.html,
+		// asset is a static file's cache-busting URL: /static/style.css?v=….
+		"asset": func(name string) (string, error) { return h.static.url(name) },
 		// th is for translations that hold markup (links, <code>). The
 		// messages are ours; the values put into them are escaped.
 		"th": func(id string, kv ...any) template.HTML {
