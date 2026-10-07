@@ -294,6 +294,7 @@ sync_running = "The schedule is being synced right now, try again in a minute."
 feedback_kind = "Choose bug report, suggestion or review."
 rating = "Rating must be 1 to 5 stars."
 theme = "Choose light, dark or system."
+hue = "Choose one of the eight colours."
 
 [err.too_long]
 one = "{{.Field}} must be at most {{.Count}} character."

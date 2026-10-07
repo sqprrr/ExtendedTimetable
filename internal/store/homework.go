@@ -21,8 +21,9 @@ type Homework struct {
 	CreatedBy *int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	// SubjectName is read from subjects; writes ignore it.
+	// SubjectName and SubjectHue are read from subjects; writes ignore them.
 	SubjectName string
+	SubjectHue  string
 }
 
 // HomeworkLink is a row of the homework_links table.
@@ -35,7 +36,7 @@ type HomeworkLink struct {
 
 // homeworkSelect reads assignments with their subject's name; add a WHERE on h.
 const homeworkSelect = `SELECT h.id, h.group_id, h.subject_id, h.title, h.description_md, h.due_at, h.max_points,
-	h.created_by, h.created_at, h.updated_at, s.name
+	h.created_by, h.created_at, h.updated_at, s.name, s.hue
 	FROM homework h JOIN subjects s ON s.id = h.subject_id `
 
 func scanHomework(row interface{ Scan(...any) error }) (*Homework, error) {
@@ -44,7 +45,7 @@ func scanHomework(row interface{ Scan(...any) error }) (*Homework, error) {
 	var maxPoints sql.NullFloat64
 	var created, updated int64
 	if err := row.Scan(&h.ID, &h.GroupID, &h.SubjectID, &h.Title, &h.DescriptionMD,
-		&due, &maxPoints, &createdBy, &created, &updated, &h.SubjectName); err != nil {
+		&due, &maxPoints, &createdBy, &created, &updated, &h.SubjectName, &h.SubjectHue); err != nil {
 		return nil, mapErr(err)
 	}
 	h.DueAt = unixPtr(due)

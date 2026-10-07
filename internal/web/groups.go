@@ -38,7 +38,7 @@ func (h *Handler) sections() []*section {
 				if err != nil {
 					return nil, err
 				}
-				return map[string]string{"name": s.Name, "short_name": s.ShortName}, nil
+				return map[string]string{"name": s.Name, "short_name": s.ShortName, "hue": s.Hue}, nil
 			},
 			create: func(ctx context.Context, h *Handler, groupID int64, r *http.Request) error {
 				_, err := h.svc.CreateSubject(ctx, groupID, subjectInput(r))
@@ -436,7 +436,7 @@ func (h *Handler) homeworkDetail(w http.ResponseWriter, r *http.Request) {
 // only values that need converting are checked here.
 
 func subjectInput(r *http.Request) service.SubjectInput {
-	return service.SubjectInput{Name: r.PostFormValue("name"), ShortName: r.PostFormValue("short_name")}
+	return service.SubjectInput{Name: r.PostFormValue("name"), ShortName: r.PostFormValue("short_name"), Hue: r.PostFormValue("hue")}
 }
 
 func formSubjectID(r *http.Request) (int64, error) {

@@ -27,14 +27,15 @@ type ResourceLink struct {
 	Date      string
 	CreatedBy *int64
 	CreatedAt time.Time
-	// SubjectName is read from subjects; writes ignore it.
+	// SubjectName and SubjectHue are read from subjects; writes ignore them.
 	SubjectName string
+	SubjectHue  string
 }
 
 // resourceLinkSelect reads resource links with their subject's name; add a
 // WHERE on r.
 const resourceLinkSelect = `SELECT r.id, r.group_id, r.subject_id, r.kind, r.title, r.url, r.date,
-	r.created_by, r.created_at, s.name
+	r.created_by, r.created_at, s.name, s.hue
 	FROM resource_links r JOIN subjects s ON s.id = r.subject_id `
 
 func scanResourceLink(row interface{ Scan(...any) error }) (*ResourceLink, error) {
@@ -42,7 +43,7 @@ func scanResourceLink(row interface{ Scan(...any) error }) (*ResourceLink, error
 	var date sql.NullString
 	var createdBy sql.NullInt64
 	var created int64
-	if err := row.Scan(&l.ID, &l.GroupID, &l.SubjectID, &l.Kind, &l.Title, &l.URL, &date, &createdBy, &created, &l.SubjectName); err != nil {
+	if err := row.Scan(&l.ID, &l.GroupID, &l.SubjectID, &l.Kind, &l.Title, &l.URL, &date, &createdBy, &created, &l.SubjectName, &l.SubjectHue); err != nil {
 		return nil, mapErr(err)
 	}
 	l.Date = date.String

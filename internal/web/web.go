@@ -234,9 +234,23 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return ""
 		},
 		"themes": func() []string { return service.Themes },
-		"num":    formatPoints,
-		"clock":  func(t time.Time) string { return t.In(h.loc).Format("15:04") },
-		"when":   func(t time.Time) string { return h.when(l, t) },
+		// hue is a subject's colour for data-hue: hue <id> <stored hue>. The
+		// id may be a *int64 (a class not linked to a subject): no colour.
+		"hue": func(id any, stored string) string {
+			switch id := id.(type) {
+			case int64:
+				return service.Hue(id, stored)
+			case *int64:
+				if id != nil {
+					return service.Hue(*id, stored)
+				}
+			}
+			return ""
+		},
+		"hues":  func() []string { return service.Hues },
+		"num":   formatPoints,
+		"clock": func(t time.Time) string { return t.In(h.loc).Format("15:04") },
+		"when":  func(t time.Time) string { return h.when(l, t) },
 		"dayName": func(t time.Time) string {
 			t = t.In(h.loc)
 			return l.T("weekday.long."+weekdayKey(t)) + ", " + t.Format("02.01")
