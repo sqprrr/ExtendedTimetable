@@ -2,9 +2,11 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 )
 
@@ -56,7 +58,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 	form := formValues{Username: r.PostFormValue("username"), Group: r.PostFormValue("group")}
 	password := r.PostFormValue("password")
 	if password != r.PostFormValue("password_confirm") {
-		h.renderRegister(w, r, http.StatusUnprocessableEntity, form, "Passwords do not match.")
+		h.renderRegister(w, r, http.StatusUnprocessableEntity, form, i18n.FromContext(r.Context()).T("err.password_mismatch"))
 		return
 	}
 	sess, err := h.svc.Register(r.Context(), service.RegisterInput{
@@ -64,9 +66,11 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		Password:  password,
 		GroupCode: form.Group,
 		ClientIP:  auth.ClientIP(r, h.trustProxy),
+		// Keep the language the visitor picked with the switch, if any.
+		Locale: h.cookies.Lang(r),
 	})
 	if err != nil {
-		msg, status, ok := userMessage(err)
+		msg, status, ok := userMessage(r, err)
 		if !ok {
 			h.renderError(w, r, err)
 			return
@@ -107,11 +111,54 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, sess *ser
 		_ = h.svc.Logout(r.Context(), old)
 	}
 	h.cookies.SetSession(w, sess.Token, sess.ExpiresAt)
+	// The browser keeps showing the user's language after they log out.
+	if sess.Locale != "" {
+		h.cookies.SetLang(w, sess.Locale)
+	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// setLang switches the language: in a cookie for this browser and, for a
+// signed-in user, in their account.
+func (h *Handler) setLang(w http.ResponseWriter, r *http.Request) {
+	lang := r.PostFormValue("lang")
+	if !i18n.IsSupported(lang) {
+		lang = i18n.Default
+	}
+	if service.ViewerFrom(r.Context()) != nil {
+		if err := h.svc.SetLocale(r.Context(), lang); err != nil {
+			h.renderError(w, r, err)
+			return
+		}
+	}
+	h.cookies.SetLang(w, lang)
+	back := r.PostFormValue("back")
+	if !isLocalPath(back) {
+		back = "/"
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// backPath is where the language switch on this page returns to: the page
+// itself, or for a page rendered by a form post, the page the form was on.
+func backPath(r *http.Request) string {
+	if r.Method == http.MethodGet {
+		return r.URL.RequestURI()
+	}
+	if ref, err := url.Parse(r.Referer()); err == nil && ref.Host == r.Host && isLocalPath(ref.RequestURI()) {
+		return ref.RequestURI()
+	}
+	return "/"
+}
+
+// isLocalPath reports whether p is a path on this site, so redirecting to it
+// cannot send the user elsewhere ("//evil.example" or "/\\evil.example").
+func isLocalPath(p string) bool {
+	return strings.HasPrefix(p, "/") && !strings.HasPrefix(p, "//") && !strings.HasPrefix(p, "/\\")
+}
+
 func (h *Handler) formError(w http.ResponseWriter, r *http.Request, page string, form formValues, err error) {
-	msg, status, ok := userMessage(err)
+	msg, status, ok := userMessage(r, err)
 	if !ok {
 		h.renderError(w, r, err)
 		return

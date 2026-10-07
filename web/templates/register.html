@@ -1,35 +1,35 @@
-{{define "title"}}Register{{end}}
+{{define "title"}}{{t "register.title"}}{{end}}
 {{define "content"}}
 <section class="card narrow">
-  <h1>Register</h1>
+  <h1>{{t "register.title"}}</h1>
   {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
   {{if .JoinableGroups}}
   <form method="post" action="/register">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <label>Group
+    <label>{{t "field.group"}}
       <select name="group" required>
-        {{if ne (len .JoinableGroups) 1}}<option value="">Choose your group…</option>{{end}}
+        {{if ne (len .JoinableGroups) 1}}<option value="">{{t "register.choose_group"}}</option>{{end}}
         {{range .JoinableGroups}}
         <option value="{{.Code}}"{{if eq .Code $.Form.Group}} selected{{end}}>{{.Name}}{{if ne .Name .Code}} ({{.Code}}){{end}}</option>
         {{end}}
       </select>
     </label>
-    <label>Username
+    <label>{{t "field.username"}}
       <input name="username" value="{{.Form.Username}}" autocomplete="username" minlength="3" maxlength="32" required autofocus>
-      <small class="muted">3–32 characters: latin letters, digits, <code>_ . -</code></small>
+      <small class="muted">{{th "register.username_hint"}}</small>
     </label>
-    <label>Password
+    <label>{{t "field.password"}}
       <input name="password" type="password" autocomplete="new-password" minlength="8" required>
-      <small class="muted">At least 8 characters.</small>
+      <small class="muted">{{t "register.password_hint"}}</small>
     </label>
-    <label>Repeat password
+    <label>{{t "register.repeat_password"}}
       <input name="password_confirm" type="password" autocomplete="new-password" minlength="8" required>
     </label>
-    <button type="submit">Create account</button>
+    <button type="submit">{{t "register.submit"}}</button>
   </form>
   {{else}}
-  <p class="muted">Registration is not open yet: no groups have been created.</p>
+  <p class="muted">{{t "register.closed"}}</p>
   {{end}}
-  <p class="muted">Already registered? <a href="/login">Log in</a>.</p>
+  <p class="muted">{{th "register.have_account"}}</p>
 </section>
 {{end}}

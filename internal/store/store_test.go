@@ -175,3 +175,27 @@ func TestSubjectNamesUniqueIgnoringCase(t *testing.T) {
 		t.Fatalf("rename: got %v, want ErrConflict", err)
 	}
 }
+
+func TestBackup(t *testing.T) {
+	ctx := context.Background()
+	st := openTest(t)
+	u := &store.User{Username: "alice", PasswordHash: "x", CreatedAt: time.Now()}
+	if err := st.CreateUser(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "backup.db")
+	if err := st.Backup(ctx, path); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Backup(ctx, path); err == nil {
+		t.Fatal("backup over an existing file should fail")
+	}
+	cp, err := store.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cp.Close()
+	if got, err := cp.UserByUsername(ctx, "alice"); err != nil || got.ID != u.ID {
+		t.Fatalf("user in backup: %v %v", got, err)
+	}
+}

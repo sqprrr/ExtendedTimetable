@@ -1,13 +1,13 @@
-{{define "title"}}Schedule · {{.Group.Code}}{{end}}
+{{define "title"}}{{t "nav.schedule"}} · {{.Group.Code}}{{end}}
 {{define "content"}}
 {{template "groupnav" .}}
 <section class="card">
   <div class="card-head">
-    <h2>Week of {{date .Week.Start}}</h2>
-    <nav class="week-nav" aria-label="Weeks">
-      <a href="/g/{{.Group.Code}}/schedule?week={{.Week.Prev}}">← Previous</a>
-      {{if not .Week.IsThis}}<a href="/g/{{.Group.Code}}/schedule?week={{.Week.This}}">This week</a>{{end}}
-      <a href="/g/{{.Group.Code}}/schedule?week={{.Week.Next}}">Next →</a>
+    <h2>{{t "schedule.week_of" "Date" (date .Week.Start)}}</h2>
+    <nav class="week-nav" aria-label="{{t "schedule.weeks"}}">
+      <a href="/g/{{.Group.Code}}/schedule?week={{.Week.Prev}}">{{t "schedule.prev"}}</a>
+      {{if not .Week.IsThis}}<a href="/g/{{.Group.Code}}/schedule?week={{.Week.This}}">{{t "schedule.this_week"}}</a>{{end}}
+      <a href="/g/{{.Group.Code}}/schedule?week={{.Week.Next}}">{{t "schedule.next_week"}}</a>
     </nav>
   </div>
   {{template "scheduleStatus" .}}
@@ -15,30 +15,28 @@
   <form method="post" action="/g/{{.Group.Code}}/schedule/sync" class="inline">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
     <input type="hidden" name="week" value="{{.Week.Start.Format "2006-01-02"}}">
-    <button type="submit" class="secondary">Sync with CIST now</button>
+    <button type="submit" class="secondary">{{t "schedule.sync_now"}}</button>
   </form>
   {{end}}
 </section>
 
 {{range .Week.Days}}
 <section class="card day{{if .Today}} today{{end}}">
-  <h3>{{dayName .Date}}{{if .Today}} <span class="badge">Today</span>{{end}}</h3>
+  <h3>{{dayName .Date}}{{if .Today}} <span class="badge">{{t "overview.today"}}</span>{{end}}</h3>
   {{with .Events}}
   <ul class="classes">
     {{range .}}{{template "scheduleEvent" (classItem $.Schedule .)}}{{end}}
   </ul>
   {{else}}
-  <p class="muted small">No classes.</p>
+  <p class="muted small">{{t "schedule.no_classes"}}</p>
   {{end}}
 </section>
 {{end}}
 
 {{with nextLater .Schedule}}
 {{if $.Week.IsThis}}
-<p class="muted">Next class: <strong>{{.Title}}</strong> · {{dayName .StartsAt}}, {{clock .StartsAt}}</p>
+<p class="muted">{{t "schedule.next_class"}} <strong>{{.Title}}</strong> · {{dayName .StartsAt}}, {{clock .StartsAt}}</p>
 {{end}}
 {{end}}
-<p class="muted small">Subjects that appear in the timetable for the first time are added to
-  <a href="/g/{{.Group.Code}}/subjects">Subjects</a> under CIST's short name. Leaders can rename them freely, and deleted ones are not
-  added back.</p>
+<p class="muted small">{{th "schedule.subjects_note" "URL" (print "/g/" .Group.Code "/subjects")}}</p>
 {{end}}

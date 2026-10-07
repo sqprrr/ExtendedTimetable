@@ -1,0 +1,24 @@
+# Nightly database backup, started by extt-backup.timer. See backup.sh.
+[Unit]
+Description=ExtendedTimetable database backup
+After=extt.service
+
+[Service]
+Type=oneshot
+User=extt
+Group=extt
+EnvironmentFile=/etc/extt/extt.env
+ExecStart=/usr/local/lib/extt/backup.sh
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+# Reading a WAL database writes its -shm file, so the data directory must
+# be writable too.
+ReadWritePaths=/var/lib/extt /var/backups/extt

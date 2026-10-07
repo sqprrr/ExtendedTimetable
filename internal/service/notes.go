@@ -15,10 +15,10 @@ type NoteInput struct {
 
 func (in NoteInput) validate() (NoteInput, error) {
 	var err error
-	if in.Title, err = text("title", "title", in.Title, true, maxTitleLen); err != nil {
+	if in.Title, err = text("title", "field.title", in.Title, true, maxTitleLen); err != nil {
 		return in, err
 	}
-	if in.Body, err = markdown("body", "text", in.Body); err != nil {
+	if in.Body, err = markdown("body", "field.text", in.Body); err != nil {
 		return in, err
 	}
 	return in, nil

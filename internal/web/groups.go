@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
@@ -337,7 +338,8 @@ func (h *Handler) sectionDelete(s *section) http.HandlerFunc {
 			err = s.delete(r.Context(), h, g.ID, id)
 		}
 		if errors.Is(err, service.ErrSubjectInUse) {
-			h.showSection(w, r, s, g, http.StatusConflict, pageData{Error: capitalize(err.Error())})
+			msg, status, _ := userMessage(r, err)
+			h.showSection(w, r, s, g, status, pageData{Error: msg})
 			return
 		}
 		if err != nil {
@@ -351,7 +353,7 @@ func (h *Handler) sectionDelete(s *section) http.HandlerFunc {
 // sectionFormError shows the form again with what the user typed and the
 // error, or the error page for errors the user cannot fix in the form.
 func (h *Handler) sectionFormError(w http.ResponseWriter, r *http.Request, s *section, g *service.GroupView, editID int64, err error) {
-	msg, status, ok := userMessage(err)
+	msg, status, ok := userMessage(r, err)
 	if !ok {
 		h.renderError(w, r, err)
 		return
@@ -409,7 +411,7 @@ func subjectInput(r *http.Request) service.SubjectInput {
 func formSubjectID(r *http.Request) (int64, error) {
 	id, err := strconv.ParseInt(r.PostFormValue("subject_id"), 10, 64)
 	if err != nil {
-		return 0, &service.InputError{Field: "subject_id", Msg: "choose a subject from the list"}
+		return 0, &service.InputError{Field: "subject_id", Msg: i18n.M("err.choose_subject")}
 	}
 	return id, nil
 }
@@ -459,14 +461,14 @@ func (h *Handler) homeworkInput(r *http.Request) (service.HomeworkInput, error) 
 	if s := strings.TrimSpace(r.PostFormValue("due_at")); s != "" {
 		t, err := time.ParseInLocation(dateTimeLocal, s, h.loc)
 		if err != nil {
-			return in, &service.InputError{Field: "due_at", Msg: "due date must be a date and time"}
+			return in, &service.InputError{Field: "due_at", Msg: i18n.M("err.due_invalid")}
 		}
 		in.DueAt = &t
 	}
 	if s := strings.TrimSpace(r.PostFormValue("max_points")); s != "" {
 		p, err := strconv.ParseFloat(strings.Replace(s, ",", ".", 1), 64)
 		if err != nil {
-			return in, &service.InputError{Field: "max_points", Msg: "max points must be a number"}
+			return in, &service.InputError{Field: "max_points", Msg: i18n.M("err.max_points_nan")}
 		}
 		in.MaxPoints = &p
 	}

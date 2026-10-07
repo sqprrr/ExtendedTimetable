@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
@@ -47,21 +46,21 @@ type HomeworkInput struct {
 
 func (in HomeworkInput) validate() (HomeworkInput, []*store.HomeworkLink, error) {
 	var err error
-	if in.Title, err = text("title", "title", in.Title, true, maxTitleLen); err != nil {
+	if in.Title, err = text("title", "field.title", in.Title, true, maxTitleLen); err != nil {
 		return in, nil, err
 	}
-	if in.Description, err = markdown("description", "description", in.Description); err != nil {
+	if in.Description, err = markdown("description", "field.description_md", in.Description); err != nil {
 		return in, nil, err
 	}
 	if in.MaxPoints, err = points("max_points", in.MaxPoints); err != nil {
 		return in, nil, err
 	}
 	if len(in.Links) > maxHomeworkURLs {
-		return in, nil, &InputError{Field: "links", Msg: fmt.Sprintf("at most %d links", maxHomeworkURLs)}
+		return in, nil, inputError("links", "err.too_many_links", "Count", maxHomeworkURLs)
 	}
 	links := make([]*store.HomeworkLink, 0, len(in.Links))
 	for _, l := range in.Links {
-		title, err := text("links", "link title", l.Title, false, maxTitleLen)
+		title, err := text("links", "field.link_title", l.Title, false, maxTitleLen)
 		if err != nil {
 			return in, nil, err
 		}

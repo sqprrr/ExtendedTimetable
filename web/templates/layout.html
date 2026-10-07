@@ -1,5 +1,5 @@
 {{define "layout"}}<!doctype html>
-<html lang="uk">
+<html lang="{{lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,19 +10,23 @@
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
-<body hx-headers='{"X-CSRF-Token": "{{.CSRFToken}}"}'>
+<body hx-headers='{"X-CSRF-Token": "{{.CSRFToken}}"}'
+      data-msg-save-failed="{{t "js.save_failed"}}" data-msg-offline="{{t "js.offline"}}">
   <header class="topbar">
     <a class="brand" href="/">ExtendedTimetable</a>
     <nav>
       {{if .Viewer}}
-        <span class="muted">{{.Viewer.Username}}{{if .Viewer.IsSuperadmin}} · superadmin{{end}}</span>
+        <span class="muted">{{.Viewer.Username}}{{if .Viewer.IsSuperadmin}} · {{t "role.superadmin"}}{{end}}</span>
+      {{end}}
+      {{template "langSwitch" .}}
+      {{if .Viewer}}
         <form method="post" action="/logout" class="inline">
           <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-          <button type="submit" class="link">Log out</button>
+          <button type="submit" class="link">{{t "nav.logout"}}</button>
         </form>
       {{else}}
-        <a href="/login">Log in</a>
-        <a href="/register">Register</a>
+        <a href="/login">{{t "nav.login"}}</a>
+        <a href="/register">{{t "nav.register"}}</a>
       {{end}}
     </nav>
   </header>
@@ -31,4 +35,18 @@
   </main>
 </body>
 </html>
+{{end}}
+
+{{/* langSwitch offers the other language; the choice is kept in a cookie
+   and, for signed-in users, in their account. */}}
+{{define "langSwitch"}}
+<form method="post" action="/lang" class="inline">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <input type="hidden" name="back" value="{{.Back}}">
+  {{if eq lang "en"}}
+  <button type="submit" name="lang" value="uk" class="link" lang="uk">Українська</button>
+  {{else}}
+  <button type="submit" name="lang" value="en" class="link" lang="en">English</button>
+  {{end}}
+</form>
 {{end}}

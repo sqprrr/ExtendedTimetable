@@ -28,11 +28,14 @@ const (
 	maxScheduleDays = 62
 )
 
+// SyncCooldownMinutes is how long a leader waits between manual syncs.
+const SyncCooldownMinutes = int(syncCooldown / time.Minute)
+
 var (
 	// ErrNoCISTGroup is returned when syncing a group without a CIST id.
 	ErrNoCISTGroup = errors.New("this group has no CIST timetable id yet; ask the site admin to set it")
 	// ErrSyncTooSoon is returned when a leader syncs again within the cooldown.
-	ErrSyncTooSoon = fmt.Errorf("the schedule was synced less than %d minutes ago, try again later", int(syncCooldown.Minutes()))
+	ErrSyncTooSoon = fmt.Errorf("the schedule was synced less than %d minutes ago, try again later", SyncCooldownMinutes)
 	// ErrSyncDisabled is returned when the server runs without a CIST source.
 	ErrSyncDisabled = errors.New("schedule sync is turned off on this server")
 	// ErrSyncRunning is returned while another sync of the same group runs.
@@ -334,7 +337,7 @@ func (s *Service) Schedule(ctx context.Context, groupID int64, from, to time.Tim
 	// Compare calendar days: a range across a clock change is an hour
 	// longer or shorter than whole days.
 	if !to.After(from) || to.After(from.AddDate(0, 0, maxScheduleDays)) {
-		return nil, &InputError{Field: "to", Msg: fmt.Sprintf("the range must be positive and at most %d days", maxScheduleDays)}
+		return nil, inputError("to", "err.schedule_range", "Count", maxScheduleDays)
 	}
 	g, err := s.store.GroupByID(ctx, groupID)
 	if err != nil {

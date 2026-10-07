@@ -18,9 +18,9 @@ type ResourceLinkInput struct {
 func (in ResourceLinkInput) validate() (ResourceLinkInput, error) {
 	var err error
 	if in.Kind != store.ResourceRecording && in.Kind != store.ResourceSolution {
-		return in, &InputError{Field: "kind", Msg: "choose recording or solution"}
+		return in, inputError("kind", "err.resource_kind")
 	}
-	if in.Title, err = text("title", "title", in.Title, true, maxTitleLen); err != nil {
+	if in.Title, err = text("title", "field.title", in.Title, true, maxTitleLen); err != nil {
 		return in, err
 	}
 	if in.URL, err = link("url", in.URL); err != nil {

@@ -96,7 +96,7 @@ func (h *Handler) syncSchedule(w http.ResponseWriter, r *http.Request) {
 	_, err := h.svc.SyncScheduleNow(r.Context(), g.ID)
 	var serr *service.SyncError
 	if err != nil && !errors.As(err, &serr) {
-		msg, status, ok := userMessage(err)
+		msg, status, ok := userMessage(r, err)
 		if !ok {
 			h.renderError(w, r, err)
 			return

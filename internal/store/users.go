@@ -54,6 +54,11 @@ func (q *Queries) SetPasswordHash(ctx context.Context, userID int64, hash string
 	return expectOne(q.db.ExecContext(ctx, `UPDATE users SET password_hash = ? WHERE id = ?`, hash, userID))
 }
 
+// SetLocale stores a user's chosen language.
+func (q *Queries) SetLocale(ctx context.Context, userID int64, locale string) error {
+	return expectOne(q.db.ExecContext(ctx, `UPDATE users SET locale = ? WHERE id = ?`, locale, userID))
+}
+
 // SetSuperadmin sets or clears a user's superadmin flag.
 func (q *Queries) SetSuperadmin(ctx context.Context, userID int64, on bool) error {
 	return expectOne(q.db.ExecContext(ctx, `UPDATE users SET is_superadmin = ? WHERE id = ?`, on, userID))

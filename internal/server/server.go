@@ -9,6 +9,7 @@ import (
 
 	"github.com/sqprrr/ExtendedTimetable/internal/api"
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/web"
 )
@@ -37,11 +38,29 @@ func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	api.New(svc, cfg.Location).Register(mux)
 
 	var h http.Handler = mux
+	h = language(cookies)(h)
 	h = cookies.LoadSession(svc.Authenticate)(h)
 	h = cookies.CSRF(h)
 	h = securityHeaders(h)
 	h = recoverer(h)
 	return h, nil
+}
+
+// language picks the request's language: the signed-in user's choice, else
+// the language cookie, else the default (Ukrainian).
+func language(cookies auth.Cookies) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			lang := cookies.Lang(r)
+			if v := service.ViewerFrom(r.Context()); v != nil && v.Locale != "" {
+				lang = v.Locale
+			}
+			if !i18n.IsSupported(lang) {
+				lang = i18n.Default
+			}
+			next.ServeHTTP(w, r.WithContext(i18n.WithLang(r.Context(), lang)))
+		})
+	}
 }
 
 func securityHeaders(next http.Handler) http.Handler {
