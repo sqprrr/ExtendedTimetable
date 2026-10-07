@@ -11,6 +11,7 @@ import (
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
 	"github.com/sqprrr/ExtendedTimetable/internal/cist"
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
@@ -23,13 +24,19 @@ var (
 	ErrRateLimited        = errors.New("too many attempts, try again later")
 )
 
-// InputError reports invalid user input; Msg is safe to show to the user.
+// InputError reports invalid user input. Msg is safe to show to the user once
+// translated; Error() gives it in English.
 type InputError struct {
 	Field string
-	Msg   string
+	Msg   i18n.Message
 }
 
-func (e *InputError) Error() string { return e.Field + ": " + e.Msg }
+func (e *InputError) Error() string { return e.Field + ": " + i18n.English(e.Msg) }
+
+// inputError builds an InputError; kv is the message's template data.
+func inputError(field, msgID string, kv ...any) *InputError {
+	return &InputError{Field: field, Msg: i18n.M(msgID, kv...)}
+}
 
 // Config tunes the service.
 type Config struct {
@@ -50,6 +57,7 @@ type Service struct {
 	loginByIP       *auth.Limiter
 	loginByUsername *auth.Limiter
 	registerByIP    *auth.Limiter
+	feedbackByUser  *auth.Limiter
 
 	// syncing holds the groups whose schedule sync is running.
 	syncMu  sync.Mutex
@@ -71,6 +79,7 @@ func New(st *store.Store, cfg Config) *Service {
 		loginByIP:       auth.NewLimiter(30, 15*time.Minute),
 		loginByUsername: auth.NewLimiter(10, 15*time.Minute),
 		registerByIP:    auth.NewLimiter(10, time.Hour),
+		feedbackByUser:  auth.NewLimiter(10, time.Hour),
 		syncing:         map[int64]bool{},
 	}
 }
@@ -104,6 +113,7 @@ func (s *Service) RunMaintenance(ctx context.Context, every time.Duration) error
 		s.loginByIP.Prune()
 		s.loginByUsername.Prune()
 		s.registerByIP.Prune()
+		s.feedbackByUser.Prune()
 		select {
 		case <-ctx.Done():
 			return nil

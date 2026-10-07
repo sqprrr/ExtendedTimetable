@@ -237,3 +237,44 @@ func TestAPIProgress(t *testing.T) {
 		t.Fatalf("leader sees: %s", body)
 	}
 }
+
+func TestHomeworkFilters(t *testing.T) {
+	e := newEnv(t)
+	lead := e.signUp(t, "lead", store.RoleLeader)
+	stud := e.signUp(t, "stud", store.RoleStudent)
+	hwURL := setupHomework(t, e, lead)
+	const list = "/g/KIUKI-25-3/homework"
+
+	_, body, _ := stud.get(list)
+	if !strings.Contains(body, `<form class="filters" method="get"`) || !strings.Contains(body, `<select name="status">`) {
+		t.Fatalf("list should have the filters:\n%s", body)
+	}
+	if _, body, _ = stud.get(list + "?status=done"); strings.Contains(body, "Lab 1") || !strings.Contains(body, "No homework matches") {
+		t.Fatalf("done filter should hide the not started assignment:\n%s", body)
+	}
+	if _, body, _ = stud.get(list + "?status=not_started"); !strings.Contains(body, "Lab 1") || !strings.Contains(body, `name="filter" value="status=not_started"`) {
+		t.Fatalf("not started filter should show it and carry the filter:\n%s", body)
+	}
+	// Junk in the URL shows the whole list.
+	if _, body, _ = stud.get(list + "?status=nope&subject_id=x"); !strings.Contains(body, "Lab 1") {
+		t.Fatalf("bad filter values should be ignored:\n%s", body)
+	}
+
+	// Without JavaScript a toggle returns to the filtered list.
+	code, _, h := stud.submit(list+"?status=not_started", hwURL+"/progress", url.Values{
+		"view": {"item"}, "from": {"list"}, "filter": {"status=not_started&evil=1"}, "status": {"done"}})
+	if code != http.StatusSeeOther || h.Get("Location") != list+"?status=not_started" {
+		t.Fatalf("plain toggle: %d %s", code, h.Get("Location"))
+	}
+	if _, body, _ = stud.get(list + "?status=done"); !strings.Contains(body, "Lab 1") {
+		t.Fatalf("done filter should show it now:\n%s", body)
+	}
+
+	tok := stud.csrf()
+	if code, b := stud.api("GET", "/api/v1/groups/KIUKI-25-3/homework?status=in_progress", tok, nil); code != http.StatusOK || strings.TrimSpace(string(b)) != "[]" {
+		t.Fatalf("api filter: %d %s", code, b)
+	}
+	if code, _ := stud.api("GET", "/api/v1/groups/KIUKI-25-3/homework?status=nope", tok, nil); code != http.StatusBadRequest {
+		t.Fatalf("api bad status: %d", code)
+	}
+}

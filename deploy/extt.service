@@ -1,0 +1,50 @@
+# ExtendedTimetable web server. Installed by install.sh as
+# /etc/systemd/system/extt.service; settings come from /etc/extt/extt.env.
+[Unit]
+Description=ExtendedTimetable
+Documentation=https://github.com/sqprrr/ExtendedTimetable
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=extt
+Group=extt
+EnvironmentFile=/etc/extt/extt.env
+ExecStart=/usr/local/bin/extt serve
+Restart=on-failure
+RestartSec=5s
+# Migrations run on start; give them time on a large database.
+TimeoutStartSec=60s
+
+# /var/lib/extt holds the database (EXTT_DB) and is the only writable path.
+StateDirectory=extt
+StateDirectoryMode=0750
+WorkingDirectory=/var/lib/extt
+UMask=0027
+
+# Sandboxing: the server only needs its database and the network.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

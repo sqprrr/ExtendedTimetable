@@ -1,18 +1,18 @@
-{{define "title"}}Log in{{end}}
+{{define "title"}}{{t "login.title"}}{{end}}
 {{define "content"}}
 <section class="card narrow">
-  <h1>Log in</h1>
+  <h1>{{t "login.title"}}</h1>
   {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
   <form method="post" action="/login">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <label>Username
+    <label>{{t "field.username"}}
       <input name="username" value="{{.Form.Username}}" autocomplete="username" required autofocus>
     </label>
-    <label>Password
+    <label>{{t "field.password"}}
       <input name="password" type="password" autocomplete="current-password" required>
     </label>
-    <button type="submit">Log in</button>
+    <button type="submit">{{t "login.submit"}}</button>
   </form>
-  <p class="muted">No account yet? <a href="/register">Register</a>.</p>
+  <p class="muted">{{th "login.no_account"}}</p>
 </section>
 {{end}}

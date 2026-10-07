@@ -3,15 +3,15 @@
 {{define "groupnav"}}
 <header class="group-head">
   <h1>{{.Group.Name}}{{if ne .Group.Name .Group.Code}} <span class="muted">({{.Group.Code}})</span>{{end}}</h1>
-  <nav class="tabs" aria-label="Group sections">
-    <a href="/g/{{.Group.Code}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>Overview</a>
-    <a href="/g/{{.Group.Code}}/schedule"{{if eq .Section "schedule"}} aria-current="page"{{end}}>Schedule</a>
-    <a href="/g/{{.Group.Code}}/homework"{{if eq .Section "homework"}} aria-current="page"{{end}}>Homework</a>
-    <a href="/g/{{.Group.Code}}/notes"{{if eq .Section "notes"}} aria-current="page"{{end}}>Notes</a>
-    <a href="/g/{{.Group.Code}}/links"{{if eq .Section "links"}} aria-current="page"{{end}}>Class links</a>
-    <a href="/g/{{.Group.Code}}/resources"{{if eq .Section "resources"}} aria-current="page"{{end}}>Recordings &amp; solutions</a>
-    <a href="/g/{{.Group.Code}}/subjects"{{if eq .Section "subjects"}} aria-current="page"{{end}}>Subjects</a>
-    {{if .Group.CanTrack}}<a href="/g/{{.Group.Code}}/grades"{{if eq .Section "grades"}} aria-current="page"{{end}}>My grades</a>{{end}}
+  <nav class="tabs" aria-label="{{t "nav.sections"}}">
+    <a href="/g/{{.Group.Code}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>{{t "nav.overview"}}</a>
+    <a href="/g/{{.Group.Code}}/schedule"{{if eq .Section "schedule"}} aria-current="page"{{end}}>{{t "nav.schedule"}}</a>
+    <a href="/g/{{.Group.Code}}/homework"{{if eq .Section "homework"}} aria-current="page"{{end}}>{{t "nav.homework"}}</a>
+    <a href="/g/{{.Group.Code}}/notes"{{if eq .Section "notes"}} aria-current="page"{{end}}>{{t "nav.notes"}}</a>
+    <a href="/g/{{.Group.Code}}/links"{{if eq .Section "links"}} aria-current="page"{{end}}>{{t "nav.links"}}</a>
+    <a href="/g/{{.Group.Code}}/resources"{{if eq .Section "resources"}} aria-current="page"{{end}}>{{t "nav.resources"}}</a>
+    <a href="/g/{{.Group.Code}}/subjects"{{if eq .Section "subjects"}} aria-current="page"{{end}}>{{t "nav.subjects"}}</a>
+    {{if .Group.CanTrack}}<a href="/g/{{.Group.Code}}/grades"{{if eq .Section "grades"}} aria-current="page"{{end}}>{{t "nav.grades"}}</a>{{end}}
   </nav>
 </header>
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
@@ -23,19 +23,19 @@
 {{$actions := and .Group.CanManage (eq .Section "links")}}
 {{with .ClassLinks}}
 <table class="list">
-  <thead><tr><th>Subject</th><th>Type</th><th>Link</th>{{if $actions}}<th></th>{{end}}</tr></thead>
+  <thead><tr><th>{{t "field.subject"}}</th><th>{{t "field.lesson_type"}}</th><th>{{t "field.link"}}</th>{{if $actions}}<th></th>{{end}}</tr></thead>
   <tbody>
     {{range .}}
     <tr>
       <td>{{.SubjectName}}</td>
       <td>{{lessonLabel .LessonType}}</td>
-      <td><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Join</a>{{with .Note}} <span class="muted">· {{.}}</span>{{end}}</td>
+      <td><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{t "action.join"}}</a>{{with .Note}} <span class="muted">· {{.}}</span>{{end}}</td>
       {{if $actions}}
       <td class="actions">
-        <a href="/g/{{$.Group.Code}}/links/{{.ID}}/edit">Edit</a>
-        <form method="post" action="/g/{{$.Group.Code}}/links/{{.ID}}/delete" class="inline" data-confirm="Delete this class link?">
+        <a href="/g/{{$.Group.Code}}/links/{{.ID}}/edit">{{t "action.edit"}}</a>
+        <form method="post" action="/g/{{$.Group.Code}}/links/{{.ID}}/delete" class="inline" data-confirm="{{t "links.confirm_delete"}}">
           <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-          <button type="submit" class="link danger">Delete</button>
+          <button type="submit" class="link danger">{{t "action.delete"}}</button>
         </form>
       </td>
       {{end}}
@@ -44,28 +44,28 @@
   </tbody>
 </table>
 {{else}}
-<p class="muted">No class links yet.</p>
+<p class="muted">{{t "links.empty"}}</p>
 {{end}}
 {{end}}
 
 {{/* subjectSelect is the subject picker of a section form. */}}
 {{define "subjectSelect"}}
-<label>Subject
+<label>{{t "field.subject"}}
   <select name="subject_id" required>
-    <option value="">Choose a subject…</option>
+    <option value="">{{t "form.choose_subject"}}</option>
     {{range .Subjects}}
     <option value="{{.ID}}"{{if eq (idstr .ID) (index $.Fields "subject_id")}} selected{{end}}>{{.Name}}</option>
     {{end}}
   </select>
-  {{if not .Subjects}}<small class="muted">Add a subject first on the <a href="/g/{{.Group.Code}}/subjects">Subjects</a> tab.</small>{{end}}
+  {{if not .Subjects}}<small class="muted">{{th "form.add_subject_first" "URL" (print "/g/" .Group.Code "/subjects")}}</small>{{end}}
 </label>
 {{end}}
 
 {{/* formButtons ends a section form: Add, or Save and Cancel when editing. */}}
 {{define "formButtons"}}
 <div class="form-actions">
-  <button type="submit">{{if .EditID}}Save{{else}}Add{{end}}</button>
-  {{if .EditID}}<a href="/g/{{.Group.Code}}/{{.Section}}">Cancel</a>{{end}}
+  <button type="submit">{{if .EditID}}{{t "action.save"}}{{else}}{{t "action.add"}}{{end}}</button>
+  {{if .EditID}}<a href="/g/{{.Group.Code}}/{{.Section}}">{{t "action.cancel"}}</a>{{end}}
 </div>
 {{end}}
 
@@ -80,18 +80,19 @@
     <input type="hidden" name="csrf_token" value="{{.CSRF}}">
     <input type="hidden" name="view" value="item">
     <input type="hidden" name="from" value="{{.From}}">
+    {{with .Filter}}<input type="hidden" name="filter" value="{{.}}">{{end}}
     <input type="hidden" name="status" value="{{nextStatus .HW.Status}}">
-    <button type="submit" class="status status-{{.HW.Status}}" title="Mark as {{statusLabel (nextStatus .HW.Status)}}">{{statusLabel .HW.Status}}</button>
+    <button type="submit" class="status status-{{.HW.Status}}" title="{{t "hw.mark_as" "Status" (statusLabel (nextStatus .HW.Status))}}">{{statusLabel .HW.Status}}</button>
   </form>
   {{end}}
   <div class="hw-main">
     <a href="/g/{{.Code}}/homework/{{.HW.ID}}"><strong>{{.HW.Title}}</strong></a>
     <span class="muted">· {{.HW.SubjectName}}</span>
     <div class="small">
-      {{with .HW.DueAt}}<span class="due">due {{datetime .}}</span>{{else}}<span class="muted">no deadline</span>{{end}}
-      {{if .HW.Overdue}}<span class="badge warn">Overdue</span>{{end}}
-      {{with .HW.MaxPoints}}<span class="muted">· max {{points .}} pts</span>{{end}}
-      {{with .HW.Grade}}<span class="muted">· your grade {{points .}}</span>{{end}}
+      {{with .HW.DueAt}}<span class="due">{{t "hw.due" "When" (datetime .)}}</span>{{else}}<span class="muted">{{t "hw.no_deadline"}}</span>{{end}}
+      {{if .HW.Overdue}}<span class="badge warn">{{t "hw.overdue"}}</span>{{end}}
+      {{with .HW.MaxPoints}}<span class="muted">· {{t "hw.max_points" "Points" (points .)}}</span>{{end}}
+      {{with .HW.Grade}}<span class="muted">· {{t "hw.your_grade" "Points" (points .)}}</span>{{end}}
     </div>
   </div>
 </li>
@@ -103,12 +104,12 @@
 {{if .HW.Tracked}}
 <section class="card" id="progress">
   <div class="card-head">
-    <h3>My progress</h3>
-    <span class="muted small">Only you can see this.</span>
+    <h3>{{t "progress.title"}}</h3>
+    <span class="muted small">{{t "progress.private"}}</span>
   </div>
   {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
   {{if .HW.GradeOverMax}}
-  <p class="warn-text small" role="note">Your grade is above the current max points ({{points .HW.MaxPoints}}), which the leader changed after you saved it. It counts as {{points .HW.MaxPoints}} in My grades.</p>
+  <p class="warn-text small" role="note">{{t "progress.grade_over_max" "Max" (points .HW.MaxPoints)}}</p>
   {{end}}
   <form class="segmented" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
         hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
@@ -122,16 +123,16 @@
         hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
     <input type="hidden" name="csrf_token" value="{{.CSRF}}">
     <input type="hidden" name="view" value="panel">
-    <label>My grade
+    <label>{{t "progress.my_grade"}}
       <span class="grade-input">
         <input name="grade" inputmode="decimal" value="{{or .GradeInput (points .HW.Grade)}}" placeholder="—">
         {{with .HW.MaxPoints}}<span class="muted">/ {{points .}}</span>{{end}}
       </span>
     </label>
-    <button type="submit" class="secondary">Save grade</button>
+    <button type="submit" class="secondary">{{t "progress.save_grade"}}</button>
   </form>
 </section>
-{{if .UpdateBadge}}<span id="overdue-badge" hx-swap-oob="true">{{if .HW.Overdue}}<span class="badge warn">Overdue</span>{{end}}</span>{{end}}
+{{if .UpdateBadge}}<span id="overdue-badge" hx-swap-oob="true">{{if .HW.Overdue}}<span class="badge warn">{{t "hw.overdue"}}</span>{{end}}</span>{{end}}
 {{end}}
 {{end}}
 
@@ -142,10 +143,10 @@
   <div class="class-main">
     <strong>{{.E.Title}}</strong>
     <span class="muted">· {{classType .E}}{{with .E.Room}} · {{.}}{{end}}</span>
-    {{if .E.Now}}<span class="badge">Now</span>{{else if .Next}}<span class="badge">Next</span>{{end}}
+    {{if .E.Now}}<span class="badge">{{t "schedule.now"}}</span>{{else if .Next}}<span class="badge">{{t "schedule.next"}}</span>{{end}}
     {{with .E.ClassLinks}}
     <div class="small">
-      {{range .}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Join{{with .Note}} ({{.}}){{end}}</a> {{end}}
+      {{range .}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{t "action.join"}}{{with .Note}} ({{.}}){{end}}</a> {{end}}
     </div>
     {{end}}
   </div>
@@ -156,16 +157,27 @@
 {{define "scheduleStatus"}}
 {{with .Schedule}}
 {{if not .HasSource}}
-<p class="muted small">This group is not linked to a CIST timetable yet. The site admin can link it with
-  <code>extt admin set-cist-id</code>.</p>
+<p class="muted small">{{th "schedule.no_source"}}</p>
 {{else if not .Sync}}
-<p class="muted small">The schedule has not been loaded from CIST yet.</p>
+<p class="muted small">{{t "schedule.not_loaded"}}</p>
 {{else}}
-<p class="muted small">{{with .Sync.LastSuccessAt}}Synced with CIST {{datetime .}}.{{else}}Never synced with CIST successfully.{{end}}</p>
+<p class="muted small">{{with .Sync.LastSuccessAt}}{{t "schedule.synced_at" "When" (datetime .)}}{{else}}{{t "schedule.never_synced"}}{{end}}</p>
 {{with .Sync.LastError}}
-<p class="warn-text small" role="note">The last sync ({{when $.Schedule.Sync.LastAttemptAt}}) failed: {{.}}.
-  {{if $.Schedule.Sync.LastSuccessAt}}Showing the last good copy.{{end}}</p>
+<p class="warn-text small" role="note">{{t "schedule.sync_failed" "When" (when $.Schedule.Sync.LastAttemptAt) "Error" .}}
+  {{if $.Schedule.Sync.LastSuccessAt}}{{t "schedule.showing_last_good"}}{{end}}</p>
 {{end}}
 {{end}}
 {{end}}
+{{end}}
+
+{{/* feedbackBody is one piece of feedback: its kind, rating, date, whether
+   it is resolved, and the message. */}}
+{{define "feedbackBody"}}
+<div class="feedback-head small">
+  <span class="badge">{{feedbackKind .Kind}}</span>
+  {{with .Rating}}<span class="stars" title="{{t "feedback.rated" "N" .}}">{{stars .}}</span>{{end}}
+  <span class="muted">{{when .CreatedAt}}</span>
+  {{if .ResolvedAt}}<span class="badge ok">{{t "feedback.resolved"}}</span>{{end}}
+</div>
+<p class="feedback-message">{{.Message}}</p>
 {{end}}

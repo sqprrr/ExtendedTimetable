@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/url"
+	"os"
 	"path"
 	"sort"
 	"strconv"
@@ -64,6 +65,18 @@ func Open(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("open %s: %w", dbPath, err)
 	}
 	return &Store{Queries: &Queries{db: db}, db: db}, nil
+}
+
+// Backup writes a consistent copy of the database to path with VACUUM INTO.
+// It is safe while the server is running; path must not exist yet.
+func (s *Store) Backup(ctx context.Context, path string) error {
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("backup: %s already exists", path)
+	}
+	if _, err := s.db.ExecContext(ctx, `VACUUM INTO ?`, path); err != nil {
+		return fmt.Errorf("backup to %s: %w", path, err)
+	}
+	return nil
 }
 
 // Close closes the database.

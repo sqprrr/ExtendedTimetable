@@ -156,6 +156,33 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		}
 		fmt.Fprintf(stdout, "%d classes loaded from CIST for %s\n", rec.EventCount, strings.ToUpper(pos[0]))
 
+	case "feedback":
+		all := fs.Bool("all", false, "include resolved feedback")
+		_, st, err := open(0)
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		inbox, err := newService(st, nil).AdminFeedback(ctx, !*all)
+		if err != nil {
+			return err
+		}
+		for _, f := range inbox.Items {
+			author := f.Username
+			if author == "" {
+				author = "(deleted account)"
+			}
+			fmt.Fprintf(stdout, "#%d  %s  %s  %s", f.ID, f.CreatedAt.Local().Format("2006-01-02 15:04"), author, f.Kind)
+			if f.Rating != nil {
+				fmt.Fprintf(stdout, " %d/5", *f.Rating)
+			}
+			if f.ResolvedAt != nil {
+				fmt.Fprint(stdout, "  [resolved]")
+			}
+			fmt.Fprintf(stdout, "\n  %s\n\n", strings.ReplaceAll(f.Message, "\n", "\n  "))
+		}
+		fmt.Fprintf(stdout, "%d open; read and resolve them at /admin/feedback\n", inbox.Open)
+
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		return fmt.Errorf("admin: unknown subcommand %q", sub)

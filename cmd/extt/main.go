@@ -24,6 +24,8 @@ const usage = `Usage: extt <command> [flags]
 Commands:
   serve                                   Run the web server
   migrate                                 Apply database migrations and exit
+  backup <file>                           Write a consistent copy of the database to
+                                          <file> (safe while serve runs; no migrations)
   admin create-superadmin <username>      Create a superadmin account
   admin create-group <code> [--cist-id N] [--name NAME]
                                           Create a group; anyone can register into it
@@ -35,6 +37,8 @@ Commands:
                                           Ukrainian name, e.g. КІУКІ-25-3
   admin set-cist-id <code> <id|none>      Link a group to its CIST timetable
   admin sync-schedule <code>              Load a group's schedule from CIST now
+  admin feedback [--all]                  Print the open feedback users sent (with
+                                          --all, the resolved too)
 
 Every command accepts --db PATH (default $EXTT_DB or ./extt.db).
 Commands that take a password prompt for it, or read one line from stdin
@@ -87,6 +91,28 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer) 
 		}
 		defer st.Close()
 		fmt.Fprintln(stdout, "migrations applied")
+		return nil
+	case "backup":
+		fs := newFlagSet("backup")
+		dbPath := dbFlag(fs)
+		pos, err := parseArgs(fs, args[1:], 1)
+		if err != nil {
+			return err
+		}
+		// Open without migrating: a backup taken before an upgrade must be
+		// of the old schema. Opening would also create a missing database.
+		if _, err := os.Stat(*dbPath); err != nil {
+			return err
+		}
+		st, err := store.Open(*dbPath)
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		if err := st.Backup(ctx, pos[0]); err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, "backup written to", pos[0])
 		return nil
 	case "admin":
 		return cmdAdmin(ctx, args[1:], stdin, stdout)

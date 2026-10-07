@@ -276,7 +276,7 @@ func TestHomeworkUpdateAndOrder(t *testing.T) {
 		t.Fatalf("create should return the full assignment: %+v", hw)
 	}
 
-	list, err := f.svc.HomeworkList(lead, gid)
+	list, err := f.svc.HomeworkList(lead, gid, service.HomeworkFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}

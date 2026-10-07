@@ -1,26 +1,27 @@
-{{define "title"}}Homework · {{.Group.Code}}{{end}}
+{{define "title"}}{{t "nav.homework"}} · {{.Group.Code}}{{end}}
 {{define "content"}}
 {{template "groupnav" .}}
 {{if .EditID}}
 <section class="card">
-  <h2>Edit assignment</h2>
+  <h2>{{t "hw.edit_title"}}</h2>
   {{template "form" .}}
 </section>
 {{else}}
 {{if .Group.CanManage}}
 <details class="card"{{if .Error}} open{{end}}>
-  <summary><h2>New assignment</h2></summary>
+  <summary><h2>{{t "hw.new_title"}}</h2></summary>
   {{template "form" .}}
 </details>
 {{end}}
 <section class="card">
-  <h2>Homework</h2>
+  <h2>{{t "nav.homework"}}</h2>
+  {{template "homeworkFilters" .}}
   {{with .HomeworkList}}
   <ul class="items">
     {{range .}}{{template "homeworkItem" (hwItem $ . "list")}}{{end}}
   </ul>
   {{else}}
-  <p class="muted">No homework yet.</p>
+  <p class="muted">{{if or .HomeworkFilter.SubjectID .HomeworkFilter.Status}}{{t "hw.no_matches"}}{{else}}{{t "hw.empty"}}{{end}}</p>
   {{end}}
 </section>
 {{end}}
@@ -30,27 +31,58 @@
 <form method="post" action="/g/{{.Group.Code}}/homework{{if .EditID}}/{{.EditID}}{{end}}">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   {{template "subjectSelect" .}}
-  <label>Title
+  <label>{{t "field.title"}}
     <input name="title" value="{{index .Fields "title"}}" maxlength="200" required>
   </label>
-  <label>Description
+  <label>{{t "field.description_md"}}
     <textarea name="description" rows="8">{{index .Fields "description"}}</textarea>
-    <small class="muted">Markdown: <code>**bold**</code>, <code>- list</code>, <code>[text](https://…)</code>.</small>
+    <small class="muted">{{th "form.markdown_hint"}}</small>
   </label>
   <div class="row">
-    <label>Due
+    <label>{{t "field.due"}}
       <input name="due_at" type="datetime-local" value="{{index .Fields "due_at"}}">
-      <small class="muted">Leave empty for no deadline.</small>
+      <small class="muted">{{t "hw.due_hint"}}</small>
     </label>
-    <label>Max points
+    <label>{{t "field.max_points"}}
       <input name="max_points" inputmode="decimal" value="{{index .Fields "max_points"}}">
-      <small class="muted">Optional.</small>
+      <small class="muted">{{t "form.optional"}}</small>
     </label>
   </div>
-  <label>Links
-    <textarea name="links" rows="3" placeholder="Lab manual — https://…">{{index .Fields "links"}}</textarea>
-    <small class="muted">One per line: an optional title, then the address, e.g. <code>Lab manual — https://…</code></small>
+  <label>{{t "field.links"}}
+    <textarea name="links" rows="3" placeholder="{{t "hw.links_placeholder"}}">{{index .Fields "links"}}</textarea>
+    <small class="muted">{{th "hw.links_hint"}}</small>
   </label>
   {{template "formButtons" .}}
+</form>
+{{end}}
+
+{{/* homeworkFilters narrows the list by subject and, for a viewer with a
+   tracker, by their own status. A plain GET form, so the filter is in the
+   URL; app.js submits it when a choice changes. */}}
+{{define "homeworkFilters"}}
+{{$f := .HomeworkFilter}}
+<form class="filters" method="get" action="/g/{{.Group.Code}}/homework" data-autosubmit>
+  <label>{{t "field.subject"}}
+    <select name="subject_id">
+      <option value="">{{t "hw.all_subjects"}}</option>
+      {{range .Subjects}}
+      <option value="{{.ID}}"{{if eq .ID $f.SubjectID}} selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+  </label>
+  {{if .Group.CanTrack}}
+  <label>{{t "hw.status"}}
+    <select name="status">
+      <option value="">{{t "hw.all_statuses"}}</option>
+      {{range statuses}}
+      <option value="{{.}}"{{if eq . $f.Status}} selected{{end}}>{{statusLabel .}}</option>
+      {{end}}
+    </select>
+  </label>
+  {{end}}
+  <div class="form-actions">
+    <button type="submit" class="secondary">{{t "hw.filter"}}</button>
+    {{if or $f.SubjectID $f.Status}}<a href="/g/{{.Group.Code}}/homework">{{t "hw.reset_filters"}}</a>{{end}}
+  </div>
 </form>
 {{end}}

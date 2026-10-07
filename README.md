@@ -4,7 +4,7 @@ A small hub for KHNURE student groups: class schedule, class links, homework,
 notes, and a private homework tracker per student. See
 [docs/design.md](docs/design.md) for the full design and milestones.
 
-**Status:** M4 (schedule) done.
+**Status:** M5 (i18n & deploy) done — every milestone of the design is in.
 
 - **M1:** open registration (anyone can join any group), login/logout, the
   admin CLI and a home page. Leaders (старости) are appointed only by the
@@ -25,6 +25,19 @@ notes, and a private homework tracker per student. See
   today. When CIST is down the last good copy stays, with a note saying so.
   Subjects that appear in the timetable for the first time are created from
   CIST's short names; leaders can rename them, and deleted ones stay deleted.
+- **M5:** the site is in Ukrainian by default and in English on request
+  (the switch in the top bar). The choice is kept in a cookie and, once
+  signed in, in the account, so it follows the user to other browsers.
+  `deploy/` holds a systemd unit, nginx site, nightly backups and scripts
+  that install or upgrade the site on a VPS: see
+  [docs/deploy.md](docs/deploy.md).
+- **After M5:** the homework list can be filtered by subject and by your own
+  status (`/g/<code>/homework?subject_id=…&status=…`; the JSON list takes the
+  same parameters). Signed-in users send bug reports, suggestions and reviews
+  (with an optional 1–5 star rating) from "Feedback" in the top bar; they see
+  what they sent and whether it was resolved. Superadmins read, resolve and
+  delete feedback at `/admin/feedback`, or print it on the server with
+  `extt admin feedback`.
 
 ## Quick start (local)
 
@@ -53,7 +66,18 @@ the superadmin makes someone the group leader from the server:
 
 Run `./extt help` for all commands. Other admin commands: `demote`,
 `reset-password`, `set-cist-id <code> <id|none>` (link an existing group to
-CIST).
+CIST), `feedback [--all]` (print the feedback users sent). `./extt backup <file>` writes a consistent copy of the database, also
+while the server runs.
+
+## Deployment
+
+```sh
+deploy/deploy.sh user@server example.org
+```
+
+builds the linux binary and installs it with systemd, nginx and nightly
+backups. [docs/deploy.md](docs/deploy.md) covers HTTPS, upgrades and
+restoring a backup.
 
 ## Configuration
 
@@ -100,14 +124,26 @@ Layout follows the design doc: `internal/store` (SQLite queries),
 `internal/web` and `internal/api` (thin HTML and JSON transports),
 `internal/auth` (passwords, sessions, CSRF, rate limiting),
 `internal/markdown` (Markdown to sanitized HTML),
+`internal/i18n` with `locales/{uk,en}.toml` (translations, go-i18n),
 `internal/cist` (CIST client: timetable CSV export, group lookup),
 `internal/logging` (slog setup, request ID and user in every log line),
 `internal/server` (middleware wiring).
 
+### Translations
+
+Every UI string is a message ID in `locales/uk.toml` and `locales/en.toml`
+(nested TOML keys: `[nav] homework = "…"` is `nav.homework`). Templates use
+`{{t "nav.homework"}}`, or `{{th …}}` for messages holding markup; service
+validation errors carry an `i18n.Message` so each page shows them in its
+language. Tests check that both files have the same keys and that every ID
+the code uses exists.
+
 ### JSON API (group content)
 
 All under `/api/v1/groups/{code}`; unsafe methods need the `X-CSRF-Token`
-header (get the token from `GET /api/v1/me`).
+header (get the token from `GET /api/v1/me`). `PUT /api/v1/me` with
+`{"locale": "uk"|"en"}` changes the user's language; `/me` reports the one
+in effect.
 
 | Resource | Endpoints |
 |---|---|
@@ -126,5 +162,6 @@ Homework items carry the viewer's own `"progress": {"status", "grade"}`
 `PUT` changes only the fields present in the body; send `null` to clear
 `due_at` or `max_points`, and `"links": []` to remove all homework links.
 Create and update return the same object as `GET`. Validation errors return
-`422` with `{"error", "field"}`; deleting a subject that is still in use
+`422` with `{"error", "code", "field"}`: the message in English and its
+message ID, for a client that translates on its own; deleting a subject that is still in use
 returns `409`.

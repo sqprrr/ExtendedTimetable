@@ -28,7 +28,7 @@ func (s *Service) AdminCreateSuperadmin(ctx context.Context, username, password 
 		return err
 	}
 	err = s.store.CreateUser(ctx, &store.User{
-		Username: username, PasswordHash: hash, IsSuperadmin: true, Locale: defaultLocale, CreatedAt: s.now(),
+		Username: username, PasswordHash: hash, IsSuperadmin: true, CreatedAt: s.now(),
 	})
 	if errors.Is(err, store.ErrConflict) {
 		return ErrUsernameTaken
@@ -40,11 +40,11 @@ func (s *Service) AdminCreateSuperadmin(ctx context.Context, username, password 
 func (s *Service) AdminCreateGroup(ctx context.Context, code, name string, cistGroupID *int64) (*store.Group, error) {
 	code = strings.ToUpper(strings.TrimSpace(code))
 	if code == "" || len(code) > 32 {
-		return nil, &InputError{Field: "code", Msg: "group code must be 1–32 characters"}
+		return nil, inputError("code", "err.group_code_length")
 	}
 	for _, r := range code {
 		if !(r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_') {
-			return nil, &InputError{Field: "code", Msg: "group code may contain only latin letters, digits, '-' and '_'"}
+			return nil, inputError("code", "err.group_code_chars")
 		}
 	}
 	name = strings.TrimSpace(name)

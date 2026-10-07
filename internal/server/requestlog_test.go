@@ -207,8 +207,10 @@ func TestSecurityEventsAreLogged(t *testing.T) {
 			t.Errorf("%q leaked into the logs", secret)
 		}
 	}
+	// The secret cookies; the language cookie ("uk") is not one.
 	for _, c := range b.c.Jar.Cookies(mustURL(e.srv.URL)) {
-		if strings.Contains(out, c.Value) {
+		secret := strings.Contains(c.Name, "session") || strings.Contains(c.Name, "csrf")
+		if secret && strings.Contains(out, c.Value) {
 			t.Errorf("cookie %s leaked into the logs", c.Name)
 		}
 	}

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Runs the extt CLI as the service user against the live database, e.g.
+#   sudo exttctl admin promote alice --group KIUKI-25-3
+#   sudo exttctl backup /var/backups/extt/manual.db
+set -eu
+set -a
+. /etc/extt/extt.env
+set +a
+cd /var/lib/extt
+exec runuser -u extt -- /usr/local/bin/extt "$@"

@@ -65,12 +65,22 @@ type browser struct {
 	e *env
 }
 
-func (e *env) browser(t *testing.T) *browser {
+// browser returns a browser that has switched the site to English, which
+// the tests check pages against.
+func (e *env) browser(t *testing.T) *browser { return e.browserIn(t, "en") }
+
+// browserIn returns a browser without a language cookie when lang is "".
+func (e *env) browserIn(t *testing.T, lang string) *browser {
 	jar, _ := cookiejar.New(nil)
 	c := *e.srv.Client() // copy: srv.Client() is shared between callers
 	c.Jar = jar
 	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &browser{t: t, c: &c, e: e}
+	b := &browser{t: t, c: &c, e: e}
+	if lang != "" {
+		u, _ := url.Parse(e.srv.URL)
+		jar.SetCookies(u, []*http.Cookie{{Name: "__Host-extt_lang", Value: lang, Path: "/", Secure: true}})
+	}
+	return b
 }
 
 var csrfRe = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)

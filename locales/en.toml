@@ -1,0 +1,308 @@
+# English UI messages. Keep the keys in step with uk.toml (a test checks).
+# Messages used with `th` in templates may hold HTML.
+
+[nav]
+login = "Log in"
+register = "Register"
+logout = "Log out"
+sections = "Group sections"
+overview = "Overview"
+schedule = "Schedule"
+homework = "Homework"
+notes = "Notes"
+links = "Class links"
+resources = "Recordings & solutions"
+subjects = "Subjects"
+grades = "My grades"
+feedback = "Feedback"
+
+[role]
+student = "student"
+leader = "leader"
+superadmin = "superadmin"
+
+[action]
+add = "Add"
+save = "Save"
+cancel = "Cancel"
+edit = "Edit"
+delete = "Delete"
+join = "Join"
+
+[field]
+username = "Username"
+password = "Password"
+group = "Group"
+subject = "Subject"
+title = "Title"
+name = "Name"
+short_name = "Short name"
+text = "Text"
+description_md = "Description"
+note = "Note"
+link = "Link"
+link_title = "Link title"
+links = "Links"
+meeting_link = "Meeting link"
+lesson_type = "Type"
+kind = "Kind"
+date = "Date"
+due = "Due"
+max_points = "Max points"
+message = "Message"
+
+[form]
+choose_subject = "Choose a subject…"
+add_subject_first = 'Add a subject first on the <a href="{{.URL}}">Subjects</a> tab.'
+optional = "Optional."
+markdown_hint = "Markdown: <code>**bold**</code>, <code>- list</code>, <code>[text](https://…)</code>."
+
+[status]
+not_started = "Not started"
+in_progress = "In progress"
+done = "Done"
+
+[lesson]
+lecture = "Lecture"
+practice = "Practice"
+lab = "Lab"
+
+[kind]
+recording = "Recording"
+solution = "Solution"
+
+[weekday.short]
+mon = "Mon"
+tue = "Tue"
+wed = "Wed"
+thu = "Thu"
+fri = "Fri"
+sat = "Sat"
+sun = "Sun"
+
+[weekday.long]
+mon = "Monday"
+tue = "Tuesday"
+wed = "Wednesday"
+thu = "Thursday"
+fri = "Friday"
+sat = "Saturday"
+sun = "Sunday"
+
+[home]
+title = "Home"
+hi = "Hi, {{.Name}}"
+your_role = "Your role:"
+open_group = "Homework, notes and class links →"
+no_groups = "You are not a member of any group yet."
+
+[login]
+title = "Log in"
+submit = "Log in"
+no_account = 'No account yet? <a href="/register">Register</a>.'
+
+[register]
+title = "Register"
+choose_group = "Choose your group…"
+username_hint = "3–32 characters: latin letters, digits, <code>_ . -</code>"
+password_hint = "At least 8 characters."
+repeat_password = "Repeat password"
+submit = "Create account"
+closed = "Registration is not open yet: no groups have been created."
+have_account = 'Already registered? <a href="/login">Log in</a>.'
+
+[error]
+back_home = "Back to the home page"
+internal = "Something went wrong. Please try again later."
+forbidden = "You do not have permission to do that."
+not_found = "Page not found."
+
+[error.status]
+403 = "Forbidden"
+404 = "Not Found"
+500 = "Internal Server Error"
+
+[overview]
+today = "Today"
+week_schedule = "Week schedule"
+no_classes_today = "No classes today."
+all_homework = "All homework"
+nothing_due = "Nothing due."
+all_notes = "All notes"
+manage = "Manage"
+all_links = "All links"
+
+[hw]
+new_title = "New assignment"
+edit_title = "Edit assignment"
+empty = "No homework yet."
+due = "due {{.When}}"
+no_deadline = "no deadline"
+overdue = "Overdue"
+max_points = "max {{.Points}} pts"
+your_grade = "your grade {{.Points}}"
+mark_as = "Mark as {{.Status}}"
+due_hint = "Leave empty for no deadline."
+links_placeholder = "Lab manual — https://…"
+links_hint = "One per line: an optional title, then the address, e.g. <code>Lab manual — https://…</code>"
+confirm_delete = "Delete this assignment?"
+back_to_list = "← All homework"
+status = "Status"
+all_subjects = "All subjects"
+all_statuses = "Any status"
+filter = "Filter"
+reset_filters = "Reset"
+no_matches = "No homework matches these filters."
+
+[progress]
+title = "My progress"
+private = "Only you can see this."
+grade_over_max = "Your grade is above the current max points ({{.Max}}), which the leader changed after you saved it. It counts as {{.Max}} in My grades."
+my_grade = "My grade"
+save_grade = "Save grade"
+
+[grades]
+graded = "Graded"
+points = "Points"
+overall = "Overall"
+explain = "Only assignments with max points are counted. Points are the sum of your grades out of the sum of max points of those assignments, graded or not. Enter grades on each assignment's page."
+empty = "No assignments with max points yet."
+
+[notes]
+new_title = "New note"
+edit_title = "Edit note"
+empty = "No notes yet."
+pinned = "Pinned"
+pin = "Pin to the top"
+markdown_hint = "Markdown is supported."
+confirm_delete = "Delete this note?"
+
+[links]
+new_title = "Add a class link"
+edit_title = "Edit class link"
+empty = "No class links yet."
+note_hint = "Optional, e.g. “subgroup 1” or the meeting password."
+confirm_delete = "Delete this class link?"
+
+[resources]
+new_title = "Add a recording or solution"
+edit_title = "Edit link"
+empty = "No recordings or solutions yet."
+link_hint = "YouTube, Google Drive, Teams, GitHub… Files are not uploaded here."
+date_hint = "Optional: the date of the class."
+confirm_delete = "Delete this link?"
+
+[subjects]
+new_title = "Add a subject"
+edit_title = "Edit subject"
+empty = "No subjects yet."
+short_name_hint = "Optional, e.g. “ОП” or “ВМ”."
+confirm_delete = "Delete subject “{{.Name}}”?"
+
+[schedule]
+week_of = "Week of {{.Date}}"
+weeks = "Weeks"
+prev = "← Previous"
+this_week = "This week"
+next_week = "Next →"
+sync_now = "Sync with CIST now"
+no_classes = "No classes."
+now = "Now"
+next = "Next"
+next_class = "Next class:"
+no_source = "This group is not linked to a CIST timetable yet. The site admin can link it with <code>extt admin set-cist-id</code>."
+not_loaded = "The schedule has not been loaded from CIST yet."
+synced_at = "Synced with CIST {{.When}}."
+never_synced = "Never synced with CIST successfully."
+sync_failed = "The last sync ({{.When}}) failed: {{.Error}}."
+showing_last_good = "Showing the last good copy."
+subjects_note = "Subjects that appear in the timetable for the first time are added to <a href=\"{{.URL}}\">Subjects</a> under CIST's short name. Leaders can rename them freely, and deleted ones are not added back."
+
+[feedback]
+title = "Feedback"
+intro = "Found a bug, have an idea, or want to tell us what you think of the site? Write it here. Only the site admins read it."
+kind_label = "What is it?"
+rating = "Rating"
+rating_hint = "Optional, for reviews."
+rated = "{{.N}} of 5"
+send = "Send"
+thanks = "Thank you! Your feedback has been sent."
+mine = "You sent"
+resolved = "Resolved"
+inbox = "Feedback inbox"
+inbox_link = "Feedback inbox ({{.N}} open) →"
+show_open = "Open ({{.N}})"
+show_all = "All"
+inbox_clear = "No open feedback."
+inbox_empty = "No feedback yet."
+deleted_user = "deleted account"
+resolve = "Mark resolved"
+reopen = "Reopen"
+confirm_delete = "Delete this feedback?"
+
+[feedback.kind]
+bug = "Bug report"
+idea = "Suggestion"
+review = "Review"
+
+[js]
+save_failed = "Could not save. Reload the page and try again."
+offline = "Could not reach the server. Check your connection and try again."
+
+# Errors. {{.Field}} is a translated field name from [field].
+[err]
+required = "{{.Field}} is required."
+single_line = "{{.Field}} must be a single line."
+link_required = "Link is required."
+link_invalid = "Link must be a full http:// or https:// address."
+date_invalid = "Date must look like 2026-09-01."
+due_invalid = "Due date must be a date and time."
+max_points_nan = "Max points must be a number."
+max_points_positive = "Max points must be a positive number."
+max_points_too_big = "Max points must be at most {{.Max}}."
+grade_nan = "Grade must be a number."
+grade_negative = "Grade must be zero or a positive number."
+grade_over_max = "Grade cannot be more than the {{.Max}} max points."
+grade_too_big = "Grade must be at most {{.Max}}."
+choose_subject = "Choose a subject from the list."
+choose_group = "Choose your group from the list."
+lesson_type = "Choose lecture, practice or lab."
+resource_kind = "Choose recording or solution."
+status = "Choose not started, in progress or done."
+subject_exists = "The group already has a subject with this name."
+subject_in_use = "This subject still has class links, homework or recordings; delete or move them first."
+username_length = "Username must be {{.Min}}–{{.Max}} characters."
+username_chars = "Username may contain only latin letters, digits, '_', '.', '-' and must start with a letter or digit."
+password_long = "Password is too long."
+password_mismatch = "Passwords do not match."
+invalid_credentials = "Invalid username or password."
+username_taken = "Username is already taken."
+rate_limited = "Too many attempts, try again later."
+group_code_length = "Group code must be 1–32 characters."
+group_code_chars = "Group code may contain only latin letters, digits, '-' and '_'."
+locale = "Choose Ukrainian (uk) or English (en)."
+no_cist_group = "This group has no CIST timetable id yet; ask the site admin to set it."
+sync_disabled = "Schedule sync is turned off on this server."
+sync_running = "The schedule is being synced right now, try again in a minute."
+feedback_kind = "Choose bug report, suggestion or review."
+rating = "Rating must be 1 to 5 stars."
+
+[err.too_long]
+one = "{{.Field}} must be at most {{.Count}} character."
+other = "{{.Field}} must be at most {{.Count}} characters."
+
+[err.too_many_links]
+one = "At most {{.Count}} link."
+other = "At most {{.Count}} links."
+
+[err.password_short]
+one = "Password must be at least {{.Count}} character."
+other = "Password must be at least {{.Count}} characters."
+
+[err.schedule_range]
+one = "The range must be positive and at most {{.Count}} day."
+other = "The range must be positive and at most {{.Count}} days."
+
+[err.sync_too_soon]
+one = "The schedule was synced less than {{.Count}} minute ago, try again later."
+other = "The schedule was synced less than {{.Count}} minutes ago, try again later."

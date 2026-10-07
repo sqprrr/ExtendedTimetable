@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
@@ -91,7 +93,8 @@ func (h *Handler) sections() []*section {
 			name: "homework",
 			load: func(ctx context.Context, h *Handler, groupID int64, d *pageData) error {
 				var err error
-				if d.HomeworkList, err = h.svc.HomeworkList(ctx, groupID); err != nil {
+				d.HomeworkFilter = parseHomeworkFilter(d.Query)
+				if d.HomeworkList, err = h.svc.HomeworkList(ctx, groupID, d.HomeworkFilter); err != nil {
 					return err
 				}
 				return loadSubjects(ctx, h, groupID, d)
@@ -201,6 +204,34 @@ func (h *Handler) sections() []*section {
 	}
 }
 
+// parseHomeworkFilter reads the homework list filter from the query string
+// (?subject_id=…&status=…). Values that are not an id or a status are
+// ignored, so a stale or edited link shows the whole list.
+func parseHomeworkFilter(q url.Values) service.HomeworkFilter {
+	var f service.HomeworkFilter
+	if id, err := strconv.ParseInt(q.Get("subject_id"), 10, 64); err == nil && id > 0 {
+		f.SubjectID = id
+	}
+	for _, st := range service.Statuses {
+		if q.Get("status") == string(st) {
+			f.Status = st
+		}
+	}
+	return f
+}
+
+// homeworkFilterQuery encodes f for the homework list URL, without the "?".
+func homeworkFilterQuery(f service.HomeworkFilter) string {
+	q := url.Values{}
+	if f.SubjectID != 0 {
+		q.Set("subject_id", strconv.FormatInt(f.SubjectID, 10))
+	}
+	if f.Status != "" {
+		q.Set("status", string(f.Status))
+	}
+	return q.Encode()
+}
+
 func loadSubjects(ctx context.Context, h *Handler, groupID int64, d *pageData) error {
 	var err error
 	d.Subjects, err = h.svc.Subjects(ctx, groupID)
@@ -252,6 +283,7 @@ func sectionURL(g *service.GroupView, name string) string {
 func (h *Handler) showSection(w http.ResponseWriter, r *http.Request, s *section, g *service.GroupView, status int, d pageData) {
 	d.Group = g
 	d.Section = s.name
+	d.Query = r.URL.Query()
 	if d.Fields == nil {
 		d.Fields = map[string]string{}
 	}
@@ -337,7 +369,8 @@ func (h *Handler) sectionDelete(s *section) http.HandlerFunc {
 			err = s.delete(r.Context(), h, g.ID, id)
 		}
 		if errors.Is(err, service.ErrSubjectInUse) {
-			h.showSection(w, r, s, g, http.StatusConflict, pageData{Error: capitalize(err.Error())})
+			msg, status, _ := userMessage(r, err)
+			h.showSection(w, r, s, g, status, pageData{Error: msg})
 			return
 		}
 		if err != nil {
@@ -351,7 +384,7 @@ func (h *Handler) sectionDelete(s *section) http.HandlerFunc {
 // sectionFormError shows the form again with what the user typed and the
 // error, or the error page for errors the user cannot fix in the form.
 func (h *Handler) sectionFormError(w http.ResponseWriter, r *http.Request, s *section, g *service.GroupView, editID int64, err error) {
-	msg, status, ok := userMessage(err)
+	msg, status, ok := userMessage(r, err)
 	if !ok {
 		h.renderError(w, r, err)
 		return
@@ -409,7 +442,7 @@ func subjectInput(r *http.Request) service.SubjectInput {
 func formSubjectID(r *http.Request) (int64, error) {
 	id, err := strconv.ParseInt(r.PostFormValue("subject_id"), 10, 64)
 	if err != nil {
-		return 0, &service.InputError{Field: "subject_id", Msg: "choose a subject from the list"}
+		return 0, &service.InputError{Field: "subject_id", Msg: i18n.M("err.choose_subject")}
 	}
 	return id, nil
 }
@@ -459,14 +492,14 @@ func (h *Handler) homeworkInput(r *http.Request) (service.HomeworkInput, error) 
 	if s := strings.TrimSpace(r.PostFormValue("due_at")); s != "" {
 		t, err := time.ParseInLocation(dateTimeLocal, s, h.loc)
 		if err != nil {
-			return in, &service.InputError{Field: "due_at", Msg: "due date must be a date and time"}
+			return in, &service.InputError{Field: "due_at", Msg: i18n.M("err.due_invalid")}
 		}
 		in.DueAt = &t
 	}
 	if s := strings.TrimSpace(r.PostFormValue("max_points")); s != "" {
 		p, err := strconv.ParseFloat(strings.Replace(s, ",", ".", 1), 64)
 		if err != nil {
-			return in, &service.InputError{Field: "max_points", Msg: "max points must be a number"}
+			return in, &service.InputError{Field: "max_points", Msg: i18n.M("err.max_points_nan")}
 		}
 		in.MaxPoints = &p
 	}

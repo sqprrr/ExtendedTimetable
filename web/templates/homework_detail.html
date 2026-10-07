@@ -7,23 +7,23 @@
     <h2>{{.Title}}</h2>
     {{if $.Group.CanManage}}
     <div class="actions">
-      <a href="/g/{{$.Group.Code}}/homework/{{.ID}}/edit">Edit</a>
-      <form method="post" action="/g/{{$.Group.Code}}/homework/{{.ID}}/delete" class="inline" data-confirm="Delete this assignment?">
+      <a href="/g/{{$.Group.Code}}/homework/{{.ID}}/edit">{{t "action.edit"}}</a>
+      <form method="post" action="/g/{{$.Group.Code}}/homework/{{.ID}}/delete" class="inline" data-confirm="{{t "hw.confirm_delete"}}">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <button type="submit" class="link danger">Delete</button>
+        <button type="submit" class="link danger">{{t "action.delete"}}</button>
       </form>
     </div>
     {{end}}
   </div>
   <p class="muted">
     {{.SubjectName}}
-    · {{with .DueAt}}due {{datetime .}}{{else}}no deadline{{end}}
-    <span id="overdue-badge">{{if .Overdue}}<span class="badge warn">Overdue</span>{{end}}</span>
-    {{with .MaxPoints}}· max {{points .}} pts{{end}}
+    · {{with .DueAt}}{{t "hw.due" "When" (datetime .)}}{{else}}{{t "hw.no_deadline"}}{{end}}
+    <span id="overdue-badge">{{if .Overdue}}<span class="badge warn">{{t "hw.overdue"}}</span>{{end}}</span>
+    {{with .MaxPoints}}· {{t "hw.max_points" "Points" (points .)}}{{end}}
   </p>
   {{with .DescriptionMD}}<div class="md">{{markdown .}}</div>{{end}}
   {{with .Links}}
-  <h3>Links</h3>
+  <h3>{{t "field.links"}}</h3>
   <ul>
     {{range .}}<li><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{or .Title .URL}}</a></li>{{end}}
   </ul>
@@ -31,5 +31,5 @@
 </article>
 {{template "progressPanel" (or $.ProgressPanel (hwItem $ . "detail"))}}
 {{end}}
-<p><a href="/g/{{.Group.Code}}/homework">← All homework</a></p>
+<p><a href="/g/{{.Group.Code}}/homework">{{t "hw.back_to_list"}}</a></p>
 {{end}}

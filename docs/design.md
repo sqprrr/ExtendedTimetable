@@ -114,7 +114,7 @@ schedule_events   (id, group_id, subject_id NULL, cist_event_id, starts_at, ends
 | DB | **SQLite** via `modernc.org/sqlite` (pure Go, no CGO) |
 | Migrations | Embedded SQL files, applied on startup |
 | Assets | `embed` for templates, static files, locales |
-| i18n | `go-i18n` with `uk` (default) and `en` message files; the user's choice is stored in `users.locale` with a cookie fallback |
+| i18n | `go-i18n` with `uk` (default) and `en` message files; the user's choice is stored in `users.locale` with a cookie fallback (M5: `''` in `users.locale` means "not chosen", so the cookie or the default applies) |
 | Markdown | `goldmark` + HTML sanitizer (`bluemonday`) |
 | Reverse proxy | nginx + Let's Encrypt |
 
@@ -153,6 +153,7 @@ migrations/          *.sql
 web/templates/       html/template files
 web/static/          css, htmx.min.js
 locales/             uk.toml, en.toml
+deploy/              systemd units, nginx site, install/deploy/backup scripts
 docs/
 ```
 
@@ -214,7 +215,7 @@ Durations are `duration_ms` (milliseconds). Times other than the record's own `t
 ### 9.5 Requests
 
 - `internal/server.requestLog` wraps every other middleware and writes exactly **one `request` line per request** when it finishes. Handlers do not log "handling X".
-- Every request gets a 16-hex-character ID, returned in `X-Request-ID`. Behind nginx (`--trust-proxy`) an incoming `X-Request-ID` is kept if it is 1–64 characters of `[A-Za-z0-9._-]`, so nginx and app logs can be joined; otherwise it is ignored.
+- Every request gets a 16-hex-character ID, returned in `X-Request-ID`. Behind nginx (`--trust-proxy`) an incoming `X-Request-ID` is kept if it is 1–64 characters of `[A-Za-z0-9._-]`; otherwise it is ignored. nginx overwrites the header with its own `$request_id` (`deploy/nginx.conf`), so a client cannot choose the ID.
 - `user` is known only after the session is loaded. Requests refused before that (a CSRF failure) and the `POST /login` request itself have no `user`; the `login` line with the same `request_id` names the account.
 - Only the path is logged, cut to 200 characters. Never the query string or the body.
 
@@ -231,7 +232,7 @@ Durations are `duration_ms` (milliseconds). Times other than the record's own `t
 
 - **New per-request field** (e.g. `group` for every line of a group page, or `trace_id`): add it to the request info and `contextHandler` in `internal/logging`, and set it from a middleware the way `recordUser` sets `user`. Call sites do not change.
 - **Collector or OpenTelemetry:** use `--log-format json` and ship journald, or wrap or replace the handler in `internal/logging.New`. Again, call sites do not change.
-- **Retention:** set by journald on the server (M5), e.g. 2–4 weeks.
+- **Retention:** journald's system-wide limits; `docs/deploy.md` shows how to keep about four weeks.
 - **New code checklist:** context passed? constant message? keys from §9.4? right level? logged once? nothing from §9.6?
 
 ## 10. Deployment (VPS)
@@ -240,14 +241,15 @@ Durations are `duration_ms` (milliseconds). Times other than the record's own `t
 - Run as a **systemd** service under its own user. Config comes from env vars or a config file (listen addr, DB path, CIST sync interval).
 - **nginx** reverse proxy with TLS from Let's Encrypt (certbot).
 - **Backups:** nightly `sqlite3 extt.db ".backup ..."` via cron, or Litestream for continuous replication.
+- **M5:** the files are in `deploy/` and the steps in [deploy.md](deploy.md). Backups use `extt backup` (SQLite `VACUUM INTO`) from a systemd timer instead of the `sqlite3` tool and cron, and `install.sh` also takes one before every upgrade.
 
 ## 11. Milestones
 
-1. **M1 — Skeleton & auth:** project layout, migrations, register (open groups) / login / logout, admin CLI.
-2. **M2 — Leader tools:** CRUD for subjects, class links, homework, notes, recording/solution links.
-3. **M3 — Student tracker:** homework status toggle, grades, "my grades" totals.
-4. **M4 — Schedule:** CIST client, sync job, schedule views.
-5. **M5 — i18n & deploy:** uk/en translations, systemd + nginx setup, backups.
+1. **M1 — Skeleton & auth:** project layout, migrations, register (open groups) / login / logout, admin CLI. ✅
+2. **M2 — Leader tools:** CRUD for subjects, class links, homework, notes, recording/solution links. ✅
+3. **M3 — Student tracker:** homework status toggle, grades, "my grades" totals. ✅
+4. **M4 — Schedule:** CIST client, sync job, schedule views. ✅
+5. **M5 — i18n & deploy:** uk/en translations, systemd + nginx setup, backups. ✅
 
 ## 12. Open questions
 

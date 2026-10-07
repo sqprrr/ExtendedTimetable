@@ -2,10 +2,12 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
@@ -32,7 +34,7 @@ func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
 	htmx := r.Header.Get("HX-Request") == "true"
 	view := r.PostFormValue("view")
 	if err != nil {
-		msg, status, ok := userMessage(err)
+		msg, status, ok := userMessage(r, err)
 		if !ok {
 			h.renderError(w, r, err)
 			return
@@ -57,7 +59,9 @@ func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
 		h.render(w, r, status, "homework_detail", pageData{Group: g, Section: "homework", Homework: hw, ProgressPanel: item})
 		return
 	}
-	item := hwItem{Code: g.Code, CSRF: auth.CSRFToken(r.Context()), HW: hw, From: r.PostFormValue("from")}
+	filter, _ := url.ParseQuery(r.PostFormValue("filter"))
+	item := hwItem{Code: g.Code, CSRF: auth.CSRFToken(r.Context()), HW: hw, From: r.PostFormValue("from"),
+		Filter: homeworkFilterQuery(parseHomeworkFilter(filter))}
 	switch {
 	case htmx && view == "panel":
 		// The Overdue badge above the panel depends on the status too.
@@ -72,6 +76,9 @@ func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
 			back = "/g/" + g.Code
 		case "list":
 			back = "/g/" + g.Code + "/homework"
+			if item.Filter != "" {
+				back += "?" + item.Filter
+			}
 		}
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	}
@@ -96,7 +103,7 @@ func progressInput(r *http.Request) (service.ProgressInput, string, error) {
 	}
 	g, err := strconv.ParseFloat(strings.Replace(raw, ",", ".", 1), 64)
 	if err != nil {
-		return in, raw, &service.InputError{Field: "grade", Msg: "grade must be a number"}
+		return in, raw, &service.InputError{Field: "grade", Msg: i18n.M("err.grade_nan")}
 	}
 	in.Grade = &g
 	return in, raw, nil

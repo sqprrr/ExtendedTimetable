@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
@@ -17,15 +17,16 @@ const (
 	minUsernameLen = 3
 	maxUsernameLen = 32
 	minPasswordLen = 8
-	defaultLocale  = "uk"
 )
 
-var errChooseGroup = &InputError{Field: "group", Msg: "choose your group from the list"}
+var errChooseGroup = inputError("group", "err.choose_group")
 
 // NewSession is a freshly issued session; Token goes into the cookie.
 type NewSession struct {
 	Token     string
 	ExpiresAt time.Time
+	// Locale is the user's chosen language, or "" if they have not chosen.
+	Locale string
 }
 
 // RegisterInput is the self-registration form.
@@ -35,6 +36,9 @@ type RegisterInput struct {
 	// GroupCode is the group to join; every group is open to everyone.
 	GroupCode string
 	ClientIP  string
+	// Locale is the language the visitor chose before registering, if any;
+	// an unsupported one is ignored.
+	Locale string
 }
 
 // Register creates an account, makes it a student of the chosen group and
@@ -69,7 +73,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 		} else if err != nil {
 			return err
 		}
-		u := &store.User{Username: username, PasswordHash: hash, Locale: defaultLocale, CreatedAt: now}
+		u := &store.User{Username: username, PasswordHash: hash, Locale: chosenLocale(in.Locale), CreatedAt: now}
 		if err := q.CreateUser(ctx, u); errors.Is(err, store.ErrConflict) {
 			return ErrUsernameTaken
 		} else if err != nil {
@@ -84,7 +88,12 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 		return nil, err
 	}
 	slog.InfoContext(ctx, "registered", "username", username, "group", strings.ToUpper(groupCode))
-	return s.createSession(ctx, userID)
+	sess, err := s.createSession(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	sess.Locale = chosenLocale(in.Locale)
+	return sess, nil
 }
 
 // LoginInput is the login form.
@@ -121,7 +130,36 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error)
 	}
 	s.loginByUsername.Reset(username)
 	slog.InfoContext(ctx, "login", "username", u.Username)
-	return s.createSession(ctx, u.ID)
+	sess, err := s.createSession(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+	sess.Locale = u.Locale
+	return sess, nil
+}
+
+// SetLocale stores the signed-in viewer's language.
+func (s *Service) SetLocale(ctx context.Context, locale string) error {
+	v, err := requireViewer(ctx)
+	if err != nil {
+		return err
+	}
+	if !i18n.IsSupported(locale) {
+		return inputError("locale", "err.locale")
+	}
+	if err := s.store.SetLocale(ctx, v.UserID, locale); err != nil {
+		return err
+	}
+	v.Locale = locale
+	return nil
+}
+
+// chosenLocale returns locale if it is supported, or "" (not chosen).
+func chosenLocale(locale string) string {
+	if i18n.IsSupported(locale) {
+		return locale
+	}
+	return ""
 }
 
 // Logout revokes the session identified by token.
@@ -180,16 +218,14 @@ func (s *Service) createSession(ctx context.Context, userID int64) (*NewSession,
 func normalizeUsername(raw string) (string, error) {
 	u := strings.ToLower(strings.TrimSpace(raw))
 	if len(u) < minUsernameLen || len(u) > maxUsernameLen {
-		return "", &InputError{Field: "username",
-			Msg: fmt.Sprintf("username must be %d–%d characters", minUsernameLen, maxUsernameLen)}
+		return "", inputError("username", "err.username_length", "Min", minUsernameLen, "Max", maxUsernameLen)
 	}
 	for i, r := range u {
 		switch {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
 		case (r == '_' || r == '.' || r == '-') && i > 0:
 		default:
-			return "", &InputError{Field: "username",
-				Msg: "username may contain only latin letters, digits, '_', '.', '-' and must start with a letter or digit"}
+			return "", inputError("username", "err.username_chars")
 		}
 	}
 	return u, nil
@@ -197,10 +233,10 @@ func normalizeUsername(raw string) (string, error) {
 
 func validatePassword(p string) error {
 	if utf8.RuneCountInString(p) < minPasswordLen {
-		return &InputError{Field: "password", Msg: fmt.Sprintf("password must be at least %d characters", minPasswordLen)}
+		return inputError("password", "err.password_short", "Count", minPasswordLen)
 	}
 	if len(p) > auth.MaxPasswordBytes {
-		return &InputError{Field: "password", Msg: "password is too long"}
+		return inputError("password", "err.password_long")
 	}
 	return nil
 }

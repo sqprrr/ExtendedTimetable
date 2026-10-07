@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sort"
 	"strconv"
@@ -59,7 +58,7 @@ func (s *Service) UpdateProgress(ctx context.Context, groupID, homeworkID int64,
 		return nil, err
 	}
 	if in.Status != nil && !validStatus(*in.Status) {
-		return nil, &InputError{Field: "status", Msg: "choose not started, in progress or done"}
+		return nil, inputError("status", "err.status")
 	}
 	var out *Homework
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
@@ -110,13 +109,13 @@ func grade(g, max *float64) (*float64, error) {
 		return nil, nil
 	}
 	if math.IsNaN(*g) || math.IsInf(*g, 0) || *g < 0 {
-		return nil, &InputError{Field: "grade", Msg: "grade must be zero or a positive number"}
+		return nil, inputError("grade", "err.grade_negative")
 	}
 	if max != nil && *g > *max {
-		return nil, &InputError{Field: "grade", Msg: fmt.Sprintf("grade cannot be more than the %s max points", strconv.FormatFloat(*max, 'f', -1, 64))}
+		return nil, inputError("grade", "err.grade_over_max", "Max", strconv.FormatFloat(*max, 'f', -1, 64))
 	}
 	if *g > maxPoints {
-		return nil, &InputError{Field: "grade", Msg: fmt.Sprintf("grade must be at most %d", maxPoints)}
+		return nil, inputError("grade", "err.grade_too_big", "Max", maxPoints)
 	}
 	v := *g
 	return &v, nil

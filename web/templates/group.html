@@ -5,18 +5,18 @@
 {{with .Schedule}}
 <section class="card">
   <div class="card-head">
-    <h2>Today</h2>
-    <a href="/g/{{$.Group.Code}}/schedule">Week schedule</a>
+    <h2>{{t "overview.today"}}</h2>
+    <a href="/g/{{$.Group.Code}}/schedule">{{t "overview.week_schedule"}}</a>
   </div>
   {{if .Events}}
   <ul class="classes">
     {{range .Events}}{{template "scheduleEvent" (classItem $.Schedule .)}}{{end}}
   </ul>
   {{else if .HasSource}}
-  <p class="muted">No classes today.</p>
+  <p class="muted">{{t "overview.no_classes_today"}}</p>
   {{end}}
   {{with nextLater .}}
-  <p>Next class: <strong>{{.Title}}</strong> <span class="muted">· {{classType .}} · {{dayName .StartsAt}}, {{clock .StartsAt}}</span></p>
+  <p>{{t "schedule.next_class"}} <strong>{{.Title}}</strong> <span class="muted">· {{classType .}} · {{dayName .StartsAt}}, {{clock .StartsAt}}</span></p>
   {{end}}
   {{if or (not .HasSource) (not .Sync) .Sync.LastError}}{{template "scheduleStatus" $}}{{end}}
 </section>
@@ -24,38 +24,38 @@
 
 <section class="card">
   <div class="card-head">
-    <h2>Homework</h2>
-    <a href="/g/{{.Group.Code}}/homework">All homework</a>
+    <h2>{{t "nav.homework"}}</h2>
+    <a href="/g/{{.Group.Code}}/homework">{{t "overview.all_homework"}}</a>
   </div>
   {{with .HomeworkList}}
   <ul class="items">
     {{range .}}{{template "homeworkItem" (hwItem $ . "overview")}}{{end}}
   </ul>
   {{else}}
-  <p class="muted">Nothing due.</p>
+  <p class="muted">{{t "overview.nothing_due"}}</p>
   {{end}}
 </section>
 
 <section class="card">
   <div class="card-head">
-    <h2>Notes</h2>
-    <a href="/g/{{.Group.Code}}/notes">All notes</a>
+    <h2>{{t "nav.notes"}}</h2>
+    <a href="/g/{{.Group.Code}}/notes">{{t "overview.all_notes"}}</a>
   </div>
   {{range .Notes}}
   <article class="note{{if .Pinned}} pinned{{end}}">
-    <h3>{{if .Pinned}}<span class="badge">Pinned</span> {{end}}{{.Title}}</h3>
+    <h3>{{if .Pinned}}<span class="badge">{{t "notes.pinned"}}</span> {{end}}{{.Title}}</h3>
     <p class="muted small">{{date .CreatedAt}}</p>
     <div class="md">{{markdown .BodyMD}}</div>
   </article>
   {{else}}
-  <p class="muted">No notes yet.</p>
+  <p class="muted">{{t "notes.empty"}}</p>
   {{end}}
 </section>
 
 <section class="card">
   <div class="card-head">
-    <h2>Class links</h2>
-    <a href="/g/{{.Group.Code}}/links">{{if .Group.CanManage}}Manage{{else}}All links{{end}}</a>
+    <h2>{{t "nav.links"}}</h2>
+    <a href="/g/{{.Group.Code}}/links">{{if .Group.CanManage}}{{t "overview.manage"}}{{else}}{{t "overview.all_links"}}{{end}}</a>
   </div>
   {{template "classLinkTable" .}}
 </section>

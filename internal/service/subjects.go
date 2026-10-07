@@ -15,16 +15,16 @@ type SubjectInput struct {
 
 func (in SubjectInput) validate() (SubjectInput, error) {
 	var err error
-	if in.Name, err = text("name", "name", in.Name, true, maxNameLen); err != nil {
+	if in.Name, err = text("name", "field.name", in.Name, true, maxNameLen); err != nil {
 		return in, err
 	}
-	if in.ShortName, err = text("short_name", "short name", in.ShortName, false, maxShortNameLen); err != nil {
+	if in.ShortName, err = text("short_name", "field.short_name", in.ShortName, false, maxShortNameLen); err != nil {
 		return in, err
 	}
 	return in, nil
 }
 
-var errSubjectExists = &InputError{Field: "name", Msg: "the group already has a subject with this name"}
+var errSubjectExists = inputError("name", "err.subject_exists")
 
 // Subjects lists the group's subjects.
 func (s *Service) Subjects(ctx context.Context, groupID int64) ([]*store.Subject, error) {
