@@ -36,6 +36,7 @@ cancel = "Скасувати"
 edit = "Змінити"
 delete = "Видалити"
 join = "Приєднатися"
+more_actions = "Інші дії"
 
 [field]
 username = "Ім’я користувача"
@@ -64,6 +65,7 @@ choose_subject = "Оберіть предмет…"
 add_subject_first = 'Спочатку додайте предмет на вкладці <a href="{{.URL}}">Предмети</a>.'
 optional = "Необов’язково."
 markdown_hint = "Markdown: <code>**жирний**</code>, <code>- список</code>, <code>[текст](https://…)</code>."
+optional_label = "Необов’язково"
 
 [status]
 not_started = "Не розпочато"
@@ -161,6 +163,9 @@ all_statuses = "Будь-який статус"
 filter = "Фільтрувати"
 reset_filters = "Скинути"
 no_matches = "Немає завдань за цими фільтрами."
+filters = "Фільтри"
+statuses_private = "ваші статуси бачите лише ви"
+empty_hint = "Коли староста додасть завдання, воно з’явиться тут разом із терміном."
 
 [progress]
 title = "Мій прогрес"
@@ -418,3 +423,22 @@ one = "{{.Count}} пара"
 few = "{{.Count}} пари"
 many = "{{.Count}} пар"
 other = "{{.Count}} пари"
+
+[hw.group]
+overdue = "Прострочено"
+week = "Цього тижня"
+later = "Пізніше"
+none = "Без терміну"
+done = "Виконано"
+
+[hw.summary_overdue]
+one = "{{.Count}} прострочене"
+few = "{{.Count}} прострочені"
+many = "{{.Count}} прострочених"
+other = "{{.Count}} прострочених"
+
+[hw.summary_week]
+one = "{{.Count}} на цей тиждень"
+few = "{{.Count}} на цей тиждень"
+many = "{{.Count}} на цей тиждень"
+other = "{{.Count}} на цей тиждень"

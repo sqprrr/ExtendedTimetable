@@ -35,7 +35,7 @@ func setupHomework(t *testing.T, e *env, lead *browser) string {
 	t.Helper()
 	const g = "/g/KIUKI-25-3"
 	lead.submit(g+"/subjects", g+"/subjects", url.Values{"name": {"Physics"}})
-	_, body, _ := lead.get(g + "/homework")
+	_, body, _ := lead.get(g + "/homework/new")
 	m := subjectOptionRe.FindStringSubmatch(body)
 	if m == nil {
 		t.Fatal("no subject option")
@@ -82,7 +82,7 @@ func TestStatusToggleWithHtmx(t *testing.T) {
 	if code != http.StatusSeeOther || h.Get("Location") != "/g/KIUKI-25-3" {
 		t.Fatalf("plain toggle: %d %s", code, h.Get("Location"))
 	}
-	if _, body, _ := stud.get(hwURL); !strings.Contains(body, `class="status status-done" aria-pressed="true"`) {
+	if _, body, _ := stud.get(hwURL); !strings.Contains(body, `data-status="done" aria-pressed="true"`) {
 		t.Fatalf("detail page should show done:\n%s", body)
 	}
 
@@ -109,7 +109,7 @@ func TestStatusToggleWithHtmx(t *testing.T) {
 	}
 
 	// The leader's own tracker is untouched.
-	if _, body, _ := lead.get(hwURL); !strings.Contains(body, `class="status status-not_started" aria-pressed="true"`) {
+	if _, body, _ := lead.get(hwURL); !strings.Contains(body, `data-status="not_started" aria-pressed="true"`) {
 		t.Fatal("the leader must not see the student's status")
 	}
 }
@@ -127,7 +127,7 @@ func TestGradeFormAndMyGrades(t *testing.T) {
 		t.Fatalf("too high grade: %d\n%s", code, frag)
 	}
 	code, frag = stud.htmx(hwURL+"/progress", tok, url.Values{"view": {"panel"}, "grade": {"7,5"}})
-	if code != http.StatusOK || !strings.Contains(frag, `value="7.5"`) || strings.Contains(frag, `class="error"`) {
+	if code != http.StatusOK || !strings.Contains(frag, `value="7.5"`) || strings.Contains(frag, "alert-danger") {
 		t.Fatalf("save grade: %d\n%s", code, frag)
 	}
 
@@ -247,7 +247,7 @@ func TestHomeworkFilters(t *testing.T) {
 	const list = "/g/KIUKI-25-3/homework"
 
 	_, body, _ := stud.get(list)
-	if !strings.Contains(body, `<form class="filters" method="get"`) || !strings.Contains(body, `<select name="status">`) {
+	if !strings.Contains(body, `<form class="filters" method="get"`) || !strings.Contains(body, `<input type="radio" name="status" value="done">`) {
 		t.Fatalf("list should have the filters:\n%s", body)
 	}
 	if _, body, _ = stud.get(list + "?status=done"); strings.Contains(body, "Lab 1") || !strings.Contains(body, "No homework matches") {

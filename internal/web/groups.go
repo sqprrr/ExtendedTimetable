@@ -97,6 +97,7 @@ func (h *Handler) sections() []*section {
 				if d.HomeworkList, err = h.svc.HomeworkList(ctx, groupID, d.HomeworkFilter); err != nil {
 					return err
 				}
+				d.HomeworkGroups = h.groupHomework(h.svc.Now(), d.HomeworkList, d.HomeworkFilter)
 				return loadSubjects(ctx, h, groupID, d)
 			},
 			fields: func(ctx context.Context, h *Handler, groupID, id int64) (map[string]string, error) {
@@ -249,6 +250,7 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	for _, s := range h.sections() {
 		base := "/g/{code}/" + s.name
 		mux.HandleFunc("GET "+base, h.sectionList(s))
+		mux.HandleFunc("GET "+base+"/new", h.sectionNew(s))
 		mux.HandleFunc("POST "+base, h.sectionCreate(s))
 		mux.HandleFunc("GET "+base+"/{id}/edit", h.sectionEdit(s))
 		mux.HandleFunc("POST "+base+"/{id}", h.sectionUpdate(s))
@@ -299,6 +301,21 @@ func (h *Handler) sectionList(s *section) http.HandlerFunc {
 		if g := h.groupPage(w, r); g != nil {
 			h.showSection(w, r, s, g, http.StatusOK, pageData{})
 		}
+	}
+}
+
+// sectionNew shows the create form on its own page (leaders only).
+func (h *Handler) sectionNew(s *section) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		g := h.groupPage(w, r)
+		if g == nil {
+			return
+		}
+		if !g.CanManage {
+			h.renderError(w, r, service.ErrForbidden)
+			return
+		}
+		h.showSection(w, r, s, g, http.StatusOK, pageData{New: true})
 	}
 }
 
@@ -395,7 +412,7 @@ func (h *Handler) sectionFormError(w http.ResponseWriter, r *http.Request, s *se
 			fields[k] = v[0]
 		}
 	}
-	h.showSection(w, r, s, g, status, pageData{EditID: editID, Fields: fields, Error: msg})
+	h.showSection(w, r, s, g, status, pageData{EditID: editID, New: editID == 0, Fields: fields, Error: msg})
 }
 
 func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {

@@ -126,13 +126,17 @@ type pageData struct {
 	Section string
 	// Fields fills the create or edit form of a group section.
 	Fields map[string]string
-	// EditID is the item being edited; 0 shows the list and the create form.
+	// EditID is the item being edited; with New, the page shows the create
+	// form; otherwise the list.
 	EditID       int64
+	New          bool
 	Subjects     []*store.Subject
 	ClassLinks   []*store.ClassLink
 	HomeworkList []*service.Homework
 	// HomeworkFilter is the homework list's subject and status filter.
 	HomeworkFilter service.HomeworkFilter
+	// HomeworkGroups is HomeworkList grouped by when things are due.
+	HomeworkGroups hwList
 	// Query is the page's query string.
 	Query     url.Values
 	Homework  *service.Homework
@@ -174,6 +178,16 @@ type hwItem struct {
 	// UpdateBadge also updates the Overdue badge on the homework page when
 	// the panel is swapped in by htmx.
 	UpdateBadge bool
+	// Manage adds the leader's row menu (edit, delete).
+	Manage bool
+}
+
+// rowMenu is what the rowMenu template renders: a leader's Edit and Delete
+// for the item at Base (/g/<code>/<section>/<id>).
+type rowMenu struct {
+	Base    string
+	Confirm string
+	CSRF    string
 }
 
 func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
@@ -208,8 +222,10 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		},
 		"lessonTypes": func() []store.LessonType { return service.LessonTypes },
 		"hwItem": func(d pageData, hw *service.Homework, from string) hwItem {
-			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from, Filter: homeworkFilterQuery(d.HomeworkFilter)}
+			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from, Filter: homeworkFilterQuery(d.HomeworkFilter),
+				Manage: d.Group.CanManage && from == "list"}
 		},
+		"rowMenu":    func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
 		"statuses":   func() []store.ProgressStatus { return service.Statuses },
 		"nextStatus": service.NextStatus,
 		"statusLabel": func(st store.ProgressStatus) string {

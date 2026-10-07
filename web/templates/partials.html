@@ -44,23 +44,33 @@
 
 {{/* subjectSelect is the subject picker of a section form. */}}
 {{define "subjectSelect"}}
-<label>{{t "field.subject"}}
-  <select name="subject_id" required>
+<label class="field">
+  <span class="field-label">{{t "field.subject"}}</span>
+  <select class="select" name="subject_id" required>
     <option value="">{{t "form.choose_subject"}}</option>
     {{range .Subjects}}
     <option value="{{.ID}}"{{if eq (idstr .ID) (index $.Fields "subject_id")}} selected{{end}}>{{.Name}}</option>
     {{end}}
   </select>
-  {{if not .Subjects}}<small class="muted">{{th "form.add_subject_first" "URL" (print "/g/" .Group.Code "/subjects")}}</small>{{end}}
+  {{if not .Subjects}}<span class="field-hint">{{th "form.add_subject_first" "URL" (print "/g/" .Group.Code "/subjects")}}</span>{{end}}
 </label>
 {{end}}
 
 {{/* formButtons ends a section form: Add, or Save and Cancel when editing. */}}
 {{define "formButtons"}}
-<div class="form-actions">
-  <button type="submit">{{if .EditID}}{{t "action.save"}}{{else}}{{t "action.add"}}{{end}}</button>
-  {{if .EditID}}<a href="/g/{{.Group.Code}}/{{.Section}}">{{t "action.cancel"}}</a>{{end}}
+<div class="btn-row">
+  <button type="submit" class="btn btn-primary">{{if .EditID}}{{t "action.save"}}{{else}}{{t "action.add"}}{{end}}</button>
+  <a class="btn btn-ghost" href="/g/{{.Group.Code}}/{{.Section}}">{{t "action.cancel"}}</a>
 </div>
+{{end}}
+
+{{/* formHead is the head of a section's create or edit page: the way back,
+   the title and the error. */}}
+{{define "formHead"}}
+{{$p := .Section}}{{if eq $p "homework"}}{{$p = "hw"}}{{end}}
+<a class="back-link" href="/g/{{.Group.Code}}/{{.Section}}">{{icon "chevron-left"}}{{t (print "nav." .Section)}}</a>
+<header class="page-head"><div><h1>{{if .EditID}}{{t (print $p ".edit_title")}}{{else}}{{t (print $p ".new_title")}}{{end}}</h1></div></header>
+{{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 {{end}}
 
 {{/* homeworkItem is one assignment in a homework list, with the viewer's
@@ -87,45 +97,67 @@
       <span class="meta-item{{if .HW.Overdue}} due-overdue{{end}}">{{if .HW.Overdue}}{{icon "triangle-alert"}}{{else}}{{icon "clock"}}{{end}}{{due .HW}}</span>
     </div>
   </div>
-  {{with .HW.MaxPoints}}<span class="points">{{with $.HW.Grade}}{{points .}}{{else}}—{{end}} / {{points .}}</span>{{else}}<span></span>{{end}}
+  <div class="row-end">
+    {{with .HW.MaxPoints}}<span class="points">{{with $.HW.Grade}}{{points .}}{{else}}—{{end}} / {{points .}}</span>{{end}}
+    {{if .Manage}}{{template "rowMenu" (rowMenu (print "/g/" .Code "/homework/" .HW.ID) (t "hw.confirm_delete") .CSRF)}}{{end}}
+  </div>
 </li>
+{{end}}
+
+{{/* rowMenu is a leader's Edit and Delete for one item, behind an ellipsis
+   button. A <details>, so it works without JavaScript. */}}
+{{define "rowMenu"}}
+<details class="menu">
+  <summary class="btn btn-ghost btn-icon btn-sm" aria-label="{{t "action.more_actions"}}" title="{{t "action.more_actions"}}">{{icon "ellipsis"}}</summary>
+  <div class="menu-list">
+    <a class="menu-item" href="{{.Base}}/edit">{{icon "pencil"}}{{t "action.edit"}}</a>
+    <div class="menu-sep"></div>
+    <form method="post" action="{{.Base}}/delete" data-confirm="{{.Confirm}}">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <button type="submit" class="menu-item danger">{{icon "trash-2"}}{{t "action.delete"}}</button>
+    </form>
+  </div>
+</details>
 {{end}}
 
 {{/* progressPanel is the viewer's status and grade on the homework page.
    Both forms work without JavaScript; with htmx they replace the panel. */}}
 {{define "progressPanel"}}
 {{if .HW.Tracked}}
-<section class="card" id="progress">
-  <div class="card-head">
-    <h3>{{t "progress.title"}}</h3>
-    <span class="muted small">{{t "progress.private"}}</span>
-  </div>
-  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
-  {{if .HW.GradeOverMax}}
-  <p class="warn-text small" role="note">{{t "progress.grade_over_max" "Max" (points .HW.MaxPoints)}}</p>
-  {{end}}
-  <form class="segmented" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
-        hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
-    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-    <input type="hidden" name="view" value="panel">
-    {{range statuses}}
-    <button type="submit" name="status" value="{{.}}" class="status status-{{.}}" aria-pressed="{{eq . $.HW.Status}}">{{statusLabel .}}</button>
+<section class="card" id="progress" aria-labelledby="progress-title">
+  <div class="card-head"><h2 id="progress-title">{{t "progress.title"}}</h2></div>
+  <div class="stack">
+    <div class="alert alert-info" role="note">{{icon "info"}}<div>{{t "progress.private"}}</div></div>
+    {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+    {{if .HW.GradeOverMax}}
+    <div class="alert alert-warning" role="note">{{icon "triangle-alert"}}<div>{{t "progress.grade_over_max" "Max" (points .HW.MaxPoints)}}</div></div>
     {{end}}
-  </form>
-  <form class="grade-form" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
-        hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
-    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-    <input type="hidden" name="view" value="panel">
-    <label>{{t "progress.my_grade"}}
-      <span class="grade-input">
-        <input name="grade" inputmode="decimal" value="{{or .GradeInput (points .HW.Grade)}}" placeholder="—">
-        {{with .HW.MaxPoints}}<span class="muted">/ {{points .}}</span>{{end}}
-      </span>
-    </label>
-    <button type="submit" class="secondary">{{t "progress.save_grade"}}</button>
-  </form>
+    <form method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
+          hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <input type="hidden" name="view" value="panel">
+      <div class="segmented status-segmented" role="group" aria-label="{{t "hw.status"}}">
+        {{range statuses}}
+        <button type="submit" name="status" value="{{.}}" data-status="{{.}}" aria-pressed="{{eq . $.HW.Status}}">{{icon (statusIcon .)}}{{statusLabel .}}</button>
+        {{end}}
+      </div>
+    </form>
+    <form class="grade-form" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
+          hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <input type="hidden" name="view" value="panel">
+      <label class="field">
+        <span class="field-label">{{t "progress.my_grade"}}</span>
+        <span class="grade-input">
+          <input class="input" name="grade" inputmode="decimal" value="{{or .GradeInput (points .HW.Grade)}}" placeholder="—"{{if .Error}} aria-invalid="true"{{end}}>
+          {{with .HW.MaxPoints}}<span class="mono text-secondary">/ {{points .}}</span>{{end}}
+        </span>
+      </label>
+      <button type="submit" class="btn btn-secondary">{{t "progress.save_grade"}}</button>
+    </form>
+  </div>
 </section>
-{{if .UpdateBadge}}<span id="overdue-badge" hx-swap-oob="true">{{if .HW.Overdue}}<span class="badge warn">{{t "hw.overdue"}}</span>{{end}}</span>{{end}}
+{{if .UpdateBadge}}<span id="overdue-badge" hx-swap-oob="true">{{if .HW.Overdue}}<span class="badge badge-warning">{{icon "triangle-alert"}}{{t "hw.overdue"}}</span>{{end}}</span>{{end}}
 {{end}}
 {{end}}
 

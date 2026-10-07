@@ -39,10 +39,29 @@ for (const form of document.querySelectorAll("form[data-autosubmit]")) {
   form.addEventListener("change", () => form.requestSubmit());
   // Leave "all" choices out of the URL: ?subject_id=2, not ?subject_id=2&status=
   form.addEventListener("submit", () => {
-    for (const s of form.querySelectorAll("select")) s.disabled = !s.value;
+    for (const el of form.elements) {
+      if (el.name && el.value === "" && (el.type !== "radio" || el.checked)) el.disabled = true;
+    }
   });
 }
-// Back/forward can restore a page with the selects still disabled.
+// Back/forward can restore a page with the fields still disabled.
 window.addEventListener("pageshow", () => {
-  for (const s of document.querySelectorAll("form[data-autosubmit] select")) s.disabled = false;
+  for (const el of document.querySelectorAll("form[data-autosubmit] [name]")) el.disabled = false;
+});
+
+// Row menus are <details>: close the others when one opens, and all of
+// them on a click elsewhere or Escape.
+document.addEventListener("toggle", (e) => {
+  if (!e.target.matches?.("details.menu") || !e.target.open) return;
+  for (const d of document.querySelectorAll("details.menu[open]")) if (d !== e.target) d.open = false;
+}, true);
+document.addEventListener("click", (e) => {
+  for (const d of document.querySelectorAll("details.menu[open]")) if (!d.contains(e.target)) d.open = false;
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  for (const d of document.querySelectorAll("details.menu[open]")) {
+    d.open = false;
+    d.querySelector("summary").focus();
+  }
 });

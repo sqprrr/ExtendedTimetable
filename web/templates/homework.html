@@ -1,88 +1,114 @@
 {{define "title"}}{{t "nav.homework"}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-homework{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
-{{if .EditID}}
-<section class="card">
-  <h2>{{t "hw.edit_title"}}</h2>
-  {{template "form" .}}
-</section>
+{{if or .EditID .New}}
+{{template "formHead" .}}
+<section class="card">{{template "form" .}}</section>
 {{else}}
-{{if .Group.CanManage}}
-<details class="card"{{if .Error}} open{{end}}>
-  <summary><h2>{{t "hw.new_title"}}</h2></summary>
-  {{template "form" .}}
-</details>
-{{end}}
-<section class="card">
-  <h2>{{t "nav.homework"}}</h2>
+{{$g := print "/g/" .Group.Code}}
+{{$hw := .HomeworkGroups}}
+<header class="page-head">
+  <div>
+    <h1>{{t "nav.homework"}}</h1>
+    <p class="subtitle">{{t "hw.summary_overdue" "Count" $hw.Overdue}} · {{t "hw.summary_week" "Count" $hw.ThisWeek}}{{if .Group.CanTrack}} · {{t "hw.statuses_private"}}{{end}}</p>
+  </div>
+  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/homework/new">{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+</header>
+{{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+<div class="section-gap">
   {{template "homeworkFilters" .}}
-  {{with .HomeworkList}}
-  <ul class="items">
-    {{range .}}{{template "homeworkItem" (hwItem $ . "list")}}{{end}}
-  </ul>
-  {{else}}
-  <p class="muted">{{if or .HomeworkFilter.SubjectID .HomeworkFilter.Status}}{{t "hw.no_matches"}}{{else}}{{t "hw.empty"}}{{end}}</p>
-  {{end}}
-</section>
+  <section class="card" aria-label="{{t "nav.homework"}}">
+    {{range $hw.Groups}}
+    <h2 class="group-title">{{t (print "hw.group." .Key)}} <span class="count">{{len .Items}}</span></h2>
+    <ul class="rows">
+      {{range .Items}}{{template "homeworkItem" (hwItem $ . "list")}}{{end}}
+    </ul>
+    {{end}}
+    {{with $hw.Done}}
+    <details class="group"{{if $hw.OpenDone}} open{{end}}>
+      <summary class="group-title">{{t "hw.group.done"}} <span class="count">{{len .}}</span>{{icon "chevron-down"}}</summary>
+      <ul class="rows">
+        {{range .}}{{template "homeworkItem" (hwItem $ . "list")}}{{end}}
+      </ul>
+    </details>
+    {{end}}
+    {{if not .HomeworkList}}
+    <div class="empty">
+      <span class="glyph">{{icon "list-checks"}}</span>
+      {{if or .HomeworkFilter.SubjectID .HomeworkFilter.Status}}
+      <h3>{{t "hw.no_matches"}}</h3>
+      <a class="btn btn-ghost btn-sm" href="{{$g}}/homework">{{t "hw.reset_filters"}}</a>
+      {{else}}
+      <h3>{{t "hw.empty"}}</h3>
+      <p>{{t "hw.empty_hint"}}</p>
+      {{if .Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/homework/new">{{icon "plus"}}{{t "hw.new_title"}}</a>{{end}}
+      {{end}}
+    </div>
+    {{end}}
+  </section>
+</div>
 {{end}}
 {{end}}
 
 {{define "form"}}
-<form method="post" action="/g/{{.Group.Code}}/homework{{if .EditID}}/{{.EditID}}{{end}}">
+<form class="form" method="post" action="/g/{{.Group.Code}}/homework{{if .EditID}}/{{.EditID}}{{end}}">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   {{template "subjectSelect" .}}
-  <label>{{t "field.title"}}
-    <input name="title" value="{{index .Fields "title"}}" maxlength="200" required>
+  <label class="field">
+    <span class="field-label">{{t "field.title"}}</span>
+    <input class="input" name="title" value="{{index .Fields "title"}}" maxlength="200" required>
   </label>
-  <label>{{t "field.description_md"}}
-    <textarea name="description" rows="8">{{index .Fields "description"}}</textarea>
-    <small class="muted">{{th "form.markdown_hint"}}</small>
+  <label class="field">
+    <span class="field-label">{{t "field.description_md"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+    <textarea class="textarea" name="description" rows="8">{{index .Fields "description"}}</textarea>
+    <span class="field-hint">{{th "form.markdown_hint"}}</span>
   </label>
-  <div class="row">
-    <label>{{t "field.due"}}
-      <input name="due_at" type="datetime-local" value="{{index .Fields "due_at"}}">
-      <small class="muted">{{t "hw.due_hint"}}</small>
+  <div class="form-row">
+    <label class="field">
+      <span class="field-label">{{t "field.due"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+      <input class="input" name="due_at" type="datetime-local" value="{{index .Fields "due_at"}}">
+      <span class="field-hint">{{t "hw.due_hint"}}</span>
     </label>
-    <label>{{t "field.max_points"}}
-      <input name="max_points" inputmode="decimal" value="{{index .Fields "max_points"}}">
-      <small class="muted">{{t "form.optional"}}</small>
+    <label class="field">
+      <span class="field-label">{{t "field.max_points"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+      <input class="input" name="max_points" inputmode="decimal" value="{{index .Fields "max_points"}}">
     </label>
   </div>
-  <label>{{t "field.links"}}
-    <textarea name="links" rows="3" placeholder="{{t "hw.links_placeholder"}}">{{index .Fields "links"}}</textarea>
-    <small class="muted">{{th "hw.links_hint"}}</small>
+  <label class="field">
+    <span class="field-label">{{t "field.links"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+    <textarea class="textarea" name="links" rows="3" placeholder="{{t "hw.links_placeholder"}}">{{index .Fields "links"}}</textarea>
+    <span class="field-hint">{{th "hw.links_hint"}}</span>
   </label>
   {{template "formButtons" .}}
 </form>
 {{end}}
 
 {{/* homeworkFilters narrows the list by subject and, for a viewer with a
-   tracker, by their own status. A plain GET form, so the filter is in the
-   URL; app.js submits it when a choice changes. */}}
+   tracker, by their own status: one-tap chips in a plain GET form, so the
+   filter is in the URL. app.js submits it when a choice changes; the
+   button is for browsers without JavaScript. */}}
 {{define "homeworkFilters"}}
 {{$f := .HomeworkFilter}}
-<form class="filters" method="get" action="/g/{{.Group.Code}}/homework" data-autosubmit>
-  <label>{{t "field.subject"}}
-    <select name="subject_id">
-      <option value="">{{t "hw.all_subjects"}}</option>
-      {{range .Subjects}}
-      <option value="{{.ID}}"{{if eq .ID $f.SubjectID}} selected{{end}}>{{.Name}}</option>
-      {{end}}
-    </select>
-  </label>
+<form class="filters" method="get" action="/g/{{.Group.Code}}/homework" data-autosubmit aria-label="{{t "hw.filters"}}">
+  <fieldset class="chips">
+    <legend class="sr-only">{{t "field.subject"}}</legend>
+    <label class="chip"><input type="radio" name="subject_id" value=""{{if not $f.SubjectID}} checked{{end}}>{{t "hw.all_subjects"}}</label>
+    {{range .Subjects}}
+    <label class="chip"><input type="radio" name="subject_id" value="{{.ID}}"{{if eq .ID $f.SubjectID}} checked{{end}}><span class="subject" data-hue="{{hue .ID .Hue}}">{{.Name}}</span></label>
+    {{end}}
+  </fieldset>
   {{if .Group.CanTrack}}
-  <label>{{t "hw.status"}}
-    <select name="status">
-      <option value="">{{t "hw.all_statuses"}}</option>
-      {{range statuses}}
-      <option value="{{.}}"{{if eq . $f.Status}} selected{{end}}>{{statusLabel .}}</option>
-      {{end}}
-    </select>
-  </label>
+  <fieldset class="chips">
+    <legend class="sr-only">{{t "hw.status"}}</legend>
+    <label class="chip"><input type="radio" name="status" value=""{{if not $f.Status}} checked{{end}}>{{t "hw.all_statuses"}}</label>
+    {{range statuses}}
+    <label class="chip"><input type="radio" name="status" value="{{.}}"{{if eq . $f.Status}} checked{{end}}>{{statusLabel .}}</label>
+    {{end}}
+  </fieldset>
   {{end}}
-  <div class="form-actions">
-    <button type="submit" class="secondary">{{t "hw.filter"}}</button>
-    {{if or $f.SubjectID $f.Status}}<a href="/g/{{.Group.Code}}/homework">{{t "hw.reset_filters"}}</a>{{end}}
+  <div class="btn-row">
+    <button type="submit" class="btn btn-secondary btn-sm">{{t "hw.filter"}}</button>
+    {{if or $f.SubjectID $f.Status}}<a class="btn btn-ghost btn-sm" href="/g/{{.Group.Code}}/homework">{{t "hw.reset_filters"}}</a>{{end}}
   </div>
 </form>
 {{end}}

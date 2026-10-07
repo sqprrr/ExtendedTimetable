@@ -35,6 +35,7 @@ cancel = "Cancel"
 edit = "Edit"
 delete = "Delete"
 join = "Join"
+more_actions = "More actions"
 
 [field]
 username = "Username"
@@ -63,6 +64,7 @@ choose_subject = "Choose a subject…"
 add_subject_first = 'Add a subject first on the <a href="{{.URL}}">Subjects</a> tab.'
 optional = "Optional."
 markdown_hint = "Markdown: <code>**bold**</code>, <code>- list</code>, <code>[text](https://…)</code>."
+optional_label = "Optional"
 
 [status]
 not_started = "Not started"
@@ -160,6 +162,9 @@ all_statuses = "Any status"
 filter = "Filter"
 reset_filters = "Reset"
 no_matches = "No homework matches these filters."
+filters = "Filters"
+statuses_private = "only you see your statuses"
+empty_hint = "When the leader adds an assignment, it shows up here with its due date."
 
 [progress]
 title = "My progress"
@@ -399,3 +404,18 @@ other = "{{.Count}} days overdue"
 [schedule.count]
 one = "{{.Count}} class"
 other = "{{.Count}} classes"
+
+[hw.group]
+overdue = "Overdue"
+week = "This week"
+later = "Later"
+none = "No deadline"
+done = "Done"
+
+[hw.summary_overdue]
+one = "{{.Count}} overdue"
+other = "{{.Count}} overdue"
+
+[hw.summary_week]
+one = "{{.Count}} due this week"
+other = "{{.Count}} due this week"

@@ -642,3 +642,27 @@ progress.bar::-moz-progress-bar { background: var(--hue, var(--accent)); border-
 @media (max-width: 767.98px) {
   .day-card:not(.is-selected) { display: none; }
 }
+
+/* [hidden] must win over component display rules (.btn is inline-flex). */
+[hidden] { display: none !important; }
+
+/* Pages: a way back above the head */
+.back-link { display: inline-flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-8); color: var(--text-secondary); text-decoration: none; font-size: 13px; line-height: 18px; font-weight: 500; }
+.back-link:hover { color: var(--text); }
+.back-link .icon { width: 16px; height: 16px; }
+.page-head .meta.subtitle { margin-top: var(--space-6); }
+
+/* Homework */
+.filters { display: grid; gap: var(--space-8); }
+fieldset.chips { border: 0; min-width: 0; }
+.row-end { display: flex; align-items: flex-start; gap: var(--space-4); }
+.row-end .points { line-height: 22px; }
+.row-end details.menu { margin: -4px 0; }
+.group-title h2, h2.group-title { margin-top: var(--space-20); }
+.card > h2.group-title:first-child, .card > .group-title:first-child { margin-top: 0; }
+details.group > summary .icon { width: 14px; height: 14px; transition: none; }
+details.group[open] > summary .icon { transform: rotate(180deg); }
+.status-segmented { flex-wrap: wrap; }
+.grade-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-12); }
+.grade-input { display: flex; align-items: center; gap: var(--space-8); }
+.grade-input .input { width: 8rem; }
