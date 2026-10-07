@@ -213,6 +213,8 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /g/{code}/homework/{id}", h.homeworkDetail)
 	mux.HandleFunc("POST /g/{code}/homework/{id}/progress", h.updateProgress)
 	mux.HandleFunc("GET /g/{code}/grades", h.myGrades)
+	mux.HandleFunc("GET /g/{code}/schedule", h.schedulePage)
+	mux.HandleFunc("POST /g/{code}/schedule/sync", h.syncSchedule)
 	for _, s := range h.sections() {
 		base := "/g/{code}/" + s.name
 		mux.HandleFunc("GET "+base, h.sectionList(s))
@@ -375,6 +377,7 @@ func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, http.StatusOK, "group", pageData{
 		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes, ClassLinks: ov.ClassLinks,
+		Schedule: ov.Today,
 	})
 }
 

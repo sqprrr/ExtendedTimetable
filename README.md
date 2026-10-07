@@ -4,7 +4,7 @@ A small hub for KHNURE student groups: class schedule, class links, homework,
 notes, and a private homework tracker per student. See
 [docs/design.md](docs/design.md) for the full design and milestones.
 
-**Status:** M3 (student tracker) done.
+**Status:** M4 (schedule) done.
 
 - **M1:** open registration (anyone can join any group), login/logout, the
   admin CLI and a home page. Leaders (старости) are appointed only by the
@@ -19,6 +19,12 @@ notes, and a private homework tracker per student. See
   and the grade they got, capped at the assignment's max points. "My grades"
   (`/g/<code>/grades`) sums grades per subject and overall. Nobody else,
   leaders and superadmins included, can see someone's status or grades.
+- **M4:** the class schedule is synced from CIST every 6 hours (leaders can
+  also press "Sync with CIST now"). `/g/<code>/schedule` shows the week with
+  the class in progress or next and its meeting link; the overview shows
+  today. When CIST is down the last good copy stays, with a note saying so.
+  Subjects that appear in the timetable for the first time are created from
+  CIST's short names; leaders can rename them, and deleted ones stay deleted.
 
 ## Quick start (local)
 
@@ -29,7 +35,9 @@ go build -o extt ./cmd/extt
 
 # Bootstrap: superadmin, group, leader
 ./extt admin create-superadmin root          # prompts for a password
-./extt admin create-group KIUKI-25-3 --cist-id <id> --name "<display name>"
+./extt admin find-cist-group КІУКІ-25-3        # prints the CIST id: 11881842
+./extt admin create-group KIUKI-25-3 --cist-id 11881842 --name "<display name>"
+./extt admin sync-schedule KIUKI-25-3          # load the schedule now
 
 # Run over plain HTTP locally (Secure cookies need HTTPS)
 ./extt serve --secure-cookies=false          # http://127.0.0.1:8080
@@ -44,7 +52,8 @@ the superadmin makes someone the group leader from the server:
 ```
 
 Run `./extt help` for all commands. Other admin commands: `demote`,
-`reset-password`.
+`reset-password`, `set-cist-id <code> <id|none>` (link an existing group to
+CIST).
 
 ## Configuration
 
@@ -54,7 +63,8 @@ Run `./extt help` for all commands. Other admin commands: `demote`,
 | `EXTT_ADDR` | `--addr` | `127.0.0.1:8080` |
 | `EXTT_SECURE_COOKIES` | `--secure-cookies` | `true` |
 | `EXTT_TRUST_PROXY` | `--trust-proxy` | `false` (set `true` behind nginx so `X-Real-IP` is used for rate limiting) |
-| `EXTT_TZ` | `--tz` | `Europe/Kyiv` (time zone for showing and entering due dates) |
+| `EXTT_TZ` | `--tz` | `Europe/Kyiv` (time zone for showing and entering dates) |
+| `EXTT_CIST_INTERVAL` | `--cist-interval` | `6h` (how often `serve` syncs schedules from CIST; `0` turns it off) |
 
 Migrations in `migrations/` are embedded and applied automatically on every
 command; `extt migrate` applies them and exits.
@@ -71,6 +81,7 @@ Layout follows the design doc: `internal/store` (SQLite queries),
 `internal/web` and `internal/api` (thin HTML and JSON transports),
 `internal/auth` (passwords, sessions, CSRF, rate limiting),
 `internal/markdown` (Markdown to sanitized HTML),
+`internal/cist` (CIST client: timetable CSV export, group lookup),
 `internal/server` (middleware wiring).
 
 ### JSON API (group content)
@@ -87,6 +98,7 @@ header (get the token from `GET /api/v1/me`).
 | `resources` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
 | `homework/{id}/progress` | `PUT` — the viewer's own `{"status", "grade"}` |
 | `grades` | `GET` — the viewer's totals per subject and overall |
+| `schedule` | `GET ?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: the 7 days from today), `POST /sync` (leaders) |
 
 Homework items carry the viewer's own `"progress": {"status", "grade"}`
 (absent for a superadmin who is not a member of the group).

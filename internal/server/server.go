@@ -34,7 +34,7 @@ func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok\n")) })
 	webH.Register(mux)
-	api.New(svc).Register(mux)
+	api.New(svc, cfg.Location).Register(mux)
 
 	var h http.Handler = mux
 	h = cookies.LoadSession(svc.Authenticate)(h)
