@@ -36,12 +36,15 @@ The database lives in `/var/lib/extt/extt.db`, backups in `/var/backups/extt`.
    missing, starts the server and the backup timer, and waits for
    `/healthz`. sudo on the server may ask for the password.
 
-3. HTTPS (needs a domain pointing at the server):
+3. HTTPS, with a domain pointing at the server:
 
    ```sh
    sudo apt install certbot python3-certbot-nginx
    sudo certbot --nginx -d example.org --redirect --hsts
    ```
+
+   or with a [Cloudflare Tunnel](#cloudflare-tunnel) instead (no certificate
+   on the server, no open ports).
 
    For a bare IP address `install.sh` sets `EXTT_SECURE_COOKIES=false`,
    because browsers drop Secure cookies over plain HTTP. Once HTTPS works,
@@ -56,6 +59,55 @@ The database lives in `/var/lib/extt/extt.db`, backups in `/var/backups/extt`.
    sudo exttctl admin create-group KIUKI-25-3 --cist-id 11881842 --name "КІУКІ-25-3"
    sudo exttctl admin sync-schedule KIUKI-25-3
    ```
+
+## Cloudflare Tunnel
+
+With the domain on Cloudflare, a tunnel serves the site over HTTPS without a
+certificate on the server or ports 80/443 open to the internet. Cloudflare
+terminates TLS; `cloudflared` on the server carries the traffic through an
+encrypted tunnel and hands it to nginx over plain HTTP on localhost.
+
+1. Deploy with the domain (`deploy/deploy.sh user@server example.org`). Skip
+   certbot: with its `--redirect`, nginx would send the tunnel's HTTP
+   requests back to HTTPS in a loop.
+
+2. In Cloudflare Zero Trust, create a tunnel (Networks → Tunnels) and run
+   the install command it shows on the server:
+
+   ```sh
+   sudo cloudflared service install <token>
+   sudo systemctl status cloudflared
+   ```
+
+3. In the tunnel's **Public Hostname** tab, add `example.org` with service
+   type `HTTP` and URL `localhost:80`. Cloudflare creates the DNS record;
+   delete an existing `A`/`AAAA` record for the name first. Under the
+   domain's SSL/TLS → Edge Certificates, turn on **Always Use HTTPS**.
+
+4. Keep `EXTT_SECURE_COOKIES=true` in `/etc/extt/extt.env` (set it back if
+   the server was first installed for an IP address) and
+   `sudo systemctl restart extt`.
+
+5. Check: `curl -I https://example.org/healthz` answers `200`, and
+   `curl -I http://example.org` redirects to HTTPS.
+
+cloudflared connects to nginx from localhost, so nginx takes the visitor's
+address from Cloudflare's `CF-Connecting-IP` header, trusting it only from
+`127.0.0.1` and `::1`; otherwise every user would share one login rate limit.
+A server installed before this change needs the lines added by hand, since
+`install.sh` never overwrites the nginx site:
+
+```nginx
+# in the server block of /etc/nginx/sites-available/extt:
+set_real_ip_from 127.0.0.1;
+set_real_ip_from ::1;
+real_ip_header CF-Connecting-IP;
+```
+
+then `sudo nginx -t && sudo systemctl reload nginx`.
+
+Once the tunnel works, the web ports can be closed (allow SSH first):
+`sudo ufw allow OpenSSH && sudo ufw enable`.
 
 ## Upgrades
 
