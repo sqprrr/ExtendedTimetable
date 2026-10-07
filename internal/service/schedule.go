@@ -69,6 +69,7 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 	defer s.endSync(g.ID)
 	now := s.now()
 	from, to := now.Add(-syncPast), now.Add(syncAhead)
+	slog.DebugContext(ctx, "schedule sync started", "group", g.Code, "cist_group", *g.CISTGroupID)
 	events, err := s.cfg.CIST.GroupEvents(ctx, *g.CISTGroupID, from, to)
 
 	rec, lerr := s.store.ScheduleSyncFor(ctx, g.ID)
@@ -79,6 +80,7 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 	}
 	rec.LastAttemptAt = now
 	if err != nil {
+		slog.WarnContext(ctx, "schedule sync failed", "group", g.Code, "err", err)
 		rec.LastError = truncate(err.Error(), 500)
 		if serr := s.store.SaveScheduleSync(ctx, rec); serr != nil {
 			return nil, serr
@@ -108,6 +110,7 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 	if err != nil {
 		return nil, err
 	}
+	slog.InfoContext(ctx, "schedule synced", "group", g.Code, "events", rec.EventCount)
 	return rec, nil
 }
 
@@ -264,7 +267,7 @@ func (s *Service) syncAll(ctx context.Context, fresh time.Duration) {
 	groups, err := s.store.ListGroups(ctx)
 	if err != nil {
 		if ctx.Err() == nil {
-			slog.Error("schedule sync: list groups", "err", err)
+			slog.ErrorContext(ctx, "schedule sync: list groups", "err", err)
 		}
 		return
 	}
@@ -275,14 +278,11 @@ func (s *Service) syncAll(ctx context.Context, fresh time.Duration) {
 		if rec, err := s.store.ScheduleSyncFor(ctx, g.ID); err == nil && s.now().Sub(rec.LastAttemptAt) < fresh {
 			continue
 		}
-		rec, err := s.syncGroup(ctx, g)
-		switch {
-		case errors.Is(err, ErrSyncRunning):
-			// A leader is syncing it right now.
-		case err != nil && ctx.Err() == nil:
-			slog.Warn("schedule sync failed", "group", g.Code, "err", err)
-		case err == nil:
-			slog.Info("schedule synced", "group", g.Code, "events", rec.EventCount)
+		// syncGroup logs how the fetch went; only other errors are left.
+		_, err := s.syncGroup(ctx, g)
+		var serr *SyncError
+		if err != nil && !errors.As(err, &serr) && !errors.Is(err, ErrSyncRunning) && ctx.Err() == nil {
+			slog.ErrorContext(ctx, "schedule sync", "group", g.Code, "err", err)
 		}
 	}
 }

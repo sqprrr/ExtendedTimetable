@@ -7,11 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/cist"
+	"github.com/sqprrr/ExtendedTimetable/internal/logging"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 	"github.com/sqprrr/ExtendedTimetable/migrations"
@@ -45,9 +47,17 @@ Environment:
   EXTT_TRUST_PROXY    "true" to use X-Real-IP         (default false)
   EXTT_TZ             time zone for dates             (default Europe/Kyiv)
   EXTT_CIST_INTERVAL  how often serve syncs schedules (default 6h; 0 turns it off)
+  EXTT_LOG_LEVEL      debug, info, warn or error      (default info)
+  EXTT_LOG_FORMAT     text or json                    (default text)
+
+Logs go to stderr; command output goes to stdout.
 `
 
 func main() {
+	if err := setupLogging(os.Getenv("EXTT_LOG_LEVEL"), os.Getenv("EXTT_LOG_FORMAT")); err != nil {
+		fmt.Fprintln(os.Stderr, "extt:", err)
+		os.Exit(1)
+	}
 	if err := run(context.Background(), os.Args[1:], os.Stdin, os.Stdout); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			os.Exit(2)
@@ -87,6 +97,21 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout io.Writer) 
 		fmt.Fprint(os.Stderr, usage)
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+// setupLogging makes the default slog logger write to stderr at the given
+// level and format (empty means info and text).
+func setupLogging(level, format string) error {
+	lvl, err := logging.ParseLevel(level)
+	if err != nil {
+		return err
+	}
+	log, err := logging.New(os.Stderr, lvl, format)
+	if err != nil {
+		return err
+	}
+	slog.SetDefault(log)
+	return nil
 }
 
 // openStore opens the database and brings the schema up to date.

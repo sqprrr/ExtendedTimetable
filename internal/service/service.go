@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -93,8 +94,12 @@ func (s *Service) RunMaintenance(ctx context.Context, every time.Duration) error
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
-		if _, err := s.store.DeleteExpiredSessions(ctx, s.now()); err != nil && ctx.Err() == nil {
+		n, err := s.store.DeleteExpiredSessions(ctx, s.now())
+		if err != nil && ctx.Err() == nil {
 			return err
+		}
+		if n > 0 {
+			slog.Debug("expired sessions removed", "count", n)
 		}
 		s.loginByIP.Prune()
 		s.loginByUsername.Prune()

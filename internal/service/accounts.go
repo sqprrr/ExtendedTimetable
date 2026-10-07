@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -40,6 +41,7 @@ type RegisterInput struct {
 // signs the user in. Leaders are only ever appointed through the admin CLI.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, error) {
 	if !s.registerByIP.Allow(in.ClientIP) {
+		slog.WarnContext(ctx, "registration rate limited")
 		return nil, ErrRateLimited
 	}
 	username, err := normalizeUsername(in.Username)
@@ -81,6 +83,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 	if err != nil {
 		return nil, err
 	}
+	slog.InfoContext(ctx, "registered", "username", username, "group", strings.ToUpper(groupCode))
 	return s.createSession(ctx, userID)
 }
 
@@ -93,21 +96,31 @@ type LoginInput struct {
 
 // Login checks credentials and issues a new session.
 func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error) {
+	// What was typed as a username is logged only once it is known to be an
+	// account: people sometimes type their password into that field.
 	username := strings.ToLower(strings.TrimSpace(in.Username))
-	if !s.loginByIP.Allow(in.ClientIP) || !s.loginByUsername.Allow(username) {
+	if !s.loginByIP.Allow(in.ClientIP) {
+		slog.WarnContext(ctx, "login rate limited", "by", "ip")
+		return nil, ErrRateLimited
+	}
+	if !s.loginByUsername.Allow(username) {
+		slog.WarnContext(ctx, "login rate limited", "by", "username")
 		return nil, ErrRateLimited
 	}
 	u, err := s.store.UserByUsername(ctx, username)
 	if errors.Is(err, store.ErrNotFound) {
 		auth.BurnPasswordCheck(in.Password)
+		slog.InfoContext(ctx, "login failed", "reason", "unknown username")
 		return nil, ErrInvalidCredentials
 	} else if err != nil {
 		return nil, err
 	}
 	if !auth.CheckPassword(u.PasswordHash, in.Password) {
+		slog.InfoContext(ctx, "login failed", "reason", "wrong password", "username", u.Username)
 		return nil, ErrInvalidCredentials
 	}
 	s.loginByUsername.Reset(username)
+	slog.InfoContext(ctx, "login", "username", u.Username)
 	return s.createSession(ctx, u.ID)
 }
 
