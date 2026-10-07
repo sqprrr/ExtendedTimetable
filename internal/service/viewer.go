@@ -12,7 +12,9 @@ type Viewer struct {
 	Username     string
 	IsSuperadmin bool
 	// Locale is the language the user chose, or "" if they have not.
-	Locale      string
+	Locale string
+	// Theme is the colour theme the user chose, or "" if they have not.
+	Theme       string
 	Memberships []store.Membership
 }
 

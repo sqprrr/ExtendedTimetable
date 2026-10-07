@@ -19,8 +19,8 @@ func TestFeedbackFlow(t *testing.T) {
 		t.Fatalf("anonymous feedback page: %d %s", code, h.Get("Location"))
 	}
 	_, body, _ := stud.get("/")
-	if !strings.Contains(body, `<a href="/feedback">Feedback</a>`) {
-		t.Fatal("top bar should link to the feedback page")
+	if !strings.Contains(body, `href="/feedback"`) || !strings.Contains(body, "<span>Feedback</span>") {
+		t.Fatal("the navigation should link to the feedback page")
 	}
 
 	// A rejected form keeps what was typed.

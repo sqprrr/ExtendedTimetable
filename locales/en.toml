@@ -15,6 +15,13 @@ resources = "Recordings & solutions"
 subjects = "Subjects"
 grades = "My grades"
 feedback = "Feedback"
+skip = "Skip to content"
+today = "Today"
+more = "More"
+grades_short = "Grades"
+group = "Group"
+my_groups = "My groups"
+homework_short = "Homework"
 
 [role]
 student = "student"
@@ -286,6 +293,7 @@ sync_disabled = "Schedule sync is turned off on this server."
 sync_running = "The schedule is being synced right now, try again in a minute."
 feedback_kind = "Choose bug report, suggestion or review."
 rating = "Rating must be 1 to 5 stars."
+theme = "Choose light, dark or system."
 
 [err.too_long]
 one = "{{.Field}} must be at most {{.Count}} character."
@@ -306,3 +314,13 @@ other = "The range must be positive and at most {{.Count}} days."
 [err.sync_too_soon]
 one = "The schedule was synced less than {{.Count}} minute ago, try again later."
 other = "The schedule was synced less than {{.Count}} minutes ago, try again later."
+
+[theme]
+label = "Theme"
+light = "Light"
+dark = "Dark"
+system = "As on device"
+
+[more]
+settings = "Settings"
+language = "Language"

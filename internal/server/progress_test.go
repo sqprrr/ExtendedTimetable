@@ -142,7 +142,8 @@ func TestGradeFormAndMyGrades(t *testing.T) {
 	if !strings.Contains(body, "My grades") || !strings.Contains(body, "7.5 / 10") || !strings.Contains(body, "75%") {
 		t.Fatalf("my grades:\n%s", body)
 	}
-	if _, body, _ := lead.get("/g/KIUKI-25-3/grades"); strings.Contains(body, "7.5") {
+	// (Not just "7.5": icon paths hold numbers like that.)
+	if _, body, _ := lead.get("/g/KIUKI-25-3/grades"); strings.Contains(body, "7.5 / 10") || strings.Contains(body, "75%") {
 		t.Fatal("the leader must not see the student's grades")
 	}
 	if _, body, _ := lead.get(hwURL); strings.Contains(body, `value="7.5"`) {

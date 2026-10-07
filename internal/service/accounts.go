@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -27,6 +28,8 @@ type NewSession struct {
 	ExpiresAt time.Time
 	// Locale is the user's chosen language, or "" if they have not chosen.
 	Locale string
+	// Theme is the user's chosen colour theme, or "" if they have not chosen.
+	Theme string
 }
 
 // RegisterInput is the self-registration form.
@@ -39,6 +42,9 @@ type RegisterInput struct {
 	// Locale is the language the visitor chose before registering, if any;
 	// an unsupported one is ignored.
 	Locale string
+	// Theme is the colour theme the visitor chose before registering, if
+	// any; an unsupported one is ignored.
+	Theme string
 }
 
 // Register creates an account, makes it a student of the chosen group and
@@ -73,7 +79,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 		} else if err != nil {
 			return err
 		}
-		u := &store.User{Username: username, PasswordHash: hash, Locale: chosenLocale(in.Locale), CreatedAt: now}
+		u := &store.User{Username: username, PasswordHash: hash, Locale: chosenLocale(in.Locale), Theme: chosenTheme(in.Theme), CreatedAt: now}
 		if err := q.CreateUser(ctx, u); errors.Is(err, store.ErrConflict) {
 			return ErrUsernameTaken
 		} else if err != nil {
@@ -93,6 +99,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 		return nil, err
 	}
 	sess.Locale = chosenLocale(in.Locale)
+	sess.Theme = chosenTheme(in.Theme)
 	return sess, nil
 }
 
@@ -135,6 +142,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error)
 		return nil, err
 	}
 	sess.Locale = u.Locale
+	sess.Theme = u.Theme
 	return sess, nil
 }
 
@@ -158,6 +166,41 @@ func (s *Service) SetLocale(ctx context.Context, locale string) error {
 func chosenLocale(locale string) string {
 	if i18n.IsSupported(locale) {
 		return locale
+	}
+	return ""
+}
+
+// Themes are the colour themes a user can choose. ThemeSystem follows the
+// device's light or dark setting.
+var Themes = []string{"light", "dark", ThemeSystem}
+
+// ThemeSystem is the theme that follows the device; it is also what a user
+// who never chose sees.
+const ThemeSystem = "system"
+
+// IsTheme reports whether t is one of Themes.
+func IsTheme(t string) bool { return slices.Contains(Themes, t) }
+
+// SetTheme stores the signed-in viewer's colour theme.
+func (s *Service) SetTheme(ctx context.Context, theme string) error {
+	v, err := requireViewer(ctx)
+	if err != nil {
+		return err
+	}
+	if !IsTheme(theme) {
+		return inputError("theme", "err.theme")
+	}
+	if err := s.store.SetTheme(ctx, v.UserID, theme); err != nil {
+		return err
+	}
+	v.Theme = theme
+	return nil
+}
+
+// chosenTheme returns theme if it is one of Themes, or "" (not chosen).
+func chosenTheme(theme string) string {
+	if IsTheme(theme) {
+		return theme
 	}
 	return ""
 }
@@ -196,6 +239,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (context.Conte
 		Username:     u.Username,
 		IsSuperadmin: u.IsSuperadmin,
 		Locale:       u.Locale,
+		Theme:        u.Theme,
 		Memberships:  ms,
 	}), nil
 }

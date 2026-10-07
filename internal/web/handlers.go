@@ -20,7 +20,7 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, r, err)
 		return
 	}
-	h.render(w, r, http.StatusOK, "home", pageData{Groups: groups})
+	h.render(w, r, http.StatusOK, "home", pageData{Groups: groups, Section: "home"})
 }
 
 func (h *Handler) loginForm(w http.ResponseWriter, r *http.Request) {
@@ -66,8 +66,9 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		Password:  password,
 		GroupCode: form.Group,
 		ClientIP:  auth.ClientIP(r, h.trustProxy),
-		// Keep the language the visitor picked with the switch, if any.
+		// Keep the language and theme the visitor picked, if any.
 		Locale: h.cookies.Lang(r),
+		Theme:  h.cookies.Theme(r),
 	})
 	if err != nil {
 		msg, status, ok := userMessage(r, err)
@@ -111,9 +112,13 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, sess *ser
 		_ = h.svc.Logout(r.Context(), old)
 	}
 	h.cookies.SetSession(w, sess.Token, sess.ExpiresAt)
-	// The browser keeps showing the user's language after they log out.
+	// The browser keeps showing the user's language and theme after they
+	// log out.
 	if sess.Locale != "" {
 		h.cookies.SetLang(w, sess.Locale)
+	}
+	if sess.Theme != "" {
+		h.cookies.SetTheme(w, sess.Theme)
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
@@ -137,6 +142,56 @@ func (h *Handler) setLang(w http.ResponseWriter, r *http.Request) {
 		back = "/"
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// setTheme switches the colour theme, like setLang: in a cookie for this
+// browser and, for a signed-in user, in their account.
+func (h *Handler) setTheme(w http.ResponseWriter, r *http.Request) {
+	theme := r.PostFormValue("theme")
+	if !service.IsTheme(theme) {
+		theme = service.ThemeSystem
+	}
+	if service.ViewerFrom(r.Context()) != nil {
+		if err := h.svc.SetTheme(r.Context(), theme); err != nil {
+			h.renderError(w, r, err)
+			return
+		}
+	}
+	h.cookies.SetTheme(w, theme)
+	back := r.PostFormValue("back")
+	if !isLocalPath(back) {
+		back = "/"
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// theme is the request's colour theme: the signed-in user's choice, else the
+// theme cookie, else the device's (ThemeSystem).
+func (h *Handler) theme(r *http.Request) string {
+	if v := service.ViewerFrom(r.Context()); v != nil && service.IsTheme(v.Theme) {
+		return v.Theme
+	}
+	if t := h.cookies.Theme(r); service.IsTheme(t) {
+		return t
+	}
+	return service.ThemeSystem
+}
+
+// morePage lists, on phones, what does not fit in the bottom bar: the other
+// sections, feedback, the language and theme, and logging out.
+func (h *Handler) morePage(w http.ResponseWriter, r *http.Request) {
+	if service.ViewerFrom(r.Context()) == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	h.render(w, r, http.StatusOK, "more", pageData{Section: "more"})
+}
+
+// groupMorePage is morePage for a group the viewer is looking at.
+func (h *Handler) groupMorePage(w http.ResponseWriter, r *http.Request) {
+	if g := h.groupPage(w, r); g != nil {
+		h.render(w, r, http.StatusOK, "more", pageData{Group: g, Section: "more"})
+	}
 }
 
 // backPath is where the language switch on this page returns to: the page

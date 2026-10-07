@@ -2,19 +2,9 @@
    pages that are not rebuilt on the design system yet stay usable. Delete
    this file (and the .legacy class) once every page is rebuilt. */
 
-.legacy :is(h1, h2, h3, h4, p) { margin: revert; }
+.legacy :is(h2, h3, h4, p) { margin: revert; }
+.legacy .card > :first-child { margin-top: 0; }
 
-.legacy .topbar {
-  position: static;
-  display: flex;
-  height: auto;
-  padding: var(--space-12) var(--space-16);
-  background: var(--surface);
-}
-.legacy .topbar nav { display: flex; align-items: center; gap: var(--space-16); }
-.legacy .brand { font-weight: 600; text-decoration: none; color: var(--text); }
-
-.legacy main { max-width: 56rem; margin: 0 auto; padding: var(--space-24) var(--space-16); }
 
 .legacy .card { margin-bottom: var(--space-16); overflow-x: auto; }
 .legacy .card.narrow { max-width: 26rem; margin: var(--space-32) auto; }
@@ -123,23 +113,6 @@
 .legacy .grade-form label { margin: 0; }
 .legacy .grade-input { display: flex; align-items: center; gap: var(--space-8); }
 .legacy .grade-input input { width: 7rem; }
-
-/* Error banner shown by app.js when an htmx request fails. */
-.notice {
-  position: fixed;
-  left: 50%;
-  bottom: var(--space-16);
-  transform: translateX(-50%);
-  max-width: calc(100% - 2rem);
-  padding: 10px var(--space-16);
-  color: var(--danger);
-  background: var(--danger-subtle);
-  border: 1px solid currentColor;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  display: none;
-}
-.notice.visible { display: block; }
 
 .legacy ul.classes { list-style: none; margin: 0; padding: 0; }
 .legacy li.class { display: flex; gap: var(--space-16); padding: var(--space-8) 10px; margin: 0 -10px; border-radius: var(--radius-sm); }

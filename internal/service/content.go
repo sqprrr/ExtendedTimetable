@@ -41,6 +41,22 @@ type GroupView struct {
 	CanTrack bool
 }
 
+// HomeGroup returns the group the navigation points to on pages outside a
+// group (the dashboard, feedback): the viewer's first group, or nil when they
+// are in none.
+func (s *Service) HomeGroup(ctx context.Context) (*GroupView, error) {
+	v, err := requireViewer(ctx)
+	if err != nil || len(v.Memberships) == 0 {
+		return nil, err
+	}
+	id := v.Memberships[0].GroupID
+	g, err := s.store.GroupByID(ctx, id)
+	if err != nil {
+		return nil, notFound(err)
+	}
+	return &GroupView{Group: g, CanManage: v.CanManageGroup(id), CanTrack: v.CanTrackGroup(id)}, nil
+}
+
 // Group returns the group with the given code if the viewer may see it.
 func (s *Service) Group(ctx context.Context, code string) (*GroupView, error) {
 	v, err := requireViewer(ctx)

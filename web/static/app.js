@@ -1,21 +1,18 @@
 // htmx does not swap error responses; tell the user instead of silently
-// doing nothing. One banner is reused, so several failed requests in a row
-// show a single message rather than stacking dialogs.
-let notice, noticeTimer;
+// doing nothing. The layout holds one toast, so several failed requests in a
+// row show a single message rather than stacking.
+let toastTimer;
 function showNotice(msg) {
-  if (!notice) {
-    notice = document.createElement("div");
-    notice.className = "notice";
-    notice.setAttribute("role", "status");
-    notice.setAttribute("aria-live", "polite");
-    notice.addEventListener("click", () => notice.classList.remove("visible"));
-    document.body.append(notice);
-  }
-  notice.textContent = msg;
-  notice.classList.add("visible");
-  clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(() => notice.classList.remove("visible"), 6000);
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.querySelector("span").textContent = msg;
+  toast.classList.add("visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("visible"), 6000);
 }
+document.addEventListener("click", (e) => {
+  if (e.target.closest("#toast")) e.target.closest("#toast").classList.remove("visible");
+});
 // Messages come translated from the page (data-msg-* on <body>).
 const msg = (name) => document.body.dataset[name] || "";
 document.addEventListener("htmx:responseError", (e) => {

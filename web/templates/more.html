@@ -1,0 +1,42 @@
+{{define "title"}}{{t "nav.more"}}{{end}}
+{{define "mainClass"}}page-more{{end}}
+{{define "content"}}
+<header class="page-head">
+  <div>
+    <h1>{{t "nav.more"}}</h1>
+    <p class="subtitle">{{.Viewer.Username}}{{with viewerRole .Viewer .NavGroup}} · {{.}}{{end}}</p>
+  </div>
+</header>
+<div class="section-gap">
+  {{with .NavGroup}}
+  {{$g := print "/g/" .Code}}
+  <section class="card card-flush" aria-labelledby="more-group">
+    <div class="card-head"><h2 id="more-group">{{.Name}}</h2><span class="group-code">{{.Code}}</span></div>
+    <ul class="rows">
+      <li><a class="row-link" href="{{$g}}/notes">{{icon "megaphone"}}<span>{{t "nav.notes"}}</span>{{icon "chevron-right"}}</a></li>
+      <li><a class="row-link" href="{{$g}}/links">{{icon "link"}}<span>{{t "nav.links"}}</span>{{icon "chevron-right"}}</a></li>
+      <li><a class="row-link" href="{{$g}}/resources">{{icon "video"}}<span>{{t "nav.resources"}}</span>{{icon "chevron-right"}}</a></li>
+      <li><a class="row-link" href="{{$g}}/subjects">{{icon "book-open"}}<span>{{t "nav.subjects"}}</span>{{icon "chevron-right"}}</a></li>
+    </ul>
+  </section>
+  {{end}}
+  <section class="card card-flush" aria-label="{{t "nav.more"}}">
+    <ul class="rows">
+      <li><a class="row-link" href="/">{{icon "house"}}<span>{{t "nav.my_groups"}}</span>{{icon "chevron-right"}}</a></li>
+      <li><a class="row-link" href="/feedback">{{icon "message-square"}}<span>{{t "nav.feedback"}}</span>{{icon "chevron-right"}}</a></li>
+      {{if .Viewer.IsSuperadmin}}<li><a class="row-link" href="/admin/feedback">{{icon "list-checks"}}<span>{{t "feedback.inbox"}}</span>{{icon "chevron-right"}}</a></li>{{end}}
+    </ul>
+  </section>
+  <section class="card" aria-labelledby="more-settings">
+    <div class="card-head"><h2 id="more-settings">{{t "more.settings"}}</h2></div>
+    <div class="settings">
+      <div class="setting"><span class="field-label">{{t "more.language"}}</span>{{template "langSwitch" .}}</div>
+      <div class="setting"><span class="field-label">{{t "theme.label"}}</span>{{template "themeSwitch" .}}</div>
+    </div>
+  </section>
+  <form method="post" action="/logout">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <button type="submit" class="btn btn-secondary btn-block">{{icon "log-out"}}{{t "nav.logout"}}</button>
+  </form>
+</div>
+{{end}}

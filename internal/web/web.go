@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -48,7 +49,7 @@ type Config struct {
 var pages = []string{
 	"home", "login", "register", "error",
 	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources", "grades", "schedule",
-	"feedback", "feedback_inbox",
+	"feedback", "feedback_inbox", "more",
 }
 
 // New parses the templates and returns a Handler.
@@ -93,6 +94,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /register", h.register)
 	mux.HandleFunc("POST /logout", h.logout)
 	mux.HandleFunc("POST /lang", h.setLang)
+	mux.HandleFunc("POST /theme", h.setTheme)
+	mux.HandleFunc("GET /more", h.morePage)
+	mux.HandleFunc("GET /g/{code}/more", h.groupMorePage)
 	h.registerGroupRoutes(mux)
 	h.registerFeedbackRoutes(mux)
 }
@@ -101,18 +105,24 @@ func (h *Handler) Register(mux *http.ServeMux) {
 type pageData struct {
 	Viewer    *service.Viewer
 	CSRFToken string
-	// Back is the page the language switch returns to.
-	Back   string
-	Error  string
-	Status string
-	Form   formValues
-	Groups []service.GroupSummary
+	// Back is the page the language and theme switches return to.
+	Back string
+	// Theme is the colour theme: "light", "dark" or "system".
+	Theme string
+	// NavGroup is the group the navigation leads to: the page's group, else
+	// the viewer's first group. It is nil for visitors and users in no group.
+	NavGroup *service.GroupView
+	Error    string
+	Status   string
+	Form     formValues
+	Groups   []service.GroupSummary
 	// JoinableGroups fills the group picker on the registration form.
 	JoinableGroups []service.JoinableGroup
 
 	// Group pages.
 	Group *service.GroupView
-	// Section is the active group tab.
+	// Section is the current page in the navigation: a group section
+	// ("overview", "homework", …), or "home", "feedback", "inbox", "more".
 	Section string
 	// Fields fills the create or edit form of a group section.
 	Fields map[string]string
@@ -204,9 +214,29 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return label(l, "status.", string(st))
 		},
 		"roleLabel": func(r store.Role) string { return label(l, "role.", string(r)) },
-		"num":       formatPoints,
-		"clock":     func(t time.Time) string { return t.In(h.loc).Format("15:04") },
-		"when":      func(t time.Time) string { return h.when(l, t) },
+		// viewerRole is the viewer's role in g, for the user line.
+		"viewerRole": func(v *service.Viewer, g *service.GroupView) string {
+			if g != nil {
+				if r, ok := v.RoleIn(g.ID); ok {
+					return label(l, "role.", string(r))
+				}
+			}
+			if v.IsSuperadmin {
+				return l.T("role.superadmin")
+			}
+			return ""
+		},
+		// current marks the navigation link of the current section.
+		"current": func(section string, of ...string) template.HTMLAttr {
+			if slices.Contains(of, section) {
+				return ` aria-current="page"`
+			}
+			return ""
+		},
+		"themes": func() []string { return service.Themes },
+		"num":    formatPoints,
+		"clock":  func(t time.Time) string { return t.In(h.loc).Format("15:04") },
+		"when":   func(t time.Time) string { return h.when(l, t) },
 		"dayName": func(t time.Time) string {
 			t = t.In(h.loc)
 			return l.T("weekday.long."+weekdayKey(t)) + ", " + t.Format("02.01")
@@ -284,6 +314,18 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 	data.Viewer = service.ViewerFrom(r.Context())
 	data.CSRFToken = auth.CSRFToken(r.Context())
 	data.Back = backPath(r)
+	data.Theme = h.theme(r)
+	if data.Viewer != nil {
+		data.NavGroup = data.Group
+		if data.NavGroup == nil {
+			// The navigation is a convenience: a page still renders without it.
+			g, err := h.svc.HomeGroup(r.Context())
+			if err != nil {
+				slog.WarnContext(r.Context(), "navigation group", "err", err)
+			}
+			data.NavGroup = g
+		}
+	}
 	l := i18n.FromContext(r.Context())
 	var buf bytes.Buffer
 	if err := h.pages[l.Lang()][page].ExecuteTemplate(&buf, "layout", data); err != nil {

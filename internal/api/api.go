@@ -3,6 +3,7 @@
 package api
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -53,7 +54,10 @@ type meJSON struct {
 	IsSuperadmin bool   `json:"is_superadmin"`
 	// Locale is the language the user sees: their choice, else the
 	// language cookie, else the default.
-	Locale string      `json:"locale"`
+	Locale string `json:"locale"`
+	// Theme is the colour theme the user chose: "light", "dark" or
+	// "system" (the device's, also when they have not chosen).
+	Theme  string      `json:"theme"`
 	Groups []groupJSON `json:"groups"`
 	// CSRFToken must be sent as the X-CSRF-Token header on unsafe requests.
 	CSRFToken string `json:"csrf_token"`
@@ -74,6 +78,7 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 		Username:     v.Username,
 		IsSuperadmin: v.IsSuperadmin,
 		Locale:       i18n.FromContext(r.Context()).Lang(),
+		Theme:        cmp.Or(v.Theme, service.ThemeSystem),
 		Groups:       make([]groupJSON, 0, len(groups)),
 		CSRFToken:    auth.CSRFToken(r.Context()),
 	}
@@ -85,10 +90,12 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// updateMe changes the viewer's settings; the body is {"locale": "uk"|"en"}.
+// updateMe changes the viewer's settings; the body is {"locale": "uk"|"en",
+// "theme": "light"|"dark"|"system"}, either field optional.
 func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Locale *string `json:"locale"`
+		Theme  *string `json:"theme"`
 	}
 	if !decode(w, r, &in) {
 		return
@@ -99,6 +106,12 @@ func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		r = r.WithContext(i18n.WithLang(r.Context(), *in.Locale))
+	}
+	if in.Theme != nil {
+		if err := h.svc.SetTheme(r.Context(), *in.Theme); err != nil {
+			h.fail(w, r, err)
+			return
+		}
 	}
 	h.me(w, r)
 }

@@ -546,3 +546,54 @@ details.menu > summary::-webkit-details-marker { display: none; }
 .only-md { display: none; }
 @media (min-width: 768px) { .only-md { display: revert; } .only-sm { display: none; } }
 .class-row.is-now .badge-accent { background: var(--surface); }
+
+/* ---------- Site additions: pieces the bundle leaves to the app ---------- */
+.skip-link {
+  position: absolute; z-index: 50; left: var(--space-8); top: -100px;
+  padding: var(--space-8) var(--space-12); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop);
+}
+.skip-link:focus { top: var(--space-8); }
+form.inline { display: inline; margin: 0; }
+.visually-hidden, .sidebar .theme-switch .label, .auth .theme-switch .label {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Shell */
+.group-switch .group-code { justify-self: start; }
+a.group-code { text-decoration: none; }
+a.group-code:hover { color: var(--text); }
+button.nav-item { width: 100%; background: none; cursor: pointer; font-family: inherit; text-align: left; }
+.sidebar-foot form:not(.inline) { margin: 0; }
+.bottom-nav { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.bottom-nav a > span { max-width: 100%; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast { cursor: pointer; }
+
+/* Theme switch: a segmented control of form buttons */
+.theme-switch .segmented > button { height: 28px; padding: 0 8px; }
+.theme-switch .segmented > [aria-pressed="true"] .icon { color: var(--accent); }
+
+/* Rows that are whole links (the More page) */
+.row-link {
+  display: flex; align-items: center; gap: var(--space-12); min-height: 48px; padding: var(--space-12) 0;
+  color: var(--text); text-decoration: none; font-weight: 500;
+}
+.row-link:hover { color: var(--text); }
+.row-link > span { flex: 1; min-width: 0; }
+.row-link > .icon:first-child { color: var(--text-secondary); }
+.row-link > .icon:last-child { width: 16px; height: 16px; color: var(--text-tertiary); }
+.settings { display: grid; gap: var(--space-16); }
+.setting { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-8) var(--space-12); }
+
+/* Signed-out pages: a bar with the language and theme, and one column */
+.auth { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+.auth-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-12);
+  padding: var(--space-12) var(--space-16); border-bottom: 1px solid var(--line);
+}
+.auth-bar .wordmark { padding: 0; }
+.auth-main { width: 100%; max-width: 440px; margin: 0 auto; padding: var(--space-32) var(--space-16) var(--space-64); }
+@media (min-width: 768px) {
+  .auth-bar { padding: var(--space-16) var(--space-40); }
+  .auth-main { padding-top: var(--space-64); }
+}

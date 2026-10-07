@@ -4,20 +4,10 @@
    {{template "icon" "calendar-days"}}. */}}
 {{define "icon"}}{{icon .}}{{end}}
 
+{{/* groupnav is the head of a group page that is not rebuilt yet: the
+   section's title and the error, if any. */}}
 {{define "groupnav"}}
-<header class="group-head">
-  <h1>{{.Group.Name}}{{if ne .Group.Name .Group.Code}} <span class="muted">({{.Group.Code}})</span>{{end}}</h1>
-  <nav class="tabs" aria-label="{{t "nav.sections"}}">
-    <a href="/g/{{.Group.Code}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>{{t "nav.overview"}}</a>
-    <a href="/g/{{.Group.Code}}/schedule"{{if eq .Section "schedule"}} aria-current="page"{{end}}>{{t "nav.schedule"}}</a>
-    <a href="/g/{{.Group.Code}}/homework"{{if eq .Section "homework"}} aria-current="page"{{end}}>{{t "nav.homework"}}</a>
-    <a href="/g/{{.Group.Code}}/notes"{{if eq .Section "notes"}} aria-current="page"{{end}}>{{t "nav.notes"}}</a>
-    <a href="/g/{{.Group.Code}}/links"{{if eq .Section "links"}} aria-current="page"{{end}}>{{t "nav.links"}}</a>
-    <a href="/g/{{.Group.Code}}/resources"{{if eq .Section "resources"}} aria-current="page"{{end}}>{{t "nav.resources"}}</a>
-    <a href="/g/{{.Group.Code}}/subjects"{{if eq .Section "subjects"}} aria-current="page"{{end}}>{{t "nav.subjects"}}</a>
-    {{if .Group.CanTrack}}<a href="/g/{{.Group.Code}}/grades"{{if eq .Section "grades"}} aria-current="page"{{end}}>{{t "nav.grades"}}</a>{{end}}
-  </nav>
-</header>
+<header class="page-head"><div><h1>{{t (print "nav." .Section)}}</h1></div></header>
 {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
 {{end}}
 
