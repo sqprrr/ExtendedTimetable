@@ -105,6 +105,7 @@ hi = "Hi, {{.Name}}"
 your_role = "Your role:"
 open_group = "Homework, notes and class links →"
 no_groups = "You are not a member of any group yet."
+open = "Open"
 
 [login]
 title = "Log in"

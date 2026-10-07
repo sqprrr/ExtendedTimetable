@@ -1,8 +1,12 @@
 {{define "title"}}{{.Status}}{{end}}
+{{define "mainClass"}}page-error{{end}}
 {{define "content"}}
-<section class="card narrow">
-  <h1>{{.Status}}</h1>
-  <p>{{.Error}}</p>
-  <p><a href="/">{{t "error.back_home"}}</a></p>
+<section class="card">
+  <div class="empty">
+    <span class="glyph">{{icon "triangle-alert"}}</span>
+    <h1>{{.Status}}</h1>
+    <p>{{.Error}}</p>
+    <a class="btn btn-secondary btn-sm" href="/">{{t "error.back_home"}}</a>
+  </div>
 </section>
 {{end}}

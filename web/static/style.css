@@ -684,3 +684,21 @@ details.group[open] > summary .icon { transform: rotate(180deg); }
 fieldset.field { border: 0; margin: 0; padding: 0; min-width: 0; }
 fieldset.field > legend { padding: 0; margin-bottom: var(--space-6); }
 .hue-chips { flex-wrap: wrap; overflow: visible; }
+
+/* Home, sign-in pages, feedback, errors */
+.group-cards { display: grid; gap: var(--space-16); grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); }
+.group-card { display: grid; gap: var(--space-12); justify-items: start; }
+.group-card .card-head { width: 100%; margin: 0; }
+.auth-card { display: grid; gap: var(--space-20); }
+.auth-card h1 { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; }
+.page-error .empty h1 { font-size: 20px; line-height: 28px; font-weight: 600; }
+.form-alert { margin-bottom: var(--space-16); }
+li.feedback { display: grid; gap: var(--space-8); padding: var(--space-12) 0; }
+.feedback-head { gap: var(--space-8); }
+.feedback-author { font-size: 14px; line-height: 20px; }
+.feedback-message { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; }
+li.feedback.resolved .feedback-message { color: var(--text-secondary); }
+.stars { color: var(--warning); letter-spacing: 0.1em; }
+/* Running text with links in it (.meta is a flex row, which spaces links out). */
+.small-text { font-size: 13px; line-height: 18px; color: var(--text-secondary); }
+.small-text strong { color: var(--text); font-weight: 500; }

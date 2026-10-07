@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{template "title" .}} · ExtendedTimetable</title>
   <link rel="stylesheet" href="{{asset "style.css"}}">
-  <link rel="stylesheet" href="{{asset "legacy.css"}}">
   {{/* htmx would inject an inline <style>, which the CSP blocks. */}}
   <meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false}'>
   <script src="{{asset "htmx.min.js"}}" defer></script>
@@ -43,9 +42,8 @@
 </html>
 {{end}}
 
-{{/* mainClass is a class for <main>. Pages not rebuilt on the design system
-   yet keep "legacy"; rebuilt pages define their own. */}}
-{{define "mainClass"}}legacy{{end}}
+{{/* mainClass is a page's class on <main> ("page-today", …). */}}
+{{define "mainClass"}}{{end}}
 
 {{/* sidebar is the navigation from 768px up. */}}
 {{define "sidebar"}}

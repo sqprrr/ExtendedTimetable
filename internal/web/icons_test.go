@@ -54,7 +54,7 @@ func TestTemplateIconsExist(t *testing.T) {
 // elsewhere, and every font it names must ship.
 func TestStylesheetIsSelfContained(t *testing.T) {
 	remote := regexp.MustCompile(`url\(\s*["']?(https?:)?//`)
-	for _, f := range []string{"static/style.css", "static/legacy.css"} {
+	for _, f := range []string{"static/style.css"} {
 		b, err := fs.ReadFile(assets.Static, f)
 		if err != nil {
 			t.Fatal(err)

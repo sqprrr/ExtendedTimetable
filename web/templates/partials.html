@@ -4,13 +4,6 @@
    {{template "icon" "calendar-days"}}. */}}
 {{define "icon"}}{{icon .}}{{end}}
 
-{{/* groupnav is the head of a group page that is not rebuilt yet: the
-   section's title and the error, if any. */}}
-{{define "groupnav"}}
-<header class="page-head"><div><h1>{{t (print "nav." .Section)}}</h1></div></header>
-{{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
-{{end}}
-
 {{/* subjectSelect is the subject picker of a section form. */}}
 {{define "subjectSelect"}}
 <label class="field">
@@ -174,11 +167,11 @@
 {{/* feedbackBody is one piece of feedback: its kind, rating, date, whether
    it is resolved, and the message. */}}
 {{define "feedbackBody"}}
-<div class="feedback-head small">
-  <span class="badge">{{feedbackKind .Kind}}</span>
-  {{with .Rating}}<span class="stars" title="{{t "feedback.rated" "N" .}}">{{stars .}}</span>{{end}}
-  <span class="muted">{{when .CreatedAt}}</span>
-  {{if .ResolvedAt}}<span class="badge ok">{{t "feedback.resolved"}}</span>{{end}}
+<div class="meta feedback-head">
+  <span class="badge{{if eq (print .Kind) "bug"}} badge-danger{{end}}">{{feedbackKind .Kind}}</span>
+  {{with .Rating}}<span class="stars" title="{{t "feedback.rated" "N" .}}"><span aria-hidden="true">{{stars .}}</span><span class="sr-only">{{t "feedback.rated" "N" .}}</span></span>{{end}}
+  <span>{{relWhen .CreatedAt}}</span>
+  {{if .ResolvedAt}}<span class="badge badge-success">{{icon "circle-check"}}{{t "feedback.resolved"}}</span>{{end}}
 </div>
 <p class="feedback-message">{{.Message}}</p>
 {{end}}

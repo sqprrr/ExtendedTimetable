@@ -1,35 +1,40 @@
 {{define "title"}}{{t "register.title"}}{{end}}
+{{define "mainClass"}}page-register{{end}}
 {{define "content"}}
-<section class="card narrow">
+<section class="card auth-card">
   <h1>{{t "register.title"}}</h1>
-  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+  {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
   {{if .JoinableGroups}}
-  <form method="post" action="/register">
+  <form class="form" method="post" action="/register">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <label>{{t "field.group"}}
-      <select name="group" required>
+    <label class="field">
+      <span class="field-label">{{t "field.group"}}</span>
+      <select class="select" name="group" required>
         {{if ne (len .JoinableGroups) 1}}<option value="">{{t "register.choose_group"}}</option>{{end}}
         {{range .JoinableGroups}}
         <option value="{{.Code}}"{{if eq .Code $.Form.Group}} selected{{end}}>{{.Name}}{{if ne .Name .Code}} ({{.Code}}){{end}}</option>
         {{end}}
       </select>
     </label>
-    <label>{{t "field.username"}}
-      <input name="username" value="{{.Form.Username}}" autocomplete="username" minlength="3" maxlength="32" required autofocus>
-      <small class="muted">{{th "register.username_hint"}}</small>
+    <label class="field">
+      <span class="field-label">{{t "field.username"}}</span>
+      <input class="input" name="username" value="{{.Form.Username}}" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" required autofocus>
+      <span class="field-hint">{{th "register.username_hint"}}</span>
     </label>
-    <label>{{t "field.password"}}
-      <input name="password" type="password" autocomplete="new-password" minlength="8" required>
-      <small class="muted">{{t "register.password_hint"}}</small>
+    <label class="field">
+      <span class="field-label">{{t "field.password"}}</span>
+      <input class="input" name="password" type="password" autocomplete="new-password" minlength="8" required>
+      <span class="field-hint">{{t "register.password_hint"}}</span>
     </label>
-    <label>{{t "register.repeat_password"}}
-      <input name="password_confirm" type="password" autocomplete="new-password" minlength="8" required>
+    <label class="field">
+      <span class="field-label">{{t "register.repeat_password"}}</span>
+      <input class="input" name="password_confirm" type="password" autocomplete="new-password" minlength="8" required>
     </label>
-    <button type="submit">{{t "register.submit"}}</button>
+    <button type="submit" class="btn btn-primary btn-block">{{t "register.submit"}}</button>
   </form>
   {{else}}
-  <p class="muted">{{t "register.closed"}}</p>
+  <div class="alert alert-info" role="note">{{icon "info"}}<div>{{t "register.closed"}}</div></div>
   {{end}}
-  <p class="muted">{{th "register.have_account"}}</p>
+  <p class="small-text">{{th "register.have_account"}}</p>
 </section>
 {{end}}

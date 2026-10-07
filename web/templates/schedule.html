@@ -70,6 +70,6 @@
   {{with nextLater .Schedule}}{{if $w.IsThis}}
   <p class="meta">{{t "schedule.next_class"}} {{.Title}} · {{dayName .StartsAt}}, {{clock .StartsAt}}</p>
   {{end}}{{end}}
-  <p class="meta">{{th "schedule.subjects_note" "URL" (print $g "/subjects")}}</p>
+  <p class="small-text">{{th "schedule.subjects_note" "URL" (print $g "/subjects")}}</p>
 </div>
 {{end}}
