@@ -2,19 +2,30 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
-// Homework is an assignment as shown to the viewer.
+// Homework is an assignment as shown to the viewer, with the viewer's own
+// progress on it.
 type Homework struct {
 	store.Homework
 	// Links is filled for a single assignment, not for lists.
 	Links []*store.HomeworkLink
-	// Overdue is true once the deadline has passed.
+	// Tracked is false when the viewer has no tracker in the group (a
+	// superadmin who is not a member); Status and Grade are then unset.
+	Tracked bool
+	Status  store.ProgressStatus
+	Grade   *float64
+	// Overdue is true once the deadline has passed and the viewer has not
+	// marked the assignment done.
 	Overdue bool
+	// GradeOverMax is true when the viewer's grade is above the max points,
+	// which happens if the leader lowers them after the grade was saved.
+	GradeOverMax bool
 }
 
 // LinkInput is one related link of an assignment. Title is optional.
@@ -66,43 +77,85 @@ func (in HomeworkInput) validate() (HomeworkInput, []*store.HomeworkLink, error)
 // HomeworkList lists the group's assignments by due date, those without a
 // deadline last.
 func (s *Service) HomeworkList(ctx context.Context, groupID int64) ([]*Homework, error) {
-	if _, err := canView(ctx, groupID); err != nil {
+	v, err := canView(ctx, groupID)
+	if err != nil {
 		return nil, err
 	}
 	hws, err := s.store.ListHomework(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
-	return s.homeworkViews(hws), nil
+	return s.homeworkViews(ctx, v, groupID, hws)
 }
 
-func (s *Service) homeworkViews(hws []*store.Homework) []*Homework {
+// homeworkViews adds the viewer's progress to a list of the group's assignments.
+func (s *Service) homeworkViews(ctx context.Context, v *Viewer, groupID int64, hws []*store.Homework) ([]*Homework, error) {
+	tracked := v.CanTrackGroup(groupID)
+	var progress map[int64]*store.Progress
+	if tracked {
+		var err error
+		if progress, err = s.myProgress(ctx, v, groupID); err != nil {
+			return nil, err
+		}
+	}
 	now := s.now()
 	out := make([]*Homework, 0, len(hws))
 	for _, h := range hws {
-		out = append(out, homeworkView(h, now))
+		out = append(out, homeworkView(h, tracked, progress[h.ID], now))
 	}
-	return out
+	return out, nil
 }
 
-func homeworkView(h *store.Homework, now time.Time) *Homework {
-	return &Homework{Homework: *h, Overdue: h.DueAt != nil && h.DueAt.Before(now)}
+// myProgress returns the viewer's progress in a group by homework id.
+func (s *Service) myProgress(ctx context.Context, v *Viewer, groupID int64) (map[int64]*store.Progress, error) {
+	ps, err := s.store.ListProgress(ctx, v.UserID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[int64]*store.Progress, len(ps))
+	for _, p := range ps {
+		m[p.HomeworkID] = p
+	}
+	return m, nil
+}
+
+// homeworkView builds what the viewer sees; p is nil when they have not
+// touched the assignment yet.
+func homeworkView(h *store.Homework, tracked bool, p *store.Progress, now time.Time) *Homework {
+	out := &Homework{Homework: *h, Tracked: tracked}
+	if tracked {
+		out.Status = store.StatusNotStarted
+		if p != nil {
+			out.Status, out.Grade = p.Status, p.Grade
+		}
+	}
+	out.Overdue = h.DueAt != nil && h.DueAt.Before(now) && out.Status != store.StatusDone
+	out.GradeOverMax = out.Grade != nil && h.MaxPoints != nil && *out.Grade > *h.MaxPoints
+	return out
 }
 
 // Homework returns one of the group's assignments with its links.
 func (s *Service) Homework(ctx context.Context, groupID, id int64) (*Homework, error) {
-	if _, err := canView(ctx, groupID); err != nil {
+	v, err := canView(ctx, groupID)
+	if err != nil {
 		return nil, err
 	}
-	return s.homeworkWithLinks(ctx, s.store.Queries, groupID, id)
+	return s.homeworkWithLinks(ctx, s.store.Queries, v, groupID, id)
 }
 
-func (s *Service) homeworkWithLinks(ctx context.Context, q *store.Queries, groupID, id int64) (*Homework, error) {
+func (s *Service) homeworkWithLinks(ctx context.Context, q *store.Queries, v *Viewer, groupID, id int64) (*Homework, error) {
 	h, err := q.HomeworkByID(ctx, groupID, id)
 	if err != nil {
 		return nil, notFound(err)
 	}
-	out := homeworkView(h, s.now())
+	tracked := v.CanTrackGroup(groupID)
+	var p *store.Progress
+	if tracked {
+		if p, err = q.ProgressFor(ctx, v.UserID, id); err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, err
+		}
+	}
+	out := homeworkView(h, tracked, p, s.now())
 	if out.Links, err = q.HomeworkLinks(ctx, h.ID); err != nil {
 		return nil, err
 	}
@@ -136,7 +189,7 @@ func (s *Service) CreateHomework(ctx context.Context, groupID int64, in Homework
 			return err
 		}
 		var err error
-		out, err = s.homeworkWithLinks(ctx, q, groupID, h.ID)
+		out, err = s.homeworkWithLinks(ctx, q, v, groupID, h.ID)
 		return err
 	})
 	if err != nil {
@@ -147,7 +200,8 @@ func (s *Service) CreateHomework(ctx context.Context, groupID int64, in Homework
 
 // UpdateHomework changes an assignment and replaces its links.
 func (s *Service) UpdateHomework(ctx context.Context, groupID, id int64, in HomeworkInput) (*Homework, error) {
-	if _, err := canManage(ctx, groupID); err != nil {
+	v, err := canManage(ctx, groupID)
+	if err != nil {
 		return nil, err
 	}
 	in, links, err := in.validate()
@@ -171,7 +225,7 @@ func (s *Service) UpdateHomework(ctx context.Context, groupID, id int64, in Home
 		if err := q.ReplaceHomeworkLinks(ctx, h.ID, links); err != nil {
 			return err
 		}
-		out, err = s.homeworkWithLinks(ctx, q, groupID, id)
+		out, err = s.homeworkWithLinks(ctx, q, v, groupID, id)
 		return err
 	})
 	if err != nil {

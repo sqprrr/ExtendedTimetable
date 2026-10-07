@@ -28,7 +28,8 @@ type Overview struct {
 
 // GroupOverview returns the front page of a group.
 func (s *Service) GroupOverview(ctx context.Context, groupID int64) (*Overview, error) {
-	if _, err := canView(ctx, groupID); err != nil {
+	v, err := canView(ctx, groupID)
+	if err != nil {
 		return nil, err
 	}
 	hws, err := s.store.UpcomingHomework(ctx, groupID, s.now().Add(-overviewOverdue), overviewHomework)
@@ -43,5 +44,9 @@ func (s *Service) GroupOverview(ctx context.Context, groupID int64) (*Overview, 
 	if err != nil {
 		return nil, err
 	}
-	return &Overview{Homework: s.homeworkViews(hws), Notes: notes, ClassLinks: links}, nil
+	views, err := s.homeworkViews(ctx, v, groupID, hws)
+	if err != nil {
+		return nil, err
+	}
+	return &Overview{Homework: views, Notes: notes, ClassLinks: links}, nil
 }

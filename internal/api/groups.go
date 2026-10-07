@@ -34,6 +34,8 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST "+g+"/homework", h.createHomework)
 	mux.HandleFunc("PUT "+g+"/homework/{id}", h.updateHomework)
 	mux.HandleFunc("DELETE "+g+"/homework/{id}", h.deleteHomework)
+	mux.HandleFunc("PUT "+g+"/homework/{id}/progress", h.updateProgress)
+	mux.HandleFunc("GET "+g+"/grades", h.myGrades)
 
 	mux.HandleFunc("GET "+g+"/notes", h.listNotes)
 	mux.HandleFunc("POST "+g+"/notes", h.createNote)
@@ -244,8 +246,16 @@ type homeworkJSON struct {
 	DueAt           *time.Time `json:"due_at"`
 	MaxPoints       *float64   `json:"max_points"`
 	Overdue         bool       `json:"overdue"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	// Progress is the viewer's own status and grade; absent when the viewer
+	// has no tracker in the group (a superadmin who is not a member).
+	Progress  *progressJSON `json:"progress,omitempty"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+type progressJSON struct {
+	Status store.ProgressStatus `json:"status"`
+	Grade  *float64             `json:"grade"`
 }
 
 type homeworkRequest struct {
@@ -271,11 +281,15 @@ func toLinks(links []*store.HomeworkLink) []linkJSON {
 
 // toHomeworkSummary converts an assignment for a list.
 func toHomeworkSummary(hw *service.Homework) homeworkJSON {
-	return homeworkJSON{
+	j := homeworkJSON{
 		ID: hw.ID, SubjectID: hw.SubjectID, SubjectName: hw.SubjectName, Title: hw.Title,
 		DescriptionMD: hw.DescriptionMD, DueAt: hw.DueAt, MaxPoints: hw.MaxPoints, Overdue: hw.Overdue,
 		CreatedAt: hw.CreatedAt, UpdatedAt: hw.UpdatedAt,
 	}
+	if hw.Tracked {
+		j.Progress = &progressJSON{Status: hw.Status, Grade: hw.Grade}
+	}
+	return j
 }
 
 // toHomework converts a single assignment, with its links and rendered
@@ -332,6 +346,71 @@ func (h *Handler) updateHomework(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) deleteHomework(w http.ResponseWriter, r *http.Request) {
 	if gid, id, ok := h.groupAndID(w, r); ok {
 		h.deleted(w, r, h.svc.DeleteHomework(r.Context(), gid, id))
+	}
+}
+
+// progressRequest is the body of PUT …/progress. Only the fields present are
+// changed, and the service applies them inside one transaction, so a status
+// change never writes back a grade read earlier.
+type progressRequest struct {
+	Status *store.ProgressStatus `json:"status"`
+	// Grade is raw so that a missing field (keep) differs from null (clear).
+	Grade json.RawMessage `json:"grade"`
+}
+
+// updateProgress sets the viewer's own status and grade.
+func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
+	gid, id, ok := h.groupAndID(w, r)
+	if !ok {
+		return
+	}
+	var req progressRequest
+	if !decode(w, r, &req) {
+		return
+	}
+	in := service.ProgressInput{Status: req.Status}
+	if len(req.Grade) > 0 {
+		in.SetGrade = true
+		if err := json.Unmarshal(req.Grade, &in.Grade); err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid JSON body: grade must be a number or null")
+			return
+		}
+	}
+	hw, err := h.svc.UpdateProgress(r.Context(), gid, id, in)
+	reply(h, w, r, http.StatusOK, hw, err, toHomework)
+}
+
+type totalsJSON struct {
+	Assignments int     `json:"assignments"`
+	Graded      int     `json:"graded"`
+	Earned      float64 `json:"earned"`
+	Max         float64 `json:"max"`
+}
+
+type subjectTotalsJSON struct {
+	SubjectID   int64  `json:"subject_id"`
+	SubjectName string `json:"subject_name"`
+	totalsJSON
+}
+
+type gradesJSON struct {
+	Subjects []subjectTotalsJSON `json:"subjects"`
+	Overall  totalsJSON          `json:"overall"`
+}
+
+func toGrades(g *service.Grades) gradesJSON {
+	return gradesJSON{
+		Subjects: list(g.Subjects, func(st *service.SubjectTotals) subjectTotalsJSON {
+			return subjectTotalsJSON{SubjectID: st.SubjectID, SubjectName: st.SubjectName, totalsJSON: totalsJSON(st.Totals)}
+		}),
+		Overall: totalsJSON(g.Overall),
+	}
+}
+
+func (h *Handler) myGrades(w http.ResponseWriter, r *http.Request) {
+	if gid := h.group(w, r); gid != 0 {
+		g, err := h.svc.MyGrades(r.Context(), gid)
+		reply(h, w, r, http.StatusOK, g, err, toGrades)
 	}
 }
 

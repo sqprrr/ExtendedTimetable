@@ -17,17 +17,7 @@
   <h2>Homework</h2>
   {{with .HomeworkList}}
   <ul class="items">
-    {{range .}}
-    <li{{if .Overdue}} class="overdue"{{end}}>
-      <a href="/g/{{$.Group.Code}}/homework/{{.ID}}"><strong>{{.Title}}</strong></a>
-      <span class="muted">· {{.SubjectName}}</span>
-      <div class="small">
-        {{with .DueAt}}<span class="due">due {{datetime .}}</span>{{else}}<span class="muted">no deadline</span>{{end}}
-        {{if .Overdue}}<span class="badge warn">Overdue</span>{{end}}
-        {{with .MaxPoints}}<span class="muted">· max {{points .}} pts</span>{{end}}
-      </div>
-    </li>
-    {{end}}
+    {{range .}}{{template "homeworkItem" (hwItem $ . "list")}}{{end}}
   </ul>
   {{else}}
   <p class="muted">No homework yet.</p>

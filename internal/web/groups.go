@@ -211,6 +211,8 @@ func loadSubjects(ctx context.Context, h *Handler, groupID int64, d *pageData) e
 func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /g/{code}", h.groupOverview)
 	mux.HandleFunc("GET /g/{code}/homework/{id}", h.homeworkDetail)
+	mux.HandleFunc("POST /g/{code}/homework/{id}/progress", h.updateProgress)
+	mux.HandleFunc("GET /g/{code}/grades", h.myGrades)
 	for _, s := range h.sections() {
 		base := "/g/{code}/" + s.name
 		mux.HandleFunc("GET "+base, h.sectionList(s))
