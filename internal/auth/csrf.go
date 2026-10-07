@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"crypto/subtle"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -28,6 +29,11 @@ func CSRFToken(ctx context.Context) string {
 // It also rejects cross-origin requests using Fetch metadata / Origin headers.
 func (c Cookies) CSRF(next http.Handler) http.Handler {
 	cop := http.NewCrossOriginProtection()
+	cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		slog.WarnContext(r.Context(), "cross-origin request rejected", "method", r.Method, "path", r.URL.Path,
+			"origin", r.Header.Get("Origin"), "sec_fetch_site", r.Header.Get("Sec-Fetch-Site"))
+		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+	}))
 	check := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := ""
 		if ck, err := r.Cookie(c.CSRFName()); err == nil && len(ck.Value) >= 32 {
@@ -39,6 +45,15 @@ func (c Cookies) CSRF(next http.Handler) http.Handler {
 				sent = r.PostFormValue(CSRFField)
 			}
 			if token == "" || subtle.ConstantTimeCompare([]byte(sent), []byte(token)) != 1 {
+				// The tokens themselves are never logged.
+				reason := "token mismatch"
+				switch {
+				case token == "":
+					reason = "no CSRF cookie"
+				case sent == "":
+					reason = "no token sent"
+				}
+				slog.WarnContext(r.Context(), "CSRF check failed", "method", r.Method, "path", r.URL.Path, "reason", reason)
 				http.Error(w, "invalid CSRF token, reload the page and try again", http.StatusForbidden)
 				return
 			}

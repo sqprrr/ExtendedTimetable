@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -97,6 +98,9 @@ func (c *Client) get(ctx context.Context, path string) ([]byte, error) {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		if i < len(c.baseURLs)-1 {
+			slog.InfoContext(ctx, "CIST server unavailable, trying the next one", "err", err)
+		}
 		errs = append(errs, err)
 	}
 	return nil, errors.Join(errs...)
@@ -108,12 +112,15 @@ func (c *Client) getFrom(ctx context.Context, u string) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "ExtendedTimetable (+https://github.com/sqprrr/ExtendedTimetable)")
+	start := time.Now()
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
+	slog.DebugContext(ctx, "CIST request", "host", req.URL.Host, "path", req.URL.Path, "status", resp.StatusCode,
+		"bytes", len(body), "duration_ms", time.Since(start).Milliseconds())
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", req.URL.Host, err)
 	}

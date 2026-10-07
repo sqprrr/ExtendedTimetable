@@ -73,6 +73,47 @@ sudo systemctl start extt-backup           # back up now
 systemctl list-timers extt-backup.timer    # next nightly backup
 ```
 
+## Logs
+
+The server logs to journald: one line per request, plus logins, failed
+logins, CSRF rejections, schedule syncs and errors. The format and rules are
+in [design.md §9](design.md#9-logging).
+
+```sh
+sudo journalctl -u extt -f                              # follow
+sudo journalctl -u extt --since "1 hour ago" | grep -E 'level=(WARN|ERROR)'
+sudo journalctl -u extt | grep 29846df684ca8618         # every line of one request
+```
+
+Every response carries an `X-Request-ID` header; when a user reports an
+error, that ID finds its lines. (`journalctl -p` cannot filter by these
+levels: journald sees every line from the app at the same priority.)
+
+To debug, set `EXTT_LOG_LEVEL=debug` in `/etc/extt/extt.env`, run
+`sudo systemctl restart extt`, and set it back afterwards.
+
+nginx sets `X-Request-ID` itself so that clients cannot choose the ID. A
+server installed before this change needs the line added by hand, since
+`install.sh` never overwrites the nginx site:
+
+```sh
+# in the location / block of /etc/nginx/sites-available/extt:
+proxy_set_header X-Request-ID $request_id;
+```
+
+then `sudo nginx -t && sudo systemctl reload nginx`.
+
+journald keeps logs by its own system-wide limits. To keep about four weeks,
+create `/etc/systemd/journald.conf.d/retention.conf`:
+
+```ini
+[Journal]
+MaxRetentionSec=4week
+SystemMaxUse=500M
+```
+
+and run `sudo systemctl restart systemd-journald`.
+
 ## Backups and restore
 
 `backup.sh` uses `extt backup`, which takes a consistent copy with SQLite's

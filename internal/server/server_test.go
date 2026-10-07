@@ -31,6 +31,7 @@ func TestMain(m *testing.M) {
 type env struct {
 	srv *httptest.Server
 	svc *service.Service
+	st  *store.Store
 }
 
 func newEnv(t *testing.T) *env {
@@ -54,7 +55,7 @@ func newEnv(t *testing.T) *env {
 	}
 	srv := httptest.NewTLSServer(h)
 	t.Cleanup(srv.Close)
-	return &env{srv: srv, svc: svc}
+	return &env{srv: srv, svc: svc, st: st}
 }
 
 // browser is a client with a cookie jar that does not follow redirects.

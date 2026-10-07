@@ -23,7 +23,12 @@ func cmdServe(ctx context.Context, args []string) error {
 	trustProxy := fs.Bool("trust-proxy", envBool("EXTT_TRUST_PROXY", false), "take client IP from X-Real-IP")
 	tz := fs.String("tz", envOr("EXTT_TZ", "Europe/Kyiv"), "time zone for showing and entering dates")
 	cistEvery := fs.Duration("cist-interval", envDuration("EXTT_CIST_INTERVAL", 6*time.Hour), "how often to sync schedules from CIST (0 turns it off)")
+	logLevel := fs.String("log-level", envOr("EXTT_LOG_LEVEL", "info"), "debug, info, warn or error")
+	logFormat := fs.String("log-format", envOr("EXTT_LOG_FORMAT", "text"), "text or json")
 	if _, err := parseArgs(fs, args, 0); err != nil {
+		return err
+	}
+	if err := setupLogging(*logLevel, *logFormat); err != nil {
 		return err
 	}
 	loc, err := time.LoadLocation(*tz)
@@ -66,7 +71,8 @@ func cmdServe(ctx context.Context, args []string) error {
 	}
 	errc := make(chan error, 1)
 	go func() {
-		slog.Info("listening", "addr", *addr, "db", *dbPath, "secure_cookies", *secure)
+		slog.Info("listening", "addr", *addr, "db", *dbPath, "secure_cookies", *secure, "trust_proxy", *trustProxy,
+			"tz", loc.String(), "cist_interval", cistEvery.String(), "log_level", *logLevel)
 		errc <- srv.ListenAndServe()
 	}()
 

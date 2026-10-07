@@ -89,6 +89,25 @@ restoring a backup.
 | `EXTT_TRUST_PROXY` | `--trust-proxy` | `false` (set `true` behind nginx so `X-Real-IP` is used for rate limiting) |
 | `EXTT_TZ` | `--tz` | `Europe/Kyiv` (time zone for showing and entering dates) |
 | `EXTT_CIST_INTERVAL` | `--cist-interval` | `6h` (how often `serve` syncs schedules from CIST; `0` turns it off) |
+| `EXTT_LOG_LEVEL` | `--log-level` | `info` (`debug`, `info`, `warn`, `error`; `debug` also logs the source line) |
+| `EXTT_LOG_FORMAT` | `--log-format` | `text` (`json` for log collectors) |
+
+### Logs
+
+Logs go to stderr (under systemd: `journalctl -u extt`). Every request is
+logged once, at `debug` for `/static/` and `/healthz`:
+
+```
+level=INFO msg=request method=GET path=/g/KIUKI-25-3/schedule status=200 bytes=5588 duration_ms=7.4 request_id=29846df684ca8618 user=root
+```
+
+Each request gets an ID, returned as the `X-Request-ID` header (kept from
+the proxy when `--trust-proxy` is on) and added to every line logged while
+serving it, so an error can be matched to its request. Also logged: logins
+and failed logins, registrations, rate limiting, CSRF and cross-origin
+rejections, schedule syncs and, at `debug`, CIST requests. Passwords,
+tokens, cookies, query strings, request bodies and homework statuses or
+grades are never logged.
 
 Migrations in `migrations/` are embedded and applied automatically on every
 command; `extt migrate` applies them and exits.
@@ -107,6 +126,7 @@ Layout follows the design doc: `internal/store` (SQLite queries),
 `internal/markdown` (Markdown to sanitized HTML),
 `internal/i18n` with `locales/{uk,en}.toml` (translations, go-i18n),
 `internal/cist` (CIST client: timetable CSV export, group lookup),
+`internal/logging` (slog setup, request ID and user in every log line),
 `internal/server` (middleware wiring).
 
 ### Translations

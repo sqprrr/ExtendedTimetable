@@ -37,12 +37,16 @@ func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	webH.Register(mux)
 	api.New(svc, cfg.Location).Register(mux)
 
+	// Outermost last. requestLog must wrap recoverer to log panics as 500s,
+	// and recordUser must run after the session is loaded.
 	var h http.Handler = mux
 	h = language(cookies)(h)
+	h = recordUser(h)
 	h = cookies.LoadSession(svc.Authenticate)(h)
 	h = cookies.CSRF(h)
 	h = securityHeaders(h)
 	h = recoverer(h)
+	h = requestLog(cfg.TrustProxy, h)
 	return h, nil
 }
 
