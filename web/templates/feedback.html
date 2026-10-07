@@ -1,0 +1,47 @@
+{{define "title"}}{{t "feedback.title"}}{{end}}
+{{define "content"}}
+<h1>{{t "feedback.title"}}</h1>
+{{with .Notice}}<p class="ok" role="status">{{.}}</p>{{end}}
+{{if .Viewer.IsSuperadmin}}
+<p><a href="/admin/feedback">{{t "feedback.inbox_link" "N" .FeedbackOpen}}</a></p>
+{{end}}
+<section class="card">
+  <p class="muted">{{t "feedback.intro"}}</p>
+  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+  <form method="post" action="/feedback">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="row">
+      <label>{{t "feedback.kind_label"}}
+        <select name="kind" required>
+          {{range feedbackKinds}}
+          <option value="{{.}}"{{if eq (print .) (index $.Fields "kind")}} selected{{end}}>{{feedbackKind .}}</option>
+          {{end}}
+        </select>
+      </label>
+      <label>{{t "feedback.rating"}}
+        <select name="rating">
+          <option value="">—</option>
+          {{range $n := ratings}}
+          <option value="{{$n}}"{{if eq (print $n) (index $.Fields "rating")}} selected{{end}}>{{stars $n}}</option>
+          {{end}}
+        </select>
+        <small class="muted">{{t "feedback.rating_hint"}}</small>
+      </label>
+    </div>
+    <label>{{t "field.message"}}
+      <textarea name="message" rows="6" maxlength="4000" required>{{index .Fields "message"}}</textarea>
+    </label>
+    <div class="form-actions">
+      <button type="submit">{{t "feedback.send"}}</button>
+    </div>
+  </form>
+</section>
+{{with .Feedback}}
+<section class="card">
+  <h2>{{t "feedback.mine"}}</h2>
+  <ul class="items">
+    {{range .}}<li class="feedback{{if .ResolvedAt}} resolved{{end}}">{{template "feedbackBody" .}}</li>{{end}}
+  </ul>
+</section>
+{{end}}
+{{end}}

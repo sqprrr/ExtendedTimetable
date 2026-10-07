@@ -73,18 +73,47 @@ func (in HomeworkInput) validate() (HomeworkInput, []*store.HomeworkLink, error)
 	return in, links, nil
 }
 
-// HomeworkList lists the group's assignments by due date, those without a
-// deadline last.
-func (s *Service) HomeworkList(ctx context.Context, groupID int64) ([]*Homework, error) {
+// HomeworkFilter narrows a homework list. Zero fields match everything.
+type HomeworkFilter struct {
+	SubjectID int64
+	// Status is the viewer's own status; it is ignored for a viewer without
+	// a tracker in the group.
+	Status store.ProgressStatus
+}
+
+// match reports whether the viewer's assignment passes the filter.
+func (f HomeworkFilter) match(h *Homework) bool {
+	if f.SubjectID != 0 && h.SubjectID != f.SubjectID {
+		return false
+	}
+	return f.Status == "" || !h.Tracked || h.Status == f.Status
+}
+
+// HomeworkList lists the group's assignments that pass f by due date, those
+// without a deadline last. An unknown status in f is an input error.
+func (s *Service) HomeworkList(ctx context.Context, groupID int64, f HomeworkFilter) ([]*Homework, error) {
 	v, err := canView(ctx, groupID)
 	if err != nil {
 		return nil, err
+	}
+	if f.Status != "" && !validStatus(f.Status) {
+		return nil, inputError("status", "err.status")
 	}
 	hws, err := s.store.ListHomework(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
-	return s.homeworkViews(ctx, v, groupID, hws)
+	views, err := s.homeworkViews(ctx, v, groupID, hws)
+	if err != nil {
+		return nil, err
+	}
+	out := views[:0]
+	for _, h := range views {
+		if f.match(h) {
+			out = append(out, h)
+		}
+	}
+	return out, nil
 }
 
 // homeworkViews adds the viewer's progress to a list of the group's assignments.

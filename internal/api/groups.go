@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -303,11 +304,32 @@ func toHomework(hw *service.Homework) homeworkJSON {
 	return j
 }
 
+// listHomework lists the group's homework, optionally only that of
+// ?subject_id and with the viewer's ?status.
 func (h *Handler) listHomework(w http.ResponseWriter, r *http.Request) {
-	if gid := h.group(w, r); gid != 0 {
-		hws, err := h.svc.HomeworkList(r.Context(), gid)
-		reply(h, w, r, http.StatusOK, hws, err, func(hws []*service.Homework) []homeworkJSON { return list(hws, toHomeworkSummary) })
+	gid := h.group(w, r)
+	if gid == 0 {
+		return
 	}
+	q := r.URL.Query()
+	var f service.HomeworkFilter
+	if s := q.Get("status"); s != "" {
+		if !slices.Contains(service.Statuses, store.ProgressStatus(s)) {
+			writeError(w, r, http.StatusBadRequest, "status must be not_started, in_progress or done")
+			return
+		}
+		f.Status = store.ProgressStatus(s)
+	}
+	if s := q.Get("subject_id"); s != "" {
+		id, err := strconv.ParseInt(s, 10, 64)
+		if err != nil || id <= 0 {
+			writeError(w, r, http.StatusBadRequest, "subject_id must be a subject id")
+			return
+		}
+		f.SubjectID = id
+	}
+	hws, err := h.svc.HomeworkList(r.Context(), gid, f)
+	reply(h, w, r, http.StatusOK, hws, err, func(hws []*service.Homework) []homeworkJSON { return list(hws, toHomeworkSummary) })
 }
 
 func (h *Handler) getHomework(w http.ResponseWriter, r *http.Request) {

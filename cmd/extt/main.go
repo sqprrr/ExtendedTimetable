@@ -35,6 +35,8 @@ Commands:
                                           Ukrainian name, e.g. КІУКІ-25-3
   admin set-cist-id <code> <id|none>      Link a group to its CIST timetable
   admin sync-schedule <code>              Load a group's schedule from CIST now
+  admin feedback [--all]                  Print the open feedback users sent (with
+                                          --all, the resolved too)
 
 Every command accepts --db PATH (default $EXTT_DB or ./extt.db).
 Commands that take a password prompt for it, or read one line from stdin

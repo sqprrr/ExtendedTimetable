@@ -31,6 +31,13 @@ notes, and a private homework tracker per student. See
   `deploy/` holds a systemd unit, nginx site, nightly backups and scripts
   that install or upgrade the site on a VPS: see
   [docs/deploy.md](docs/deploy.md).
+- **After M5:** the homework list can be filtered by subject and by your own
+  status (`/g/<code>/homework?subject_id=…&status=…`; the JSON list takes the
+  same parameters). Signed-in users send bug reports, suggestions and reviews
+  (with an optional 1–5 star rating) from "Feedback" in the top bar; they see
+  what they sent and whether it was resolved. Superadmins read, resolve and
+  delete feedback at `/admin/feedback`, or print it on the server with
+  `extt admin feedback`.
 
 ## Quick start (local)
 
@@ -59,7 +66,7 @@ the superadmin makes someone the group leader from the server:
 
 Run `./extt help` for all commands. Other admin commands: `demote`,
 `reset-password`, `set-cist-id <code> <id|none>` (link an existing group to
-CIST). `./extt backup <file>` writes a consistent copy of the database, also
+CIST), `feedback [--all]` (print the feedback users sent). `./extt backup <file>` writes a consistent copy of the database, also
 while the server runs.
 
 ## Deployment

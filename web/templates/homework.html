@@ -15,12 +15,13 @@
 {{end}}
 <section class="card">
   <h2>{{t "nav.homework"}}</h2>
+  {{template "homeworkFilters" .}}
   {{with .HomeworkList}}
   <ul class="items">
     {{range .}}{{template "homeworkItem" (hwItem $ . "list")}}{{end}}
   </ul>
   {{else}}
-  <p class="muted">{{t "hw.empty"}}</p>
+  <p class="muted">{{if or .HomeworkFilter.SubjectID .HomeworkFilter.Status}}{{t "hw.no_matches"}}{{else}}{{t "hw.empty"}}{{end}}</p>
   {{end}}
 </section>
 {{end}}
@@ -52,5 +53,36 @@
     <small class="muted">{{th "hw.links_hint"}}</small>
   </label>
   {{template "formButtons" .}}
+</form>
+{{end}}
+
+{{/* homeworkFilters narrows the list by subject and, for a viewer with a
+   tracker, by their own status. A plain GET form, so the filter is in the
+   URL; app.js submits it when a choice changes. */}}
+{{define "homeworkFilters"}}
+{{$f := .HomeworkFilter}}
+<form class="filters" method="get" action="/g/{{.Group.Code}}/homework" data-autosubmit>
+  <label>{{t "field.subject"}}
+    <select name="subject_id">
+      <option value="">{{t "hw.all_subjects"}}</option>
+      {{range .Subjects}}
+      <option value="{{.ID}}"{{if eq .ID $f.SubjectID}} selected{{end}}>{{.Name}}</option>
+      {{end}}
+    </select>
+  </label>
+  {{if .Group.CanTrack}}
+  <label>{{t "hw.status"}}
+    <select name="status">
+      <option value="">{{t "hw.all_statuses"}}</option>
+      {{range statuses}}
+      <option value="{{.}}"{{if eq . $f.Status}} selected{{end}}>{{statusLabel .}}</option>
+      {{end}}
+    </select>
+  </label>
+  {{end}}
+  <div class="form-actions">
+    <button type="submit" class="secondary">{{t "hw.filter"}}</button>
+    {{if or $f.SubjectID $f.Status}}<a href="/g/{{.Group.Code}}/homework">{{t "hw.reset_filters"}}</a>{{end}}
+  </div>
 </form>
 {{end}}

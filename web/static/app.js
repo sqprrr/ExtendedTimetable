@@ -34,3 +34,18 @@ document.addEventListener("submit", (e) => {
   const msg = e.target.dataset && e.target.dataset.confirm;
   if (msg && !window.confirm(msg)) e.preventDefault();
 });
+
+// Forms marked with data-autosubmit (the homework filters) apply a choice
+// as soon as it changes; their button is only needed without JavaScript.
+for (const form of document.querySelectorAll("form[data-autosubmit]")) {
+  form.querySelector("button[type=submit]")?.setAttribute("hidden", "");
+  form.addEventListener("change", () => form.requestSubmit());
+  // Leave "all" choices out of the URL: ?subject_id=2, not ?subject_id=2&status=
+  form.addEventListener("submit", () => {
+    for (const s of form.querySelectorAll("select")) s.disabled = !s.value;
+  });
+}
+// Back/forward can restore a page with the selects still disabled.
+window.addEventListener("pageshow", () => {
+  for (const s of document.querySelectorAll("form[data-autosubmit] select")) s.disabled = false;
+});

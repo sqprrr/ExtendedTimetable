@@ -14,6 +14,7 @@ links = "Class links"
 resources = "Recordings & solutions"
 subjects = "Subjects"
 grades = "My grades"
+feedback = "Feedback"
 
 [role]
 student = "student"
@@ -48,6 +49,7 @@ kind = "Kind"
 date = "Date"
 due = "Due"
 max_points = "Max points"
+message = "Message"
 
 [form]
 choose_subject = "Choose a subject…"
@@ -145,6 +147,12 @@ links_placeholder = "Lab manual — https://…"
 links_hint = "One per line: an optional title, then the address, e.g. <code>Lab manual — https://…</code>"
 confirm_delete = "Delete this assignment?"
 back_to_list = "← All homework"
+status = "Status"
+all_subjects = "All subjects"
+all_statuses = "Any status"
+filter = "Filter"
+reset_filters = "Reset"
+no_matches = "No homework matches these filters."
 
 [progress]
 title = "My progress"
@@ -210,6 +218,33 @@ sync_failed = "The last sync ({{.When}}) failed: {{.Error}}."
 showing_last_good = "Showing the last good copy."
 subjects_note = "Subjects that appear in the timetable for the first time are added to <a href=\"{{.URL}}\">Subjects</a> under CIST's short name. Leaders can rename them freely, and deleted ones are not added back."
 
+[feedback]
+title = "Feedback"
+intro = "Found a bug, have an idea, or want to tell us what you think of the site? Write it here. Only the site admins read it."
+kind_label = "What is it?"
+rating = "Rating"
+rating_hint = "Optional, for reviews."
+rated = "{{.N}} of 5"
+send = "Send"
+thanks = "Thank you! Your feedback has been sent."
+mine = "You sent"
+resolved = "Resolved"
+inbox = "Feedback inbox"
+inbox_link = "Feedback inbox ({{.N}} open) →"
+show_open = "Open ({{.N}})"
+show_all = "All"
+inbox_clear = "No open feedback."
+inbox_empty = "No feedback yet."
+deleted_user = "deleted account"
+resolve = "Mark resolved"
+reopen = "Reopen"
+confirm_delete = "Delete this feedback?"
+
+[feedback.kind]
+bug = "Bug report"
+idea = "Suggestion"
+review = "Review"
+
 [js]
 save_failed = "Could not save. Reload the page and try again."
 offline = "Could not reach the server. Check your connection and try again."
@@ -249,6 +284,8 @@ locale = "Choose Ukrainian (uk) or English (en)."
 no_cist_group = "This group has no CIST timetable id yet; ask the site admin to set it."
 sync_disabled = "Schedule sync is turned off on this server."
 sync_running = "The schedule is being synced right now, try again in a minute."
+feedback_kind = "Choose bug report, suggestion or review."
+rating = "Rating must be 1 to 5 stars."
 
 [err.too_long]
 one = "{{.Field}} must be at most {{.Count}} character."

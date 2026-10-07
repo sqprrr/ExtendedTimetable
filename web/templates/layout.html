@@ -18,6 +18,7 @@
       {{if .Viewer}}
         <span class="muted">{{.Viewer.Username}}{{if .Viewer.IsSuperadmin}} · {{t "role.superadmin"}}{{end}}</span>
       {{end}}
+      {{if .Viewer}}<a href="/feedback">{{t "nav.feedback"}}</a>{{end}}
       {{template "langSwitch" .}}
       {{if .Viewer}}
         <form method="post" action="/logout" class="inline">
