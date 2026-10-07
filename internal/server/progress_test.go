@@ -139,11 +139,11 @@ func TestGradeFormAndMyGrades(t *testing.T) {
 	}
 
 	_, body, _ = stud.get("/g/KIUKI-25-3/grades")
-	if !strings.Contains(body, "My grades") || !strings.Contains(body, "7.5 / 10") || !strings.Contains(body, "75%") {
+	if !strings.Contains(body, "My grades") || !strings.Contains(body, "<strong>7.5</strong> / 10") || !strings.Contains(body, "75%") {
 		t.Fatalf("my grades:\n%s", body)
 	}
 	// (Not just "7.5": icon paths hold numbers like that.)
-	if _, body, _ := lead.get("/g/KIUKI-25-3/grades"); strings.Contains(body, "7.5 / 10") || strings.Contains(body, "75%") {
+	if _, body, _ := lead.get("/g/KIUKI-25-3/grades"); strings.Contains(body, "<strong>7.5</strong>") || strings.Contains(body, "75%") {
 		t.Fatal("the leader must not see the student's grades")
 	}
 	if _, body, _ := lead.get(hwURL); strings.Contains(body, `value="7.5"`) {

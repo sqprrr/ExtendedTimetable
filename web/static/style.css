@@ -666,3 +666,12 @@ details.group[open] > summary .icon { transform: rotate(180deg); }
 .grade-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-12); }
 .grade-input { display: flex; align-items: center; gap: var(--space-8); }
 .grade-input .input { width: 8rem; }
+
+/* Grades */
+.grade-row progress.bar { height: 6px; }
+.grade-row > .meta { font-size: 12px; line-height: 16px; color: var(--text-tertiary); }
+.card-flush > .rows > li.grade-row:last-child { padding-bottom: var(--space-20); }
+.grade-total progress.bar { height: 8px; }
+.grade-row .top { flex-wrap: wrap; }
+.grade-row .subject { white-space: normal; min-width: 0; }
+.grade-row .nums .none { font-family: var(--font-sans); color: var(--text-tertiary); }

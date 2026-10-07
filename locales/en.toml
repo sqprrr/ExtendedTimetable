@@ -179,6 +179,12 @@ points = "Points"
 overall = "Overall"
 explain = "Only assignments with max points are counted. Points are the sum of your grades out of the sum of max points of those assignments, graded or not. Enter grades on each assignment's page."
 empty = "No assignments with max points yet."
+by_subject = "By subject"
+legend = "points · share of max"
+not_graded = "not graded yet"
+graded_of = "{{.Graded}} of {{.Assignments}} graded"
+total_meta = "{{.Earned}} of {{.Max}} points · {{.Graded}} of {{.Assignments}} graded"
+empty_hint = "Grades count once an assignment has max points and you enter your grade on its page."
 
 [notes]
 new_title = "New note"
