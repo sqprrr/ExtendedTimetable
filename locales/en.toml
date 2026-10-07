@@ -58,6 +58,7 @@ date = "Date"
 due = "Due"
 max_points = "Max points"
 message = "Message"
+colour = "Colour"
 
 [form]
 choose_subject = "Choose a subject…"
@@ -194,28 +195,34 @@ pinned = "Pinned"
 pin = "Pin to the top"
 markdown_hint = "Markdown is supported."
 confirm_delete = "Delete this note?"
+empty_hint = "Announcements from the group leader show up here."
 
 [links]
 new_title = "Add a class link"
 edit_title = "Edit class link"
 empty = "No class links yet."
-note_hint = "Optional, e.g. “subgroup 1” or the meeting password."
+note_hint = "For example “subgroup 1” or the meeting password."
 confirm_delete = "Delete this class link?"
+empty_hint = "Meeting links for lectures, practices and labs; the schedule offers them as Join."
 
 [resources]
 new_title = "Add a recording or solution"
 edit_title = "Edit link"
 empty = "No recordings or solutions yet."
 link_hint = "YouTube, Google Drive, Teams, GitHub… Files are not uploaded here."
-date_hint = "Optional: the date of the class."
+date_hint = "The date of the class."
 confirm_delete = "Delete this link?"
+empty_hint = "Links to class recordings and solutions show up here."
 
 [subjects]
 new_title = "Add a subject"
 edit_title = "Edit subject"
 empty = "No subjects yet."
-short_name_hint = "Optional, e.g. “ОП” or “ВМ”."
+short_name_hint = "For example “ОП” or “ВМ”."
 confirm_delete = "Delete subject “{{.Name}}”?"
+empty_hint = "Subjects come from CIST with the schedule, or the leader adds them."
+hue_auto = "Automatic"
+hue_hint = "The colour marks the subject in the schedule, homework and grades."
 
 [schedule]
 week_of = "Week of {{.Date}}"
@@ -425,3 +432,13 @@ other = "{{.Count}} overdue"
 [hw.summary_week]
 one = "{{.Count}} due this week"
 other = "{{.Count}} due this week"
+
+[hue]
+blue = "Blue"
+teal = "Teal"
+green = "Green"
+amber = "Amber"
+orange = "Orange"
+rose = "Rose"
+violet = "Violet"
+slate = "Slate"

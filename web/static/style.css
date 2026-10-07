@@ -675,3 +675,12 @@ details.group[open] > summary .icon { transform: rotate(180deg); }
 .grade-row .top { flex-wrap: wrap; }
 .grade-row .subject { white-space: normal; min-width: 0; }
 .grade-row .nums .none { font-family: var(--font-sans); color: var(--text-tertiary); }
+
+/* Section pages */
+.note-head .note-menu { margin-left: auto; }
+.link-row .row-end { align-items: center; }
+.subject-name { display: inline-flex; align-items: center; gap: var(--space-8); }
+.subject-name .subject { gap: 0; }
+fieldset.field { border: 0; margin: 0; padding: 0; min-width: 0; }
+fieldset.field > legend { padding: 0; margin-bottom: var(--space-6); }
+.hue-chips { flex-wrap: wrap; overflow: visible; }

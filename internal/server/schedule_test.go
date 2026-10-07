@@ -101,7 +101,7 @@ func TestSchedulePages(t *testing.T) {
 
 	// The lecture links to the meeting once the leader adds a class link for
 	// the subject the sync created.
-	_, body, _ := lead.get(g + "/links")
+	_, body, _ := lead.get(g + "/links/new")
 	m := regexpOption("ООПро").FindStringSubmatch(body)
 	if m == nil {
 		t.Fatalf("the sync should have created subject ООПро:\n%s", body)

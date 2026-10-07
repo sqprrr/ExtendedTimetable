@@ -53,7 +53,7 @@ func TestLeaderManagesGroupPages(t *testing.T) {
 	if code != http.StatusUnprocessableEntity || !strings.Contains(body, "already has a subject") || !strings.Contains(body, `value="physics"`) {
 		t.Fatalf("duplicate subject: %d", code)
 	}
-	_, body, _ = lead.get(g + "/links")
+	_, body, _ = lead.get(g + "/links/new")
 	m := subjectOptionRe.FindStringSubmatch(body)
 	if m == nil {
 		t.Fatalf("subject picker missing:\n%s", body)

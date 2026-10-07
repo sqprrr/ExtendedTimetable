@@ -1,70 +1,75 @@
 {{define "title"}}{{t "nav.resources"}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-resources{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
-{{if .EditID}}
-<section class="card">
-  <h2>{{t "resources.edit_title"}}</h2>
-  {{template "form" .}}
+{{if or .EditID .New}}
+{{template "formHead" .}}
+<section class="card">{{template "form" .}}</section>
+{{else}}
+{{$g := print "/g/" .Group.Code}}
+<header class="page-head">
+  <div><h1>{{t "nav.resources"}}</h1></div>
+  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/resources/new">{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+</header>
+{{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+{{with .Resources}}
+<section class="card card-flush" aria-label="{{t "nav.resources"}}">
+  <ul class="rows">
+    {{range .}}
+    <li class="link-row">
+      <div class="main">
+        <a class="row-title" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a>
+        <div class="meta">
+          <span class="subject" data-hue="{{hue .SubjectID .SubjectHue}}">{{.SubjectName}}</span>
+          <span class="badge">{{if eq (print .Kind) "recording"}}{{icon "video"}}{{else}}{{icon "list-checks"}}{{end}}{{kindLabel .Kind}}</span>
+          {{with .Date}}<span class="meta-item mono">{{.}}</span>{{end}}
+        </div>
+      </div>
+      <div class="row-end">
+        {{if $.Group.CanManage}}{{template "rowMenu" (rowMenu (print $g "/resources/" .ID) (t "resources.confirm_delete") $.CSRFToken)}}{{else}}<span class="text-tertiary">{{icon "external-link"}}</span>{{end}}
+      </div>
+    </li>
+    {{end}}
+  </ul>
 </section>
 {{else}}
 <section class="card">
-  <h2>{{t "nav.resources"}}</h2>
-  {{with .Resources}}
-  <table class="list">
-    <thead><tr><th>{{t "field.date"}}</th><th>{{t "field.subject"}}</th><th>{{t "field.kind"}}</th><th>{{t "field.link"}}</th>{{if $.Group.CanManage}}<th></th>{{end}}</tr></thead>
-    <tbody>
-      {{range .}}
-      <tr>
-        <td class="nowrap">{{.Date}}</td>
-        <td>{{.SubjectName}}</td>
-        <td>{{kindLabel .Kind}}</td>
-        <td><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a></td>
-        {{if $.Group.CanManage}}
-        <td class="actions">
-          <a href="/g/{{$.Group.Code}}/resources/{{.ID}}/edit">{{t "action.edit"}}</a>
-          <form method="post" action="/g/{{$.Group.Code}}/resources/{{.ID}}/delete" class="inline" data-confirm="{{t "resources.confirm_delete"}}">
-            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-            <button type="submit" class="link danger">{{t "action.delete"}}</button>
-          </form>
-        </td>
-        {{end}}
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <p class="muted">{{t "resources.empty"}}</p>
-  {{end}}
-</section>
-{{if .Group.CanManage}}
-<section class="card">
-  <h2>{{t "resources.new_title"}}</h2>
-  {{template "form" .}}
+  <div class="empty">
+    <span class="glyph">{{icon "video"}}</span>
+    <h3>{{t "resources.empty"}}</h3>
+    <p>{{t "resources.empty_hint"}}</p>
+    {{if $.Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/resources/new">{{icon "plus"}}{{t "resources.new_title"}}</a>{{end}}
+  </div>
 </section>
 {{end}}
 {{end}}
 {{end}}
 
 {{define "form"}}
-<form method="post" action="/g/{{.Group.Code}}/resources{{if .EditID}}/{{.EditID}}{{end}}">
+<form class="form" method="post" action="/g/{{.Group.Code}}/resources{{if .EditID}}/{{.EditID}}{{end}}">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-  {{template "subjectSelect" .}}
-  <label>{{t "field.kind"}}
-    <select name="kind" required>
-      <option value="recording"{{if eq (index .Fields "kind") "recording"}} selected{{end}}>{{kindLabel "recording"}}</option>
-      <option value="solution"{{if eq (index .Fields "kind") "solution"}} selected{{end}}>{{kindLabel "solution"}}</option>
-    </select>
+  <div class="form-row">
+    {{template "subjectSelect" .}}
+    <label class="field">
+      <span class="field-label">{{t "field.kind"}}</span>
+      <select class="select" name="kind" required>
+        <option value="recording"{{if eq (index .Fields "kind") "recording"}} selected{{end}}>{{kindLabel "recording"}}</option>
+        <option value="solution"{{if eq (index .Fields "kind") "solution"}} selected{{end}}>{{kindLabel "solution"}}</option>
+      </select>
+    </label>
+  </div>
+  <label class="field">
+    <span class="field-label">{{t "field.title"}}</span>
+    <input class="input" name="title" value="{{index .Fields "title"}}" maxlength="200" required>
   </label>
-  <label>{{t "field.title"}}
-    <input name="title" value="{{index .Fields "title"}}" maxlength="200" required>
+  <label class="field">
+    <span class="field-label">{{t "field.link"}}</span>
+    <input class="input" name="url" type="url" value="{{index .Fields "url"}}" placeholder="https://…" required>
+    <span class="field-hint">{{t "resources.link_hint"}}</span>
   </label>
-  <label>{{t "field.link"}}
-    <input name="url" type="url" value="{{index .Fields "url"}}" placeholder="https://…" required>
-    <small class="muted">{{t "resources.link_hint"}}</small>
-  </label>
-  <label>{{t "field.date"}}
-    <input name="date" type="date" value="{{index .Fields "date"}}">
-    <small class="muted">{{t "resources.date_hint"}}</small>
+  <label class="field">
+    <span class="field-label">{{t "field.date"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+    <input class="input" name="date" type="date" value="{{index .Fields "date"}}">
+    <span class="field-hint">{{t "resources.date_hint"}}</span>
   </label>
   {{template "formButtons" .}}
 </form>

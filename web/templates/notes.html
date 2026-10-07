@@ -1,53 +1,55 @@
 {{define "title"}}{{t "nav.notes"}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-notes{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
-{{if .EditID}}
-<section class="card">
-  <h2>{{t "notes.edit_title"}}</h2>
-  {{template "form" .}}
-</section>
+{{if or .EditID .New}}
+{{template "formHead" .}}
+<section class="card">{{template "form" .}}</section>
 {{else}}
-{{if .Group.CanManage}}
-<details class="card"{{if .Error}} open{{end}}>
-  <summary><h2>{{t "notes.new_title"}}</h2></summary>
-  {{template "form" .}}
-</details>
-{{end}}
-{{range .Notes}}
-<article class="card note{{if .Pinned}} pinned{{end}}">
-  <div class="card-head">
-    <h2>{{if .Pinned}}<span class="badge">{{t "notes.pinned"}}</span> {{end}}{{.Title}}</h2>
-    {{if $.Group.CanManage}}
-    <div class="actions">
-      <a href="/g/{{$.Group.Code}}/notes/{{.ID}}/edit">{{t "action.edit"}}</a>
-      <form method="post" action="/g/{{$.Group.Code}}/notes/{{.ID}}/delete" class="inline" data-confirm="{{t "notes.confirm_delete"}}">
-        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <button type="submit" class="link danger">{{t "action.delete"}}</button>
-      </form>
+{{$g := print "/g/" .Group.Code}}
+<header class="page-head">
+  <div><h1>{{t "nav.notes"}}</h1></div>
+  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/notes/new">{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+</header>
+{{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+<div class="stack">
+  {{range .Notes}}
+  <article class="card note" id="note-{{.ID}}" aria-labelledby="note-{{.ID}}-title">
+    <div class="note-head">
+      {{if .Pinned}}<span class="badge badge-accent">{{icon "pin"}}{{t "notes.pinned"}}</span>{{end}}
+      <h2 id="note-{{.ID}}-title">{{.Title}}</h2>
+      {{if $.Group.CanManage}}<div class="note-menu">{{template "rowMenu" (rowMenu (print $g "/notes/" .ID) (t "notes.confirm_delete") $.CSRFToken)}}</div>{{end}}
     </div>
-    {{end}}
-  </div>
-  <p class="muted small">{{date .CreatedAt}}</p>
-  <div class="md">{{markdown .BodyMD}}</div>
-</article>
-{{else}}
-<section class="card"><p class="muted">{{t "notes.empty"}}</p></section>
-{{end}}
+    <div class="meta">{{shortDate .CreatedAt}}</div>
+    <div class="md">{{markdown .BodyMD}}</div>
+  </article>
+  {{else}}
+  <section class="card">
+    <div class="empty">
+      <span class="glyph">{{icon "megaphone"}}</span>
+      <h3>{{t "notes.empty"}}</h3>
+      <p>{{t "notes.empty_hint"}}</p>
+      {{if .Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/notes/new">{{icon "plus"}}{{t "notes.new_title"}}</a>{{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
 {{end}}
 {{end}}
 
 {{define "form"}}
-<form method="post" action="/g/{{.Group.Code}}/notes{{if .EditID}}/{{.EditID}}{{end}}">
+<form class="form" method="post" action="/g/{{.Group.Code}}/notes{{if .EditID}}/{{.EditID}}{{end}}">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-  <label>{{t "field.title"}}
-    <input name="title" value="{{index .Fields "title"}}" maxlength="200" required>
+  <label class="field">
+    <span class="field-label">{{t "field.title"}}</span>
+    <input class="input" name="title" value="{{index .Fields "title"}}" maxlength="200" required>
   </label>
-  <label>{{t "field.text"}}
-    <textarea name="body" rows="8">{{index .Fields "body"}}</textarea>
-    <small class="muted">{{t "notes.markdown_hint"}}</small>
+  <label class="field">
+    <span class="field-label">{{t "field.text"}}</span>
+    <textarea class="textarea" name="body" rows="8">{{index .Fields "body"}}</textarea>
+    <span class="field-hint">{{t "notes.markdown_hint"}}</span>
   </label>
   <label class="check">
-    <input name="pinned" type="checkbox"{{if index .Fields "pinned"}} checked{{end}}> {{t "notes.pin"}}
+    <input name="pinned" type="checkbox"{{if index .Fields "pinned"}} checked{{end}}>{{t "notes.pin"}}
   </label>
   {{template "formButtons" .}}
 </form>
