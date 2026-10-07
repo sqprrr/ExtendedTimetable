@@ -2,6 +2,26 @@
 {{define "content"}}
 {{template "groupnav" .}}
 
+{{with .Schedule}}
+<section class="card">
+  <div class="card-head">
+    <h2>Today</h2>
+    <a href="/g/{{$.Group.Code}}/schedule">Week schedule</a>
+  </div>
+  {{if .Events}}
+  <ul class="classes">
+    {{range .Events}}{{template "scheduleEvent" (classItem $.Schedule .)}}{{end}}
+  </ul>
+  {{else if .HasSource}}
+  <p class="muted">No classes today.</p>
+  {{end}}
+  {{with nextLater .}}
+  <p>Next class: <strong>{{.Title}}</strong> <span class="muted">· {{classType .}} · {{dayName .StartsAt}}, {{clock .StartsAt}}</span></p>
+  {{end}}
+  {{if or (not .HasSource) (not .Sync) .Sync.LastError}}{{template "scheduleStatus" $}}{{end}}
+</section>
+{{end}}
+
 <section class="card">
   <div class="card-head">
     <h2>Homework</h2>

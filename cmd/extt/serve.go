@@ -22,6 +22,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	secure := fs.Bool("secure-cookies", envBool("EXTT_SECURE_COOKIES", true), "mark cookies Secure (disable for local HTTP)")
 	trustProxy := fs.Bool("trust-proxy", envBool("EXTT_TRUST_PROXY", false), "take client IP from X-Real-IP")
 	tz := fs.String("tz", envOr("EXTT_TZ", "Europe/Kyiv"), "time zone for showing and entering dates")
+	cistEvery := fs.Duration("cist-interval", envDuration("EXTT_CIST_INTERVAL", 6*time.Hour), "how often to sync schedules from CIST (0 turns it off)")
 	if _, err := parseArgs(fs, args, 0); err != nil {
 		return err
 	}
@@ -39,7 +40,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	}
 	defer st.Close()
 
-	svc := newService(st)
+	svc := newService(st, loc)
 	handler, err := server.New(svc, server.Config{SecureCookies: *secure, TrustProxy: *trustProxy, Location: loc})
 	if err != nil {
 		return err
@@ -50,6 +51,9 @@ func cmdServe(ctx context.Context, args []string) error {
 			slog.Error("maintenance stopped", "err", err)
 		}
 	}()
+	if *cistEvery > 0 {
+		go svc.RunScheduleSync(ctx, *cistEvery)
+	}
 
 	srv := &http.Server{
 		Addr:              *addr,

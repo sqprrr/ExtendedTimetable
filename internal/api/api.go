@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
@@ -15,10 +16,18 @@ import (
 // Handler serves the JSON API.
 type Handler struct {
 	svc *service.Service
+	// loc is the time zone that schedule dates in queries are read in.
+	loc *time.Location
 }
 
-// New returns an API handler.
-func New(svc *service.Service) *Handler { return &Handler{svc: svc} }
+// New returns an API handler. loc is the time zone of dates in queries; UTC
+// if nil.
+func New(svc *service.Service, loc *time.Location) *Handler {
+	if loc == nil {
+		loc = time.UTC
+	}
+	return &Handler{svc: svc, loc: loc}
+}
 
 // Register adds the API routes to mux.
 func (h *Handler) Register(mux *http.ServeMux) {
@@ -77,8 +86,12 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.As(err, &ie):
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": ie.Msg, "field": ie.Field})
-	case errors.Is(err, service.ErrSubjectInUse):
+	case errors.Is(err, service.ErrSubjectInUse), errors.Is(err, service.ErrNoCISTGroup), errors.Is(err, service.ErrSyncDisabled):
 		writeError(w, r, http.StatusConflict, err.Error())
+	case errors.Is(err, service.ErrSyncTooSoon), errors.Is(err, service.ErrSyncRunning):
+		writeError(w, r, http.StatusTooManyRequests, err.Error())
+	case errors.As(err, new(*service.SyncError)):
+		writeError(w, r, http.StatusBadGateway, err.Error())
 	case errors.Is(err, service.ErrUnauthenticated):
 		writeError(w, r, http.StatusUnauthorized, err.Error())
 	case errors.Is(err, service.ErrForbidden):

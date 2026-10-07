@@ -42,7 +42,7 @@ type Config struct {
 // partials.html.
 var pages = []string{
 	"home", "login", "register", "error",
-	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources", "grades",
+	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources", "grades", "schedule",
 }
 
 // New parses the templates and returns a Handler.
@@ -106,6 +106,9 @@ type pageData struct {
 	// ProgressPanel replaces the progress panel of the homework page, to show
 	// a rejected grade with its error.
 	ProgressPanel *hwItem
+	// Schedule is the schedule page's week, or the overview's today.
+	Schedule *service.Schedule
+	Week     *weekView
 }
 
 // hwItem is what the homeworkItem and progressPanel templates render: one
@@ -159,24 +162,41 @@ func (h *Handler) templateFuncs() template.FuncMap {
 			}
 			return string(st)
 		},
-		"num": formatPoints,
+		"num":   formatPoints,
+		"clock": func(t time.Time) string { return t.In(h.loc).Format("15:04") },
+		"when":  func(t time.Time) string { return t.In(h.loc).Format("Mon 02.01.2006 15:04") },
+		"dayName": func(t time.Time) string {
+			return t.In(h.loc).Format("Monday, 02.01")
+		},
+		"classType": func(e *service.ScheduleEvent) string {
+			if e.LessonType == "" {
+				return e.CISTType
+			}
+			return lessonLabel(e.LessonType)
+		},
+		"classItem": func(s *service.Schedule, e *service.ScheduleEvent) classItem {
+			return classItem{E: e, Next: !e.Now && s.IsUpcoming(e)}
+		},
+		// nextLater is the next class when it is not among s.Events (after
+		// today on the overview, after this week on the schedule page).
+		"nextLater": func(s *service.Schedule) *service.ScheduleEvent {
+			if len(s.Upcoming) == 0 {
+				return nil
+			}
+			for _, e := range s.Events {
+				if e.ID == s.Upcoming[0].ID {
+					return nil
+				}
+			}
+			return s.Upcoming[0]
+		},
 		"percent": func(earned, max float64) string {
 			if max <= 0 {
 				return "—"
 			}
 			return strconv.FormatFloat(earned/max*100, 'f', 0, 64) + "%"
 		},
-		"lessonLabel": func(t store.LessonType) string {
-			switch t {
-			case store.LessonLecture:
-				return "Lecture"
-			case store.LessonPractice:
-				return "Practice"
-			case store.LessonLab:
-				return "Lab"
-			}
-			return string(t)
-		},
+		"lessonLabel": lessonLabel,
 		"kindLabel": func(k store.ResourceKind) string {
 			switch k {
 			case store.ResourceRecording:
@@ -208,6 +228,18 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 	buf.WriteTo(w)
+}
+
+func lessonLabel(t store.LessonType) string {
+	switch t {
+	case store.LessonLecture:
+		return "Lecture"
+	case store.LessonPractice:
+		return "Practice"
+	case store.LessonLab:
+		return "Lab"
+	}
+	return string(t)
 }
 
 // renderFragment renders one shared template on its own, as the answer to an
@@ -251,8 +283,10 @@ func userMessage(err error) (msg string, status int, ok bool) {
 	case errors.Is(err, service.ErrInvalidCredentials),
 		errors.Is(err, service.ErrUsernameTaken):
 		return capitalize(err.Error()), http.StatusUnprocessableEntity, true
-	case errors.Is(err, service.ErrRateLimited):
+	case errors.Is(err, service.ErrRateLimited), errors.Is(err, service.ErrSyncTooSoon), errors.Is(err, service.ErrSyncRunning):
 		return capitalize(err.Error()), http.StatusTooManyRequests, true
+	case errors.Is(err, service.ErrNoCISTGroup), errors.Is(err, service.ErrSyncDisabled):
+		return capitalize(err.Error()), http.StatusConflict, true
 	}
 	return "", 0, false
 }

@@ -5,6 +5,7 @@
   <h1>{{.Group.Name}}{{if ne .Group.Name .Group.Code}} <span class="muted">({{.Group.Code}})</span>{{end}}</h1>
   <nav class="tabs" aria-label="Group sections">
     <a href="/g/{{.Group.Code}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>Overview</a>
+    <a href="/g/{{.Group.Code}}/schedule"{{if eq .Section "schedule"}} aria-current="page"{{end}}>Schedule</a>
     <a href="/g/{{.Group.Code}}/homework"{{if eq .Section "homework"}} aria-current="page"{{end}}>Homework</a>
     <a href="/g/{{.Group.Code}}/notes"{{if eq .Section "notes"}} aria-current="page"{{end}}>Notes</a>
     <a href="/g/{{.Group.Code}}/links"{{if eq .Section "links"}} aria-current="page"{{end}}>Class links</a>
@@ -131,5 +132,40 @@
   </form>
 </section>
 {{if .UpdateBadge}}<span id="overdue-badge" hx-swap-oob="true">{{if .HW.Overdue}}<span class="badge warn">Overdue</span>{{end}}</span>{{end}}
+{{end}}
+{{end}}
+
+{{/* scheduleEvent is one class. Called with (classItem <schedule> <event>). */}}
+{{define "scheduleEvent"}}
+<li class="class{{if .E.Now}} now{{else if .Next}} next{{end}}">
+  <span class="class-time">{{clock .E.StartsAt}}–{{clock .E.EndsAt}}</span>
+  <div class="class-main">
+    <strong>{{.E.Title}}</strong>
+    <span class="muted">· {{classType .E}}{{with .E.Room}} · {{.}}{{end}}</span>
+    {{if .E.Now}}<span class="badge">Now</span>{{else if .Next}}<span class="badge">Next</span>{{end}}
+    {{with .E.ClassLinks}}
+    <div class="small">
+      {{range .}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer">Join{{with .Note}} ({{.}}){{end}}</a> {{end}}
+    </div>
+    {{end}}
+  </div>
+</li>
+{{end}}
+
+{{/* scheduleStatus says where the schedule comes from and how fresh it is. */}}
+{{define "scheduleStatus"}}
+{{with .Schedule}}
+{{if not .HasSource}}
+<p class="muted small">This group is not linked to a CIST timetable yet. The site admin can link it with
+  <code>extt admin set-cist-id</code>.</p>
+{{else if not .Sync}}
+<p class="muted small">The schedule has not been loaded from CIST yet.</p>
+{{else}}
+<p class="muted small">{{with .Sync.LastSuccessAt}}Synced with CIST {{datetime .}}.{{else}}Never synced with CIST successfully.{{end}}</p>
+{{with .Sync.LastError}}
+<p class="warn-text small" role="note">The last sync ({{when $.Schedule.Sync.LastAttemptAt}}) failed: {{.}}.
+  {{if $.Schedule.Sync.LastSuccessAt}}Showing the last good copy.{{end}}</p>
+{{end}}
+{{end}}
 {{end}}
 {{end}}

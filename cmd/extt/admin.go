@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"golang.org/x/term"
 
+	"github.com/sqprrr/ExtendedTimetable/internal/cist"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
@@ -45,7 +47,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		if err != nil {
 			return err
 		}
-		if err := newService(st).AdminCreateSuperadmin(ctx, pos[0], password); err != nil {
+		if err := newService(st, nil).AdminCreateSuperadmin(ctx, pos[0], password); err != nil {
 			return err
 		}
 		fmt.Fprintf(stdout, "superadmin %s created\n", strings.ToLower(pos[0]))
@@ -58,11 +60,11 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			return err
 		}
 		defer st.Close()
-		var cist *int64
+		var cistGroup *int64
 		if *cistID != 0 {
-			cist = cistID
+			cistGroup = cistID
 		}
-		g, err := newService(st).AdminCreateGroup(ctx, pos[0], *name, cist)
+		g, err := newService(st, nil).AdminCreateGroup(ctx, pos[0], *name, cistGroup)
 		if err != nil {
 			return err
 		}
@@ -82,7 +84,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		if sub == "demote" {
 			role = store.RoleStudent
 		}
-		if err := newService(st).AdminSetRole(ctx, pos[0], *group, role); err != nil {
+		if err := newService(st, nil).AdminSetRole(ctx, pos[0], *group, role); err != nil {
 			return err
 		}
 		fmt.Fprintf(stdout, "%s is now a %s of %s\n", pos[0], role, strings.ToUpper(*group))
@@ -97,10 +99,62 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		if err != nil {
 			return err
 		}
-		if err := newService(st).AdminResetPassword(ctx, pos[0], password); err != nil {
+		if err := newService(st, nil).AdminResetPassword(ctx, pos[0], password); err != nil {
 			return err
 		}
 		fmt.Fprintf(stdout, "password for %s updated; existing sessions revoked\n", pos[0])
+
+	case "find-cist-group":
+		pos, err := parseArgs(fs, args, 1)
+		if err != nil {
+			return err
+		}
+		groups, err := cist.New(nil, cistTimeout).FindGroups(ctx, pos[0])
+		if err != nil {
+			return err
+		}
+		if len(groups) == 0 {
+			return fmt.Errorf("no CIST group matches %q (CIST names are in Ukrainian, e.g. КІУКІ-25-3)", pos[0])
+		}
+		for _, g := range groups {
+			fmt.Fprintf(stdout, "%d\t%s\n", g.ID, g.Name)
+		}
+
+	case "set-cist-id":
+		pos, st, err := open(2)
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		var id *int64
+		if pos[1] != "none" {
+			n, err := strconv.ParseInt(pos[1], 10, 64)
+			if err != nil || n <= 0 {
+				return fmt.Errorf("admin set-cist-id: %q is not a CIST id (or \"none\")", pos[1])
+			}
+			id = &n
+		}
+		if err := newService(st, nil).AdminSetCISTID(ctx, pos[0], id); err != nil {
+			return err
+		}
+		if id == nil {
+			fmt.Fprintf(stdout, "%s is no longer linked to CIST\n", strings.ToUpper(pos[0]))
+		} else {
+			fmt.Fprintf(stdout, "%s is linked to CIST timetable %d; run `extt admin sync-schedule %s` to load it now\n",
+				strings.ToUpper(pos[0]), *id, strings.ToUpper(pos[0]))
+		}
+
+	case "sync-schedule":
+		pos, st, err := open(1)
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		rec, err := newService(st, nil).AdminSyncSchedule(ctx, pos[0])
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "%d classes loaded from CIST for %s\n", rec.EventCount, strings.ToUpper(pos[0]))
 
 	default:
 		fmt.Fprint(os.Stderr, usage)

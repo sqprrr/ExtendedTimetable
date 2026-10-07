@@ -9,7 +9,9 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"time"
 
+	"github.com/sqprrr/ExtendedTimetable/internal/cist"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 	"github.com/sqprrr/ExtendedTimetable/migrations"
@@ -27,6 +29,10 @@ Commands:
                                           this is the only way to appoint one
   admin demote <username> --group CODE    Make a leader a regular student again
   admin reset-password <username>         Set a new password and sign the user out
+  admin find-cist-group <name>            Look up a group's CIST timetable id by its
+                                          Ukrainian name, e.g. КІУКІ-25-3
+  admin set-cist-id <code> <id|none>      Link a group to its CIST timetable
+  admin sync-schedule <code>              Load a group's schedule from CIST now
 
 Every command accepts --db PATH (default $EXTT_DB or ./extt.db).
 Commands that take a password prompt for it, or read one line from stdin
@@ -38,6 +44,7 @@ Environment:
   EXTT_SECURE_COOKIES set to "false" for local HTTP   (default true)
   EXTT_TRUST_PROXY    "true" to use X-Real-IP         (default false)
   EXTT_TZ             time zone for dates             (default Europe/Kyiv)
+  EXTT_CIST_INTERVAL  how often serve syncs schedules (default 6h; 0 turns it off)
 `
 
 func main() {
@@ -95,8 +102,13 @@ func openStore(ctx context.Context, path string) (*store.Store, error) {
 	return st, nil
 }
 
-func newService(st *store.Store) *service.Service {
-	return service.New(st, service.Config{})
+// cistTimeout bounds one request to one CIST server. The client tries the
+// mirror next, so a sync takes at most about twice this.
+const cistTimeout = 12 * time.Second
+
+// newService returns the service; loc is the time zone of "today" (UTC if nil).
+func newService(st *store.Store, loc *time.Location) *service.Service {
+	return service.New(st, service.Config{CIST: cist.New(nil, cistTimeout), Location: loc})
 }
 
 func newFlagSet(name string) *flag.FlagSet {
@@ -135,6 +147,14 @@ func envOr(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func envDuration(key string, def time.Duration) time.Duration {
+	d, err := time.ParseDuration(os.Getenv(key))
+	if err != nil {
+		return def
+	}
+	return d
 }
 
 func envBool(key string, def bool) bool {

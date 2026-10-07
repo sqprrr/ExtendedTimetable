@@ -36,6 +36,8 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE "+g+"/homework/{id}", h.deleteHomework)
 	mux.HandleFunc("PUT "+g+"/homework/{id}/progress", h.updateProgress)
 	mux.HandleFunc("GET "+g+"/grades", h.myGrades)
+	mux.HandleFunc("GET "+g+"/schedule", h.schedule)
+	mux.HandleFunc("POST "+g+"/schedule/sync", h.syncSchedule)
 
 	mux.HandleFunc("GET "+g+"/notes", h.listNotes)
 	mux.HandleFunc("POST "+g+"/notes", h.createNote)

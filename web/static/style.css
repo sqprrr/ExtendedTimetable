@@ -231,3 +231,25 @@ table.grades tfoot th { border-top: 2px solid var(--border); padding-top: 0.5rem
 }
 .notice.visible { display: block; }
 .warn-text { color: var(--warn); background: var(--warn-bg); padding: 0.5rem 0.75rem; border-radius: 6px; }
+
+/* Schedule */
+ul.classes { list-style: none; margin: 0; padding: 0; }
+li.class {
+  display: flex;
+  gap: 1rem;
+  padding: 0.5rem 0.625rem;
+  margin: 0 -0.625rem;
+  border-radius: 6px;
+}
+li.class + li.class { border-top: 1px solid var(--border); }
+li.class.now, li.class.next { background: var(--progress-bg); border-top-color: transparent; }
+li.class.now + li.class, li.class.next + li.class { border-top-color: transparent; }
+.class-time { flex: none; width: 6.5rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+li.class.now .class-time { color: var(--progress); font-weight: 600; }
+.class-main { min-width: 0; }
+.week-nav { display: flex; gap: 1rem; flex-wrap: wrap; }
+.card.day h3 { margin: 0 0 0.5rem; }
+.card.day.today { border-color: var(--accent); }
+@media (max-width: 30rem) {
+  li.class { flex-direction: column; gap: 0.125rem; }
+}

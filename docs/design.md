@@ -60,7 +60,14 @@ extt admin promote <username> --group KIUKI-25-3
 - Events are cached in `schedule_events`. If CIST is unavailable, the site shows the cached data with a "last synced at …" timestamp.
 - Views: **today**, **week**, and the next class highlighted.
 - Each event can show the matching **class link** (by subject + lesson type).
-- ⚠️ To verify before implementing: the exact CIST endpoints and format (group lookup, e.g. `P_API_GROUP_JSON`, the events JSON or CSV export, `cp1251` encoding and known malformed-JSON quirks). Keep the CIST client isolated behind an interface so it can be swapped.
+- **CIST access (checked in October 2026):**
+  - The group list (`/ias/app/tt/P_API_GROUP_JSON`) is open; `extt admin find-cist-group` uses it.
+  - The events JSON (`P_API_EVEN_JSON`) needs a registered `idClient`. The key third-party apps use (`KNURESked`) is refused with `ORA-20001: not authorized`.
+  - So events come from the **CSV export** the CIST site offers for calendars (`WEB_IAS_TT_GNR_RASP.GEN_GROUP_POTOK_RASP?ATypeDoc=3&Aid_group=…`). It needs no key. It is `windows-1251` with bare-CR line breaks, and the title `"ООПро Лк DL КІУКІ-25-1,2,3"` carries the subject short name, lesson type, room and groups. It has no teachers or full subject names.
+  - The main server `cist.nure.ua` is often unreachable while the mirror `cist2.nure.ua` answers; the client tries both and remembers the one that worked.
+  - The client sits behind the `cist.Source` interface, so a JSON client can replace it if a key is obtained.
+- Subjects come from CIST. A sync links each class to the group's subject whose short name (or else name) equals CIST's short name, ignoring case; otherwise to the subject earlier classes with that short name were linked to, so leaders can rename subjects freely; a short name seen for the first time gets a new subject. A subject the leader deleted is not created again.
+- A valid but empty export (holidays) empties the synced window; a failed or malformed answer keeps the last good copy.
 
 ### 4.2 Class links
 - The leader manages meeting links per subject and lesson type (lecture / practice / lab).
@@ -179,5 +186,5 @@ docs/
 - Where will recordings live (YouTube unlisted, Drive, Teams)? Does access need restricting?
 - Should students see a list of group members?
 - Domain name for the VPS.
-- How reliable is the CIST API? Do we need a manual CSV-import fallback?
-- Should subjects come from CIST automatically, or be managed by the leader?
+- How reliable is the CIST API? Do we need a manual CSV-import fallback? (M4: the main server is often down and the JSON API needs a key; the CSV export via the mirror works. A manual upload of the same CSV would be easy to add if needed.)
+- ~~Should subjects come from CIST automatically, or be managed by the leader?~~ Both: the sync creates missing subjects, leaders edit them (M4).

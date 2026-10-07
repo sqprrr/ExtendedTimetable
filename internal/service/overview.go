@@ -24,6 +24,8 @@ type Overview struct {
 	Homework   []*Homework
 	Notes      []*store.Note
 	ClassLinks []*store.ClassLink
+	// Today is today's classes and the class in progress or next.
+	Today *Schedule
 }
 
 // GroupOverview returns the front page of a group.
@@ -48,5 +50,13 @@ func (s *Service) GroupOverview(ctx context.Context, groupID int64) (*Overview, 
 	if err != nil {
 		return nil, err
 	}
-	return &Overview{Homework: views, Notes: notes, ClassLinks: links}, nil
+	g, err := s.store.GroupByID(ctx, groupID)
+	if err != nil {
+		return nil, notFound(err)
+	}
+	today, err := s.todaySchedule(ctx, g, links)
+	if err != nil {
+		return nil, err
+	}
+	return &Overview{Homework: views, Notes: notes, ClassLinks: links, Today: today}, nil
 }
