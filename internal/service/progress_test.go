@@ -60,7 +60,7 @@ func TestProgressIsPrivate(t *testing.T) {
 		if hw.Status != store.StatusNotStarted || hw.Grade != nil {
 			t.Errorf("%s sees %s / %v", name, hw.Status, hw.Grade)
 		}
-		list, err := f.svc.HomeworkList(ctx, gid)
+		list, err := f.svc.HomeworkList(ctx, gid, service.HomeworkFilter{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -299,5 +299,57 @@ func TestNextStatusCycles(t *testing.T) {
 	}
 	if seen[0] != store.StatusInProgress || seen[1] != store.StatusDone || seen[2] != store.StatusNotStarted {
 		t.Fatalf("cycle: %v", seen)
+	}
+}
+
+func TestHomeworkFilter(t *testing.T) {
+	f := setup(t)
+	lead := f.leader(t, "lead")
+	stud := f.as(t, f.register(t, "stud"))
+	gid := f.group.ID
+	phys := f.subject(t, lead, "Physics").ID
+	math := f.subject(t, lead, "Maths").ID
+	lab := f.homework(t, lead, phys, "Lab", nil, nil)
+	f.homework(t, lead, phys, "Essay", nil, nil)
+	sums := f.homework(t, lead, math, "Sums", nil, nil)
+	for id, st := range map[int64]store.ProgressStatus{lab.ID: store.StatusDone, sums.ID: store.StatusInProgress} {
+		if _, err := f.svc.UpdateProgress(stud, gid, id, service.ProgressInput{Status: status(st)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	titles := func(ctx context.Context, flt service.HomeworkFilter) string {
+		t.Helper()
+		list, err := f.svc.HomeworkList(ctx, gid, flt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, h := range list {
+			out = append(out, h.Title)
+		}
+		return strings.Join(out, ",")
+	}
+	for _, c := range []struct {
+		flt  service.HomeworkFilter
+		want string
+	}{
+		{service.HomeworkFilter{}, "Lab,Essay,Sums"},
+		{service.HomeworkFilter{SubjectID: phys}, "Lab,Essay"},
+		{service.HomeworkFilter{Status: store.StatusNotStarted}, "Essay"},
+		{service.HomeworkFilter{Status: store.StatusInProgress}, "Sums"},
+		{service.HomeworkFilter{SubjectID: phys, Status: store.StatusDone}, "Lab"},
+		{service.HomeworkFilter{SubjectID: math, Status: store.StatusDone}, ""},
+	} {
+		if got := titles(stud, c.flt); got != c.want {
+			t.Errorf("%+v: got %q, want %q", c.flt, got, c.want)
+		}
+	}
+	// The status filter uses the viewer's own tracker, not the student's.
+	if got := titles(lead, service.HomeworkFilter{Status: store.StatusNotStarted}); got != "Lab,Essay,Sums" {
+		t.Errorf("leader's not started: %q", got)
+	}
+	if _, err := f.svc.HomeworkList(stud, gid, service.HomeworkFilter{Status: "finished"}); err == nil {
+		t.Error("unknown status should be rejected")
 	}
 }

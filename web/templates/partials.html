@@ -80,6 +80,7 @@
     <input type="hidden" name="csrf_token" value="{{.CSRF}}">
     <input type="hidden" name="view" value="item">
     <input type="hidden" name="from" value="{{.From}}">
+    {{with .Filter}}<input type="hidden" name="filter" value="{{.}}">{{end}}
     <input type="hidden" name="status" value="{{nextStatus .HW.Status}}">
     <button type="submit" class="status status-{{.HW.Status}}" title="{{t "hw.mark_as" "Status" (statusLabel (nextStatus .HW.Status))}}">{{statusLabel .HW.Status}}</button>
   </form>
@@ -167,4 +168,16 @@
 {{end}}
 {{end}}
 {{end}}
+{{end}}
+
+{{/* feedbackBody is one piece of feedback: its kind, rating, date, whether
+   it is resolved, and the message. */}}
+{{define "feedbackBody"}}
+<div class="feedback-head small">
+  <span class="badge">{{feedbackKind .Kind}}</span>
+  {{with .Rating}}<span class="stars" title="{{t "feedback.rated" "N" .}}">{{stars .}}</span>{{end}}
+  <span class="muted">{{when .CreatedAt}}</span>
+  {{if .ResolvedAt}}<span class="badge ok">{{t "feedback.resolved"}}</span>{{end}}
+</div>
+<p class="feedback-message">{{.Message}}</p>
 {{end}}

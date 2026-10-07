@@ -56,6 +56,7 @@ type Service struct {
 	loginByIP       *auth.Limiter
 	loginByUsername *auth.Limiter
 	registerByIP    *auth.Limiter
+	feedbackByUser  *auth.Limiter
 
 	// syncing holds the groups whose schedule sync is running.
 	syncMu  sync.Mutex
@@ -77,6 +78,7 @@ func New(st *store.Store, cfg Config) *Service {
 		loginByIP:       auth.NewLimiter(30, 15*time.Minute),
 		loginByUsername: auth.NewLimiter(10, 15*time.Minute),
 		registerByIP:    auth.NewLimiter(10, time.Hour),
+		feedbackByUser:  auth.NewLimiter(10, time.Hour),
 		syncing:         map[int64]bool{},
 	}
 }
@@ -106,6 +108,7 @@ func (s *Service) RunMaintenance(ctx context.Context, every time.Duration) error
 		s.loginByIP.Prune()
 		s.loginByUsername.Prune()
 		s.registerByIP.Prune()
+		s.feedbackByUser.Prune()
 		select {
 		case <-ctx.Done():
 			return nil

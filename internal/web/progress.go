@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -58,7 +59,9 @@ func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
 		h.render(w, r, status, "homework_detail", pageData{Group: g, Section: "homework", Homework: hw, ProgressPanel: item})
 		return
 	}
-	item := hwItem{Code: g.Code, CSRF: auth.CSRFToken(r.Context()), HW: hw, From: r.PostFormValue("from")}
+	filter, _ := url.ParseQuery(r.PostFormValue("filter"))
+	item := hwItem{Code: g.Code, CSRF: auth.CSRFToken(r.Context()), HW: hw, From: r.PostFormValue("from"),
+		Filter: homeworkFilterQuery(parseHomeworkFilter(filter))}
 	switch {
 	case htmx && view == "panel":
 		// The Overdue badge above the panel depends on the status too.
@@ -73,6 +76,9 @@ func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
 			back = "/g/" + g.Code
 		case "list":
 			back = "/g/" + g.Code + "/homework"
+			if item.Filter != "" {
+				back += "?" + item.Filter
+			}
 		}
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	}

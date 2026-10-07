@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -46,6 +47,7 @@ type Config struct {
 var pages = []string{
 	"home", "login", "register", "error",
 	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources", "grades", "schedule",
+	"feedback", "feedback_inbox",
 }
 
 // New parses the templates and returns a Handler.
@@ -84,6 +86,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /logout", h.logout)
 	mux.HandleFunc("POST /lang", h.setLang)
 	h.registerGroupRoutes(mux)
+	h.registerFeedbackRoutes(mux)
 }
 
 // pageData is passed to every template.
@@ -110,13 +113,25 @@ type pageData struct {
 	Subjects     []*store.Subject
 	ClassLinks   []*store.ClassLink
 	HomeworkList []*service.Homework
-	Homework     *service.Homework
-	Notes        []*store.Note
-	Resources    []*store.ResourceLink
-	Grades       *service.Grades
+	// HomeworkFilter is the homework list's subject and status filter.
+	HomeworkFilter service.HomeworkFilter
+	// Query is the page's query string.
+	Query     url.Values
+	Homework  *service.Homework
+	Notes     []*store.Note
+	Resources []*store.ResourceLink
+	Grades    *service.Grades
 	// ProgressPanel replaces the progress panel of the homework page, to show
 	// a rejected grade with its error.
 	ProgressPanel *hwItem
+	// Feedback is the viewer's own feedback, or the superadmins' inbox.
+	Feedback []*store.Feedback
+	// FeedbackOpen counts the unresolved feedback (superadmins only).
+	FeedbackOpen int
+	// ShowAll shows resolved feedback in the inbox too.
+	ShowAll bool
+	// Notice is a confirmation shown at the top of the page.
+	Notice string
 	// Schedule is the schedule page's week, or the overview's today.
 	Schedule *service.Schedule
 	Week     *weekView
@@ -131,6 +146,8 @@ type hwItem struct {
 	// From is the page the item is on (overview, list, detail), to come back
 	// to after a form post without JavaScript.
 	From string
+	// Filter is the homework list's filter query, to keep it on that trip.
+	Filter string
 	// Error and GradeInput redisplay a rejected grade in the progress panel.
 	Error      string
 	GradeInput string
@@ -168,7 +185,7 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		},
 		"lessonTypes": func() []store.LessonType { return service.LessonTypes },
 		"hwItem": func(d pageData, hw *service.Homework, from string) hwItem {
-			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from}
+			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from, Filter: homeworkFilterQuery(d.HomeworkFilter)}
 		},
 		"statuses":   func() []store.ProgressStatus { return service.Statuses },
 		"nextStatus": service.NextStatus,
@@ -213,9 +230,16 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		},
 		// The label funcs take any so templates can pass both typed values
 		// and string literals.
-		"lessonLabel": func(t any) string { return label(l, "lesson.", fmt.Sprint(t)) },
-		"kindLabel":   func(k any) string { return label(l, "kind.", fmt.Sprint(k)) },
-		"idstr":       func(id int64) string { return strconv.FormatInt(id, 10) },
+		"lessonLabel":   func(t any) string { return label(l, "lesson.", fmt.Sprint(t)) },
+		"kindLabel":     func(k any) string { return label(l, "kind.", fmt.Sprint(k)) },
+		"idstr":         func(id int64) string { return strconv.FormatInt(id, 10) },
+		"feedbackKinds": func() []store.FeedbackKind { return service.FeedbackKinds },
+		"feedbackKind":  func(k store.FeedbackKind) string { return label(l, "feedback.kind.", string(k)) },
+		"ratings":       func() []int64 { return []int64{5, 4, 3, 2, 1} },
+		"stars": func(n int64) string {
+			n = max(0, min(n, 5))
+			return strings.Repeat("★", int(n)) + strings.Repeat("☆", 5-int(n))
+		},
 	}
 }
 

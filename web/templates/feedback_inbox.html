@@ -1,0 +1,45 @@
+{{define "title"}}{{t "feedback.inbox"}}{{end}}
+{{define "content"}}
+<div class="card-head">
+  <h1>{{t "feedback.inbox"}}</h1>
+  <nav class="actions">
+    {{if .ShowAll}}
+    <a href="/admin/feedback">{{t "feedback.show_open" "N" .FeedbackOpen}}</a>
+    <strong>{{t "feedback.show_all"}}</strong>
+    {{else}}
+    <strong>{{t "feedback.show_open" "N" .FeedbackOpen}}</strong>
+    <a href="/admin/feedback?show=all">{{t "feedback.show_all"}}</a>
+    {{end}}
+  </nav>
+</div>
+<section class="card">
+  {{with .Feedback}}
+  <ul class="items">
+    {{range .}}
+    <li class="feedback{{if .ResolvedAt}} resolved{{end}}">
+      <p class="small"><strong>{{or .Username (t "feedback.deleted_user")}}</strong></p>
+      {{template "feedbackBody" .}}
+      <div class="actions">
+        <form method="post" action="/admin/feedback/{{.ID}}/resolve" class="inline">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          {{if $.ShowAll}}<input type="hidden" name="show" value="all">{{end}}
+          {{if .ResolvedAt}}
+          <button type="submit" name="resolved" value="0" class="secondary">{{t "feedback.reopen"}}</button>
+          {{else}}
+          <button type="submit" name="resolved" value="1" class="secondary">{{t "feedback.resolve"}}</button>
+          {{end}}
+        </form>
+        <form method="post" action="/admin/feedback/{{.ID}}/delete" class="inline" data-confirm="{{t "feedback.confirm_delete"}}">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          {{if $.ShowAll}}<input type="hidden" name="show" value="all">{{end}}
+          <button type="submit" class="link danger">{{t "action.delete"}}</button>
+        </form>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="muted">{{if .ShowAll}}{{t "feedback.inbox_empty"}}{{else}}{{t "feedback.inbox_clear"}}{{end}}</p>
+  {{end}}
+</section>
+{{end}}

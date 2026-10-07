@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -92,7 +93,8 @@ func (h *Handler) sections() []*section {
 			name: "homework",
 			load: func(ctx context.Context, h *Handler, groupID int64, d *pageData) error {
 				var err error
-				if d.HomeworkList, err = h.svc.HomeworkList(ctx, groupID); err != nil {
+				d.HomeworkFilter = parseHomeworkFilter(d.Query)
+				if d.HomeworkList, err = h.svc.HomeworkList(ctx, groupID, d.HomeworkFilter); err != nil {
 					return err
 				}
 				return loadSubjects(ctx, h, groupID, d)
@@ -202,6 +204,34 @@ func (h *Handler) sections() []*section {
 	}
 }
 
+// parseHomeworkFilter reads the homework list filter from the query string
+// (?subject_id=…&status=…). Values that are not an id or a status are
+// ignored, so a stale or edited link shows the whole list.
+func parseHomeworkFilter(q url.Values) service.HomeworkFilter {
+	var f service.HomeworkFilter
+	if id, err := strconv.ParseInt(q.Get("subject_id"), 10, 64); err == nil && id > 0 {
+		f.SubjectID = id
+	}
+	for _, st := range service.Statuses {
+		if q.Get("status") == string(st) {
+			f.Status = st
+		}
+	}
+	return f
+}
+
+// homeworkFilterQuery encodes f for the homework list URL, without the "?".
+func homeworkFilterQuery(f service.HomeworkFilter) string {
+	q := url.Values{}
+	if f.SubjectID != 0 {
+		q.Set("subject_id", strconv.FormatInt(f.SubjectID, 10))
+	}
+	if f.Status != "" {
+		q.Set("status", string(f.Status))
+	}
+	return q.Encode()
+}
+
 func loadSubjects(ctx context.Context, h *Handler, groupID int64, d *pageData) error {
 	var err error
 	d.Subjects, err = h.svc.Subjects(ctx, groupID)
@@ -253,6 +283,7 @@ func sectionURL(g *service.GroupView, name string) string {
 func (h *Handler) showSection(w http.ResponseWriter, r *http.Request, s *section, g *service.GroupView, status int, d pageData) {
 	d.Group = g
 	d.Section = s.name
+	d.Query = r.URL.Query()
 	if d.Fields == nil {
 		d.Fields = map[string]string{}
 	}
