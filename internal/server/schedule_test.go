@@ -120,6 +120,19 @@ func TestSchedulePages(t *testing.T) {
 		}
 	}
 
+	// The day strip selects a day: phones and the Day view show only that
+	// one; the Week view lists them all.
+	day := src.events[0].Start.In(time.UTC).Format(time.DateOnly)
+	_, body, _ = stud.get(g + "/schedule?week=" + week + "&day=" + day + "&view=day")
+	for _, want := range []string{`class="section-gap view-day"`, `class="card day-card is-selected`, `day=` + day + `&amp;view=day" aria-current="date"`, `aria-current="page">Day</a>`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("day view missing %q", want)
+		}
+	}
+	if strings.Count(body, "is-selected") != 1 {
+		t.Error("exactly one day should be selected")
+	}
+
 	// Today opens with the class in progress, how long is left and its link.
 	_, body, _ = stud.get(g)
 	for _, want := range []string{`class="now-card is-now"`, "Now · 85 min left", "ООПро", `<progress class="bar bar-thin"`, `href="https://meet.example/oop"`} {

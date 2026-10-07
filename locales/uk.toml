@@ -226,6 +226,14 @@ sync_failed = "Останнє оновлення ({{.When}}) не вдалося
 showing_last_good = "Показано останню вдалу копію."
 subjects_note = 'Предмети, що вперше з’являються в розкладі, додаються до <a href="{{.URL}}">Предметів</a> під скороченою назвою з CIST. Старости можуть вільно їх перейменовувати, а видалені не додаються знову.'
 no_link = "Немає посилання"
+view = "Вигляд"
+view_day = "День"
+view_week = "Тиждень"
+days = "Дні"
+prev_week = "Попередній тиждень"
+next_week_label = "Наступний тиждень"
+week_range = "{{.From}}–{{.To}} {{.Month}}"
+week_range_months = "{{.From}} {{.FromMonth}} – {{.To}} {{.ToMonth}}"
 
 [feedback]
 title = "Відгук"
@@ -404,3 +412,9 @@ one = "прострочено на {{.Count}} день"
 few = "прострочено на {{.Count}} дні"
 many = "прострочено на {{.Count}} днів"
 other = "прострочено на {{.Count}} дня"
+
+[schedule.count]
+one = "{{.Count}} пара"
+few = "{{.Count}} пари"
+many = "{{.Count}} пар"
+other = "{{.Count}} пари"

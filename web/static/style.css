@@ -632,3 +632,13 @@ progress.bar::-moz-progress-bar { background: var(--hue, var(--accent)); border-
 }
 .note-head h2 { font-size: 16px; line-height: 24px; font-weight: 600; }
 .read-more { font-size: 13px; line-height: 18px; font-weight: 500; justify-self: start; }
+
+/* Schedule: every day on desktop (Week), one at a time in the Day view and
+   always on phones. */
+.week { display: grid; gap: var(--space-12); }
+.week .toolbar { margin: 0; }
+.day-card.is-today { border-color: var(--accent); }
+.view-day .day-card:not(.is-selected) { display: none; }
+@media (max-width: 767.98px) {
+  .day-card:not(.is-selected) { display: none; }
+}

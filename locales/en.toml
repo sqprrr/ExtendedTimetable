@@ -225,6 +225,14 @@ sync_failed = "The last sync ({{.When}}) failed: {{.Error}}."
 showing_last_good = "Showing the last good copy."
 subjects_note = "Subjects that appear in the timetable for the first time are added to <a href=\"{{.URL}}\">Subjects</a> under CIST's short name. Leaders can rename them freely, and deleted ones are not added back."
 no_link = "No meeting link"
+view = "View"
+view_day = "Day"
+view_week = "Week"
+days = "Days"
+prev_week = "Previous week"
+next_week_label = "Next week"
+week_range = "{{.From}}–{{.To}} {{.Month}}"
+week_range_months = "{{.From}} {{.FromMonth}} – {{.To}} {{.ToMonth}}"
 
 [feedback]
 title = "Feedback"
@@ -387,3 +395,7 @@ other = "Next · in {{.Count}} min"
 [hw.overdue_days]
 one = "{{.Count}} day overdue"
 other = "{{.Count}} days overdue"
+
+[schedule.count]
+one = "{{.Count}} class"
+other = "{{.Count}} classes"

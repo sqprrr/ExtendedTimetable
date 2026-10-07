@@ -272,6 +272,7 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		"relWhen":   func(t time.Time) string { return h.relWhen(l, h.svc.Now(), t) },
 		"shortDate": func(t time.Time) string { return h.shortDate(l, h.svc.Now(), t) },
 		"longDate":  func(t time.Time) string { return h.longDate(l, t) },
+		"weekday":   func(t time.Time) string { return weekdayKey(t.In(h.loc)) },
 		"statusIcon": func(st store.ProgressStatus) string {
 			switch st {
 			case store.StatusInProgress:

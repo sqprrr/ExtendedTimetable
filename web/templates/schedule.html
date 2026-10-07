@@ -1,42 +1,75 @@
 {{define "title"}}{{t "nav.schedule"}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-schedule{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
-<section class="card">
-  <div class="card-head">
-    <h2>{{t "schedule.week_of" "Date" (date .Week.Start)}}</h2>
-    <nav class="week-nav" aria-label="{{t "schedule.weeks"}}">
-      <a href="/g/{{.Group.Code}}/schedule?week={{.Week.Prev}}">{{t "schedule.prev"}}</a>
-      {{if not .Week.IsThis}}<a href="/g/{{.Group.Code}}/schedule?week={{.Week.This}}">{{t "schedule.this_week"}}</a>{{end}}
-      <a href="/g/{{.Group.Code}}/schedule?week={{.Week.Next}}">{{t "schedule.next_week"}}</a>
+{{$g := print "/g/" .Group.Code}}
+{{$w := .Week}}
+<header class="page-head">
+  <div>
+    <h1>{{t "nav.schedule"}}</h1>
+    {{with .Schedule}}{{if and .HasSource .Sync}}<p class="subtitle">{{template "syncLine" .}}</p>{{end}}{{end}}
+  </div>
+  <div class="btn-row">
+    {{if and .Group.CanManage .Schedule.HasSource}}
+    <form method="post" action="{{$g}}/schedule/sync" class="inline">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <input type="hidden" name="week" value="{{$w.Start.Format "2006-01-02"}}">
+      <input type="hidden" name="day" value="{{$w.Day}}">
+      <input type="hidden" name="view" value="{{$w.View}}">
+      <button type="submit" class="btn btn-secondary">{{t "schedule.sync_now"}}</button>
+    </form>
+    {{end}}
+    <nav class="segmented hide-sm" aria-label="{{t "schedule.view"}}">
+      <a href="{{$g}}/schedule?week={{$w.Start.Format "2006-01-02"}}&amp;day={{$w.Day}}&amp;view=day"{{if eq $w.View "day"}} aria-current="page"{{end}}>{{t "schedule.view_day"}}</a>
+      <a href="{{$g}}/schedule?week={{$w.Start.Format "2006-01-02"}}&amp;day={{$w.Day}}"{{if eq $w.View "week"}} aria-current="page"{{end}}>{{t "schedule.view_week"}}</a>
     </nav>
   </div>
+</header>
+
+<div class="section-gap view-{{$w.View}}">
+  {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
   {{template "scheduleStatus" .}}
-  {{if and .Group.CanManage .Schedule.HasSource}}
-  <form method="post" action="/g/{{.Group.Code}}/schedule/sync" class="inline">
-    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <input type="hidden" name="week" value="{{.Week.Start.Format "2006-01-02"}}">
-    <button type="submit" class="secondary">{{t "schedule.sync_now"}}</button>
-  </form>
-  {{end}}
-</section>
 
-{{range .Week.Days}}
-<section class="card day{{if .Today}} today{{end}}">
-  <h3>{{dayName .Date}}{{if .Today}} <span class="badge">{{t "overview.today"}}</span>{{end}}</h3>
-  {{with .Events}}
-  <ul class="classes">
-    {{range .}}{{template "classRow" (classItem $.Schedule .)}}{{end}}
-  </ul>
-  {{else}}
-  <p class="muted small">{{t "schedule.no_classes"}}</p>
-  {{end}}
-</section>
-{{end}}
+  <div class="week">
+    <div class="toolbar">
+      <nav class="week-nav" aria-label="{{t "schedule.weeks"}}">
+        <a class="btn btn-ghost btn-icon btn-sm" href="{{$g}}/schedule?week={{$w.Prev}}{{if eq $w.View "day"}}&amp;view=day{{end}}" aria-label="{{t "schedule.prev_week"}}" title="{{t "schedule.prev_week"}}">{{icon "chevron-left"}}</a>
+        <span class="label">{{$w.Label}}</span>
+        <a class="btn btn-ghost btn-icon btn-sm" href="{{$g}}/schedule?week={{$w.Next}}{{if eq $w.View "day"}}&amp;view=day{{end}}" aria-label="{{t "schedule.next_week_label"}}" title="{{t "schedule.next_week_label"}}">{{icon "chevron-right"}}</a>
+        {{if not $w.IsThis}}<a class="btn btn-ghost btn-sm" href="{{$g}}/schedule{{if eq $w.View "day"}}?view=day{{end}}">{{t "schedule.this_week"}}</a>{{end}}
+      </nav>
+      <span class="meta">{{t "schedule.count" "Count" $w.Count}}</span>
+    </div>
+    <nav class="day-strip" id="days" aria-label="{{t "schedule.days"}}">
+      {{range $w.Days}}
+      <a class="day{{if .Today}} is-today{{end}}{{if not .Events}} is-empty{{end}}" href="{{$g}}/schedule?week={{$w.Start.Format "2006-01-02"}}&amp;day={{.Key}}{{if eq $w.View "day"}}&amp;view=day{{end}}"{{if .Selected}} aria-current="date"{{end}}>
+        <span class="wd">{{t (print "weekday.short." (weekday .Date))}}</span>
+        <span class="num">{{.Date.Day}}</span>
+        <span class="dots" aria-hidden="true">{{range $i, $e := .Events}}{{if lt $i 5}}<i></i>{{end}}{{end}}</span>
+        <span class="sr-only">{{dayName .Date}}{{if .Today}} · {{t "overview.today"}}{{end}} · {{t "schedule.count" "Count" (len .Events)}}</span>
+      </a>
+      {{end}}
+    </nav>
+  </div>
 
-{{with nextLater .Schedule}}
-{{if $.Week.IsThis}}
-<p class="muted">{{t "schedule.next_class"}} <strong>{{.Title}}</strong> · {{dayName .StartsAt}}, {{clock .StartsAt}}</p>
-{{end}}
-{{end}}
-<p class="muted small">{{th "schedule.subjects_note" "URL" (print "/g/" .Group.Code "/subjects")}}</p>
+  {{range $w.Days}}{{if .Listed}}
+  <section class="card day-card{{if .Selected}} is-selected{{end}}{{if .Today}} is-today{{end}}" id="day-{{.Key}}" aria-labelledby="day-{{.Key}}-title">
+    <div class="card-head">
+      <h2 id="day-{{.Key}}-title">{{longDate .Date}}</h2>
+      {{if .Today}}<span class="badge badge-accent">{{t "overview.today"}}</span>{{end}}
+    </div>
+    {{with .Events}}
+    <ul class="rows">
+      {{range .}}{{template "classRow" (classItem $.Schedule .)}}{{end}}
+    </ul>
+    {{else}}
+    <p class="text-tertiary">{{t "schedule.no_classes"}}</p>
+    {{end}}
+  </section>
+  {{end}}{{end}}
+
+  {{with nextLater .Schedule}}{{if $w.IsThis}}
+  <p class="meta">{{t "schedule.next_class"}} {{.Title}} · {{dayName .StartsAt}}, {{clock .StartsAt}}</p>
+  {{end}}{{end}}
+  <p class="meta">{{th "schedule.subjects_note" "URL" (print $g "/subjects")}}</p>
+</div>
 {{end}}

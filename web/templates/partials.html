@@ -150,8 +150,8 @@
 </li>
 {{end}}
 
-{{/* scheduleStatus says where the schedule comes from and how fresh it is:
-   an alert when something is off, else when it was last synced. */}}
+{{/* scheduleStatus is an alert when the schedule cannot be trusted: no
+   CIST source, never loaded, or the last sync failed. */}}
 {{define "scheduleStatus"}}
 {{with .Schedule}}
 {{if not .HasSource}}
@@ -162,12 +162,13 @@
 {{with .Sync.LastError}}
 <div class="alert alert-warning" role="note">{{icon "triangle-alert"}}<div><strong>{{t "schedule.sync_failed" "When" (when $.Schedule.Sync.LastAttemptAt) "Error" .}}</strong>
   {{if $.Schedule.Sync.LastSuccessAt}}{{t "schedule.showing_last_good"}}{{end}}</div></div>
-{{else}}
-<p class="meta">{{with .Sync.LastSuccessAt}}{{t "schedule.synced_at" "When" (relWhen .)}}{{else}}{{t "schedule.never_synced"}}{{end}}</p>
 {{end}}
 {{end}}
 {{end}}
 {{end}}
+
+{{/* syncLine says when the schedule was last synced with CIST. */}}
+{{define "syncLine"}}{{with .Sync}}{{with .LastSuccessAt}}{{t "schedule.synced_at" "When" (relWhen .)}}{{else}}{{t "schedule.never_synced"}}{{end}}{{end}}{{end}}
 
 {{/* feedbackBody is one piece of feedback: its kind, rating, date, whether
    it is resolved, and the message. */}}
