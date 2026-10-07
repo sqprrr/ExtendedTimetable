@@ -8,7 +8,7 @@
 {{$g := print "/g/" .Group.Code}}
 <header class="page-head">
   <div><h1>{{t "nav.links"}}</h1></div>
-  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/links/new">{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/links/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
 </header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 {{with .ClassLinks}}
@@ -37,7 +37,7 @@
     <span class="glyph">{{icon "link"}}</span>
     <h3>{{t "links.empty"}}</h3>
     <p>{{t "links.empty_hint"}}</p>
-    {{if $.Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/links/new">{{icon "plus"}}{{t "links.new_title"}}</a>{{end}}
+    {{if $.Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/links/new"{{boost}}>{{icon "plus"}}{{t "links.new_title"}}</a>{{end}}
   </div>
 </section>
 {{end}}

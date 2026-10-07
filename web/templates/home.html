@@ -8,7 +8,7 @@
   </div>
 </header>
 {{with .Groups}}
-<div class="group-cards">
+<div class="group-cards"{{boost}}>
   {{range .}}
   <section class="card group-card" aria-labelledby="group-{{.Code}}">
     <div class="card-head">

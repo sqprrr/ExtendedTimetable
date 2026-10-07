@@ -6,7 +6,7 @@
   <title>{{template "title" .}} · ExtendedTimetable</title>
   <link rel="stylesheet" href="{{asset "style.css"}}">
   {{/* htmx would inject an inline <style>, which the CSP blocks. */}}
-  <meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false}'>
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
   <script src="{{asset "htmx.min.js"}}" defer></script>
   <script src="{{asset "app.js"}}" defer></script>
 </head>
@@ -17,7 +17,8 @@
   <div class="app">
     {{template "sidebar" .}}
     {{template "topbar" .}}
-    <main class="page {{template "mainClass" .}}" id="main">
+    <main class="page {{template "mainClass" .}}" id="main" tabindex="-1">
+      {{template "skeleton"}}
       {{template "content" .}}
     </main>
     {{template "bottomNav" .}}
@@ -47,7 +48,7 @@
 
 {{/* sidebar is the navigation from 768px up. */}}
 {{define "sidebar"}}
-<aside class="sidebar">
+<aside class="sidebar"{{boost}}>
   <a class="wordmark" href="/">ExtendedTimetable</a>
   {{with .NavGroup}}
   <a class="group-switch" href="/" title="{{t "nav.my_groups"}}"><span class="name">{{.Name}}</span><span class="group-code">{{.Code}}</span></a>
@@ -86,7 +87,7 @@
 
 {{/* topbar is the slim bar above the page on phones. */}}
 {{define "topbar"}}
-<header class="topbar">
+<header class="topbar"{{boost}}>
   <div class="topbar-group">
     {{with .NavGroup}}<a class="group-code" href="/" title="{{t "nav.my_groups"}}">{{.Code}}</a>
     {{else}}<a class="wordmark" href="/">ExtendedTimetable</a>{{end}}
@@ -97,7 +98,7 @@
 
 {{/* bottomNav is the phone navigation: the four everyday sections and More. */}}
 {{define "bottomNav"}}
-<nav class="bottom-nav" aria-label="{{t "nav.sections"}}">
+<nav class="bottom-nav" aria-label="{{t "nav.sections"}}"{{boost}}>
   {{with .NavGroup}}
   {{$g := print "/g/" .Code}}
   <a href="{{$g}}"{{current $.Section "overview"}}>{{icon "house"}}<span>{{t "nav.today"}}</span></a>
@@ -116,7 +117,7 @@
 {{/* langSwitch offers the other language; the choice is kept in a cookie
    and, for signed-in users, in their account. */}}
 {{define "langSwitch"}}
-<form method="post" action="/lang" class="inline">
+<form method="post" action="/lang" class="inline" hx-boost="false">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <input type="hidden" name="back" value="{{.Back}}">
   {{if eq lang "en"}}
@@ -129,7 +130,7 @@
 
 {{/* langSwitchIcon is langSwitch as an icon button, for the phone top bar. */}}
 {{define "langSwitchIcon"}}
-<form method="post" action="/lang" class="inline">
+<form method="post" action="/lang" class="inline" hx-boost="false">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <input type="hidden" name="back" value="{{.Back}}">
   {{if eq lang "en"}}
@@ -143,7 +144,7 @@
 {{/* themeSwitch picks light, dark or the device's theme; the choice is kept
    like the language. The labels are visible only where there is room. */}}
 {{define "themeSwitch"}}
-<form method="post" action="/theme" class="theme-switch">
+<form method="post" action="/theme" class="theme-switch" hx-boost="false">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <input type="hidden" name="back" value="{{.Back}}">
   <div class="segmented" role="group" aria-label="{{t "theme.label"}}">
@@ -158,8 +159,24 @@
 {{end}}
 
 {{define "logout"}}
-<form method="post" action="/logout">
+<form method="post" action="/logout" hx-boost="false">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   <button type="submit" class="nav-item">{{icon "log-out"}}<span>{{t "nav.logout"}}</span></button>
 </form>
+{{end}}
+
+{{/* skeleton stands in for the page while htmx loads the next one (see
+   boost); it shows only when that takes a moment. */}}
+{{define "skeleton"}}
+<div class="page-skeleton" aria-hidden="true">
+  <div class="sk-head"><span class="sk sk-title"></span><span class="sk sk-subtitle"></span></div>
+  <div class="sk-card">
+    <span class="sk sk-heading"></span>
+    {{range 4}}<div class="sk-row"><span class="sk sk-dot"></span><span class="sk-lines"><span class="sk sk-line"></span><span class="sk sk-line sk-short"></span></span><span class="sk sk-tail"></span></div>{{end}}
+  </div>
+  <div class="sk-card">
+    <span class="sk sk-heading"></span>
+    {{range 2}}<div class="sk-row"><span class="sk sk-dot"></span><span class="sk-lines"><span class="sk sk-line"></span><span class="sk sk-line sk-short"></span></span><span class="sk sk-tail"></span></div>{{end}}
+  </div>
+</div>
 {{end}}

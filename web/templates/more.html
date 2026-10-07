@@ -10,7 +10,7 @@
 <div class="section-gap">
   {{with .NavGroup}}
   {{$g := print "/g/" .Code}}
-  <section class="card card-flush" aria-labelledby="more-group">
+  <section class="card card-flush" aria-labelledby="more-group"{{boost}}>
     <div class="card-head"><h2 id="more-group">{{.Name}}</h2><span class="group-code">{{.Code}}</span></div>
     <ul class="rows">
       <li><a class="row-link" href="{{$g}}/notes">{{icon "megaphone"}}<span>{{t "nav.notes"}}</span>{{icon "chevron-right"}}</a></li>
@@ -20,7 +20,7 @@
     </ul>
   </section>
   {{end}}
-  <section class="card card-flush" aria-label="{{t "nav.more"}}">
+  <section class="card card-flush" aria-label="{{t "nav.more"}}"{{boost}}>
     <ul class="rows">
       <li><a class="row-link" href="/">{{icon "house"}}<span>{{t "nav.my_groups"}}</span>{{icon "chevron-right"}}</a></li>
       <li><a class="row-link" href="/feedback">{{icon "message-square"}}<span>{{t "nav.feedback"}}</span>{{icon "chevron-right"}}</a></li>

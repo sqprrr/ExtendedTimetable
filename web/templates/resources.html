@@ -8,7 +8,7 @@
 {{$g := print "/g/" .Group.Code}}
 <header class="page-head">
   <div><h1>{{t "nav.resources"}}</h1></div>
-  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/resources/new">{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/resources/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
 </header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 {{with .Resources}}
@@ -37,7 +37,7 @@
     <span class="glyph">{{icon "video"}}</span>
     <h3>{{t "resources.empty"}}</h3>
     <p>{{t "resources.empty_hint"}}</p>
-    {{if $.Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/resources/new">{{icon "plus"}}{{t "resources.new_title"}}</a>{{end}}
+    {{if $.Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/resources/new"{{boost}}>{{icon "plus"}}{{t "resources.new_title"}}</a>{{end}}
   </div>
 </section>
 {{end}}

@@ -12,7 +12,7 @@
     <h1>{{t "nav.homework"}}</h1>
     <p class="subtitle">{{t "hw.summary_overdue" "Count" $hw.Overdue}} · {{t "hw.summary_week" "Count" $hw.ThisWeek}}{{if .Group.CanTrack}} · {{t "hw.statuses_private"}}{{end}}</p>
   </div>
-  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/homework/new">{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/homework/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
 </header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 <div class="section-gap">
@@ -41,7 +41,7 @@
       {{else}}
       <h3>{{t "hw.empty"}}</h3>
       <p>{{t "hw.empty_hint"}}</p>
-      {{if .Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/homework/new">{{icon "plus"}}{{t "hw.new_title"}}</a>{{end}}
+      {{if .Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/homework/new"{{boost}}>{{icon "plus"}}{{t "hw.new_title"}}</a>{{end}}
       {{end}}
     </div>
     {{end}}

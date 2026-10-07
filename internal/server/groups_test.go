@@ -81,7 +81,7 @@ func TestLeaderManagesGroupPages(t *testing.T) {
 		t.Fatalf("create homework: %d", code)
 	}
 	_, body, _ = stud.get(g + "/homework")
-	hwRe := regexp.MustCompile(`href="` + g + `/homework/(\d+)">Lab &lt;1&gt;</a>`)
+	hwRe := regexp.MustCompile(`href="` + g + `/homework/(\d+)"[^>]*>Lab &lt;1&gt;</a>`)
 	hm := hwRe.FindStringSubmatch(body)
 	if hm == nil || !strings.Contains(body, "— / 7.5") || !strings.Contains(body, "due 1 Sep 2099") {
 		t.Fatalf("student homework list:\n%s", body)

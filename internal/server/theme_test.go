@@ -182,6 +182,26 @@ func TestShellNavigation(t *testing.T) {
 			t.Errorf("more page: missing %s", want)
 		}
 	}
+	// Navigation loads pages in place with htmx and a skeleton meanwhile;
+	// the settings forms and the htmx history cache stay out of it.
+	_, body, _ = stud.get("/g/KIUKI-25-3/schedule")
+	for _, want := range []string{
+		`<aside class="sidebar" hx-boost="true" hx-indicator="#main">`,
+		`<nav class="bottom-nav" aria-label="Group sections" hx-boost="true" hx-indicator="#main">`,
+		`<main class="page page-schedule" id="main" tabindex="-1">`,
+		`<div class="page-skeleton" aria-hidden="true">`,
+		`action="/theme" class="theme-switch" hx-boost="false"`,
+		`action="/logout" hx-boost="false"`,
+		`"historyCacheSize": 0`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("skeleton loading: missing %s", want)
+		}
+	}
+	if strings.Contains(body, `action="/lang" class="inline">`) {
+		t.Error("the language switch must not be boosted")
+	}
+
 	if code, _, h := e.browser(t).get("/more"); code != http.StatusSeeOther || h.Get("Location") != "/login" {
 		t.Fatalf("anonymous more: %d %s", code, h.Get("Location"))
 	}

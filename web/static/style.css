@@ -702,3 +702,31 @@ li.feedback.resolved .feedback-message { color: var(--text-secondary); }
 /* Running text with links in it (.meta is a flex row, which spaces links out). */
 .small-text { font-size: 13px; line-height: 18px; color: var(--text-secondary); }
 .small-text strong { color: var(--text); font-weight: 500; }
+
+/* Skeleton loading: while htmx loads the next page (#main.htmx-request),
+   a skeleton covers the old content. It appears only after 150ms, so fast
+   loads never flash; without JavaScript it never shows. */
+#main { position: relative; }
+#main:focus { outline: none; }
+.page-skeleton { display: none; }
+#main.htmx-request > .page-skeleton {
+  position: absolute; inset: 0; z-index: 5; display: grid; align-content: start; gap: var(--space-16);
+  padding: inherit; background: var(--bg); visibility: hidden;
+  animation: sk-appear 0s linear 150ms forwards;
+}
+@keyframes sk-appear { to { visibility: visible; } }
+.page-skeleton > * { width: 100%; max-width: var(--content-max); }
+.sk { display: block; background: var(--sunken); border-radius: var(--radius-xs); animation: sk-pulse 1.2s ease-in-out infinite alternate; }
+@keyframes sk-pulse { from { opacity: 1; } to { opacity: 0.5; } }
+.sk-head { display: grid; gap: var(--space-8); margin-bottom: var(--space-8); }
+.sk-title { width: 40%; max-width: 240px; height: 28px; }
+.sk-subtitle { width: 30%; max-width: 200px; height: 14px; }
+.sk-card { display: grid; gap: var(--space-16); padding: var(--space-20); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); }
+.sk-heading { width: 30%; max-width: 180px; height: 18px; }
+.sk-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--space-12); align-items: center; }
+.sk-dot { width: 22px; height: 22px; border-radius: 50%; }
+.sk-lines { display: grid; gap: var(--space-6); }
+.sk-line { height: 14px; width: 70%; }
+.sk-line.sk-short { width: 40%; height: 12px; }
+.sk-tail { width: 48px; height: 14px; }
+@media (prefers-reduced-motion: reduce) { .sk { animation: none; } }

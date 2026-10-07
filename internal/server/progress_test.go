@@ -46,7 +46,7 @@ func setupHomework(t *testing.T, e *env, lead *browser) string {
 		t.Fatalf("create homework: %d", code)
 	}
 	_, body, _ = lead.get(g + "/homework")
-	hm := regexp.MustCompile(`<a class="row-title" href="(` + g + `/homework/\d+)">Lab 1<`).FindStringSubmatch(body)
+	hm := regexp.MustCompile(`<a class="row-title" href="(` + g + `/homework/\d+)"[^>]*>Lab 1<`).FindStringSubmatch(body)
 	if hm == nil {
 		t.Fatalf("homework link missing:\n%s", body)
 	}

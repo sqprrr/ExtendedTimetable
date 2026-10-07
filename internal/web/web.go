@@ -252,6 +252,10 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return ""
 		},
 		"themes": func() []string { return service.Themes },
+		// boost makes the links inside an element load the next page in
+		// place with htmx, showing the skeleton while it loads. Only for
+		// navigation: forms stay plain posts.
+		"boost": func() template.HTMLAttr { return ` hx-boost="true" hx-indicator="#main"` },
 		// hue is a subject's colour for data-hue: hue <id> <stored hue>. The
 		// id may be a *int64 (a class not linked to a subject): no colour.
 		"hue": func(id any, stored string) string {

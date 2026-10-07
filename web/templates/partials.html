@@ -22,7 +22,7 @@
 {{define "formButtons"}}
 <div class="btn-row">
   <button type="submit" class="btn btn-primary">{{if .EditID}}{{t "action.save"}}{{else}}{{t "action.add"}}{{end}}</button>
-  <a class="btn btn-ghost" href="/g/{{.Group.Code}}/{{.Section}}">{{t "action.cancel"}}</a>
+  <a class="btn btn-ghost" href="/g/{{.Group.Code}}/{{.Section}}"{{boost}}>{{t "action.cancel"}}</a>
 </div>
 {{end}}
 
@@ -30,7 +30,7 @@
    the title and the error. */}}
 {{define "formHead"}}
 {{$p := .Section}}{{if eq $p "homework"}}{{$p = "hw"}}{{end}}
-<a class="back-link" href="/g/{{.Group.Code}}/{{.Section}}">{{icon "chevron-left"}}{{t (print "nav." .Section)}}</a>
+<a class="back-link" href="/g/{{.Group.Code}}/{{.Section}}"{{boost}}>{{icon "chevron-left"}}{{t (print "nav." .Section)}}</a>
 <header class="page-head"><div><h1>{{if .EditID}}{{t (print $p ".edit_title")}}{{else}}{{t (print $p ".new_title")}}{{end}}</h1></div></header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 {{end}}
@@ -53,7 +53,7 @@
   </form>
   {{end}}
   <div class="main">
-    <a class="row-title" href="/g/{{.Code}}/homework/{{.HW.ID}}">{{.HW.Title}}</a>
+    <a class="row-title" href="/g/{{.Code}}/homework/{{.HW.ID}}"{{boost}}>{{.HW.Title}}</a>
     <div class="meta">
       <span class="subject" data-hue="{{hue .HW.SubjectID .HW.SubjectHue}}">{{.HW.SubjectName}}</span>
       <span class="meta-item{{if .HW.Overdue}} due-overdue{{end}}">{{if .HW.Overdue}}{{icon "triangle-alert"}}{{else}}{{icon "clock"}}{{end}}{{due .HW}}</span>
@@ -72,7 +72,7 @@
 <details class="menu">
   <summary class="btn btn-ghost btn-icon btn-sm" aria-label="{{t "action.more_actions"}}" title="{{t "action.more_actions"}}">{{icon "ellipsis"}}</summary>
   <div class="menu-list">
-    <a class="menu-item" href="{{.Base}}/edit">{{icon "pencil"}}{{t "action.edit"}}</a>
+    <a class="menu-item" href="{{.Base}}/edit"{{boost}}>{{icon "pencil"}}{{t "action.edit"}}</a>
     <div class="menu-sep"></div>
     <form method="post" action="{{.Base}}/delete" data-confirm="{{.Confirm}}">
       <input type="hidden" name="csrf_token" value="{{.CSRF}}">

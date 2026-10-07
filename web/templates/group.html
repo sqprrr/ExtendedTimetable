@@ -7,7 +7,7 @@
     <h1>{{t "nav.today"}}</h1>
     <p class="subtitle">{{longDate now}}</p>
   </div>
-  <a class="btn btn-secondary hide-sm" href="{{$g}}/schedule">{{icon "calendar-days"}}{{t "overview.week_schedule"}}</a>
+  <a class="btn btn-secondary hide-sm" href="{{$g}}/schedule"{{boost}}>{{icon "calendar-days"}}{{t "overview.week_schedule"}}</a>
 </header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 
@@ -54,7 +54,7 @@
     <section class="card">
       <div class="card-head">
         <h2>{{t "today.classes"}}</h2>
-        <a class="action" href="{{$g}}/schedule">{{t "overview.week_schedule"}}{{icon "chevron-right"}}</a>
+        <a class="action" href="{{$g}}/schedule"{{boost}}>{{t "overview.week_schedule"}}{{icon "chevron-right"}}</a>
       </div>
       {{with .Events}}
       <ul class="rows">
@@ -71,7 +71,7 @@
     <section class="card">
       <div class="card-head">
         <h2>{{t "today.due_soon"}}</h2>
-        <a class="action" href="{{$g}}/homework">{{t "overview.all_homework"}}{{icon "chevron-right"}}</a>
+        <a class="action" href="{{$g}}/homework"{{boost}}>{{t "overview.all_homework"}}{{icon "chevron-right"}}</a>
       </div>
       {{with .HomeworkList}}
       <ul class="rows">
@@ -90,7 +90,7 @@
       </div>
       <div class="meta">{{shortDate .CreatedAt}}</div>
       <div class="md clamp-3">{{markdown .BodyMD}}</div>
-      <a class="read-more" href="{{$g}}/notes#note-{{.ID}}">{{t "today.read_more"}}</a>
+      <a class="read-more" href="{{$g}}/notes#note-{{.ID}}"{{boost}}>{{t "today.read_more"}}</a>
     </article>
     {{end}}{{end}}
 
@@ -98,7 +98,7 @@
     <section class="card">
       <div class="card-head">
         <h2>{{t "nav.links"}}</h2>
-        <a class="action" href="{{$g}}/links">{{if $.Group.CanManage}}{{t "overview.manage"}}{{else}}{{t "overview.all_links"}}{{end}}{{icon "chevron-right"}}</a>
+        <a class="action" href="{{$g}}/links"{{boost}}>{{if $.Group.CanManage}}{{t "overview.manage"}}{{else}}{{t "overview.all_links"}}{{end}}{{icon "chevron-right"}}</a>
       </div>
       <ul class="rows">
         {{range .}}

@@ -3,7 +3,7 @@
 {{define "content"}}
 {{$g := print "/g/" .Group.Code}}
 {{with .Homework}}
-<a class="back-link" href="{{$g}}/homework">{{icon "chevron-left"}}{{t "overview.all_homework"}}</a>
+<a class="back-link" href="{{$g}}/homework"{{boost}}>{{icon "chevron-left"}}{{t "overview.all_homework"}}</a>
 <header class="page-head">
   <div>
     <h1>{{.Title}}</h1>
