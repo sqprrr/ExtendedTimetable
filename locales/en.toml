@@ -224,6 +224,7 @@ never_synced = "Never synced with CIST successfully."
 sync_failed = "The last sync ({{.When}}) failed: {{.Error}}."
 showing_last_good = "Showing the last good copy."
 subjects_note = "Subjects that appear in the timetable for the first time are added to <a href=\"{{.URL}}\">Subjects</a> under CIST's short name. Leaders can rename them freely, and deleted ones are not added back."
+no_link = "No meeting link"
 
 [feedback]
 title = "Feedback"
@@ -325,3 +326,64 @@ system = "As on device"
 [more]
 settings = "Settings"
 language = "Language"
+
+[today]
+classes = "Classes today"
+due_soon = "Due soon"
+read_more = "Read more"
+current_class = "Current class"
+next_class = "Next class"
+next_at = "Next · {{.When}}"
+after = "Next: {{.Title}} · {{.Time}}"
+no_upcoming = "No upcoming classes"
+no_upcoming_hint = "Classes show up here as soon as CIST lists them."
+
+[when]
+today = "today, {{.Time}}"
+tomorrow = "tomorrow, {{.Time}}"
+yesterday = "yesterday, {{.Time}}"
+weekday = "{{.Day}}, {{.Time}}"
+date = "{{.Day}} {{.Month}}"
+date_year = "{{.Day}} {{.Month}} {{.Year}}"
+date_time = "{{.Date}}, {{.Time}}"
+long_date = "{{.Weekday}}, {{.Day}} {{.Month}}"
+
+[month.short]
+jan = "Jan"
+feb = "Feb"
+mar = "Mar"
+apr = "Apr"
+may = "May"
+jun = "Jun"
+jul = "Jul"
+aug = "Aug"
+sep = "Sep"
+oct = "Oct"
+nov = "Nov"
+dec = "Dec"
+
+[month.long]
+jan = "January"
+feb = "February"
+mar = "March"
+apr = "April"
+may = "May"
+jun = "June"
+jul = "July"
+aug = "August"
+sep = "September"
+oct = "October"
+nov = "November"
+dec = "December"
+
+[today.now_left]
+one = "Now · {{.Count}} min left"
+other = "Now · {{.Count}} min left"
+
+[today.next_in]
+one = "Next · in {{.Count}} min"
+other = "Next · in {{.Count}} min"
+
+[hw.overdue_days]
+one = "{{.Count}} day overdue"
+other = "{{.Count}} days overdue"

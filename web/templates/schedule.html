@@ -25,7 +25,7 @@
   <h3>{{dayName .Date}}{{if .Today}} <span class="badge">{{t "overview.today"}}</span>{{end}}</h3>
   {{with .Events}}
   <ul class="classes">
-    {{range .}}{{template "scheduleEvent" (classItem $.Schedule .)}}{{end}}
+    {{range .}}{{template "classRow" (classItem $.Schedule .)}}{{end}}
   </ul>
   {{else}}
   <p class="muted small">{{t "schedule.no_classes"}}</p>

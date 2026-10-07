@@ -29,6 +29,8 @@ type classItem struct {
 	E *service.ScheduleEvent
 	// Next marks the next class when none is in progress.
 	Next bool
+	// Past marks a class that has ended.
+	Past bool
 }
 
 // weekStart returns Monday 00:00 of the week containing the ?week= date

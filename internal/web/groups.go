@@ -410,7 +410,7 @@ func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, http.StatusOK, "group", pageData{
 		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes, ClassLinks: ov.ClassLinks,
-		Schedule: ov.Today,
+		Schedule: ov.Today, NowCard: h.newNowCard(i18n.FromContext(r.Context()), h.svc.Now(), ov.Today),
 	})
 }
 

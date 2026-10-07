@@ -153,6 +153,8 @@ type pageData struct {
 	// Schedule is the schedule page's week, or the overview's today.
 	Schedule *service.Schedule
 	Week     *weekView
+	// NowCard is Today's current or next class.
+	NowCard *nowCard
 }
 
 // hwItem is what the homeworkItem and progressPanel templates render: one
@@ -262,7 +264,22 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return label(l, "lesson.", string(e.LessonType))
 		},
 		"classItem": func(s *service.Schedule, e *service.ScheduleEvent) classItem {
-			return classItem{E: e, Next: !e.Now && s.IsUpcoming(e)}
+			return classItem{E: e, Next: !e.Now && s.IsUpcoming(e), Past: !e.EndsAt.After(h.svc.Now())}
+		},
+		// Relative dates (dates.go); "now" is the service's clock.
+		"now":       h.svc.Now,
+		"due":       func(hw *service.Homework) string { return h.due(l, h.svc.Now(), hw) },
+		"relWhen":   func(t time.Time) string { return h.relWhen(l, h.svc.Now(), t) },
+		"shortDate": func(t time.Time) string { return h.shortDate(l, h.svc.Now(), t) },
+		"longDate":  func(t time.Time) string { return h.longDate(l, t) },
+		"statusIcon": func(st store.ProgressStatus) string {
+			switch st {
+			case store.StatusInProgress:
+				return "circle-dot-dashed"
+			case store.StatusDone:
+				return "circle-check"
+			}
+			return "circle"
 		},
 		// nextLater is the next class when it is not among s.Events (after
 		// today on the overview, after this week on the schedule page).

@@ -64,31 +64,30 @@
 {{end}}
 
 {{/* homeworkItem is one assignment in a homework list, with the viewer's
-   status toggle. Called with (hwItem $ . "<page>"); the progress endpoint
+   status check. Called with (hwItem $ . "<page>"); the progress endpoint
    renders it on its own to answer an htmx toggle. */}}
 {{define "homeworkItem"}}
-<li class="hw{{if .HW.Overdue}} overdue{{end}}{{if eq .HW.Status "done"}} done{{end}}">
+<li class="hw-row{{if not .HW.Tracked}} no-status{{end}}{{if eq .HW.Status "done"}} is-done{{end}}">
   {{if .HW.Tracked}}
-  <form class="status-toggle" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
+  <form class="status-form" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
         hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="closest li" hx-swap="outerHTML">
     <input type="hidden" name="csrf_token" value="{{.CSRF}}">
     <input type="hidden" name="view" value="item">
     <input type="hidden" name="from" value="{{.From}}">
     {{with .Filter}}<input type="hidden" name="filter" value="{{.}}">{{end}}
     <input type="hidden" name="status" value="{{nextStatus .HW.Status}}">
-    <button type="submit" class="status status-{{.HW.Status}}" title="{{t "hw.mark_as" "Status" (statusLabel (nextStatus .HW.Status))}}">{{statusLabel .HW.Status}}</button>
+    {{$mark := t "hw.mark_as" "Status" (statusLabel (nextStatus .HW.Status))}}
+    <button type="submit" class="status-check" data-status="{{.HW.Status}}" title="{{$mark}}">{{icon (statusIcon .HW.Status)}}<span class="sr-only">{{statusLabel .HW.Status}}. {{$mark}}</span></button>
   </form>
   {{end}}
-  <div class="hw-main">
-    <a href="/g/{{.Code}}/homework/{{.HW.ID}}"><strong>{{.HW.Title}}</strong></a>
-    <span class="muted">· {{.HW.SubjectName}}</span>
-    <div class="small">
-      {{with .HW.DueAt}}<span class="due">{{t "hw.due" "When" (datetime .)}}</span>{{else}}<span class="muted">{{t "hw.no_deadline"}}</span>{{end}}
-      {{if .HW.Overdue}}<span class="badge warn">{{t "hw.overdue"}}</span>{{end}}
-      {{with .HW.MaxPoints}}<span class="muted">· {{t "hw.max_points" "Points" (points .)}}</span>{{end}}
-      {{with .HW.Grade}}<span class="muted">· {{t "hw.your_grade" "Points" (points .)}}</span>{{end}}
+  <div class="main">
+    <a class="row-title" href="/g/{{.Code}}/homework/{{.HW.ID}}">{{.HW.Title}}</a>
+    <div class="meta">
+      <span class="subject" data-hue="{{hue .HW.SubjectID .HW.SubjectHue}}">{{.HW.SubjectName}}</span>
+      <span class="meta-item{{if .HW.Overdue}} due-overdue{{end}}">{{if .HW.Overdue}}{{icon "triangle-alert"}}{{else}}{{icon "clock"}}{{end}}{{due .HW}}</span>
     </div>
   </div>
+  {{with .HW.MaxPoints}}<span class="points">{{with $.HW.Grade}}{{points .}}{{else}}—{{end}} / {{points .}}</span>{{else}}<span></span>{{end}}
 </li>
 {{end}}
 
@@ -130,35 +129,41 @@
 {{end}}
 {{end}}
 
-{{/* scheduleEvent is one class. Called with (classItem <schedule> <event>). */}}
-{{define "scheduleEvent"}}
-<li class="class{{if .E.Now}} now{{else if .Next}} next{{end}}">
-  <span class="class-time">{{clock .E.StartsAt}}–{{clock .E.EndsAt}}</span>
-  <div class="class-main">
-    <strong>{{.E.Title}}</strong>
-    <span class="muted">· {{classType .E}}{{with .E.Room}} · {{.}}{{end}}</span>
-    {{if .E.Now}}<span class="badge">{{t "schedule.now"}}</span>{{else if .Next}}<span class="badge">{{t "schedule.next"}}</span>{{end}}
-    {{with .E.ClassLinks}}
-    <div class="small">
-      {{range .}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{t "action.join"}}{{with .Note}} ({{.}}){{end}}</a> {{end}}
+{{/* classRow is one class in a day's list. Called with
+   (classItem <schedule> <event>). */}}
+{{define "classRow"}}
+<li class="class-row{{if .E.Now}} is-now{{else if .Past}} is-past{{end}}">
+  <div class="time">{{clock .E.StartsAt}}<span>{{clock .E.EndsAt}}</span></div>
+  <div class="main">
+    <div class="row-head">
+      <span class="row-title">{{.E.Title}}</span>
+      {{if .E.Now}}<span class="badge badge-accent">{{t "schedule.now"}}</span>{{else if .Next}}<span class="badge">{{t "schedule.next"}}</span>{{end}}
     </div>
-    {{end}}
+    <div class="meta">
+      {{with classType .E}}<span class="subject" data-hue="{{hue $.E.SubjectID $.E.SubjectHue}}">{{.}}</span>{{end}}
+      {{with .E.Room}}<span class="meta-item mono">{{icon "map-pin"}}{{.}}</span>{{end}}
+    </div>
+  </div>
+  <div class="row-actions">
+    {{range .E.ClassLinks}}<a class="btn btn-secondary btn-sm" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{icon "video"}}{{t "action.join"}}{{with .Note}} · {{.}}{{end}}</a>{{end}}
   </div>
 </li>
 {{end}}
 
-{{/* scheduleStatus says where the schedule comes from and how fresh it is. */}}
+{{/* scheduleStatus says where the schedule comes from and how fresh it is:
+   an alert when something is off, else when it was last synced. */}}
 {{define "scheduleStatus"}}
 {{with .Schedule}}
 {{if not .HasSource}}
-<p class="muted small">{{th "schedule.no_source"}}</p>
+<div class="alert alert-info" role="note">{{icon "info"}}<div>{{th "schedule.no_source"}}</div></div>
 {{else if not .Sync}}
-<p class="muted small">{{t "schedule.not_loaded"}}</p>
+<div class="alert alert-info" role="note">{{icon "info"}}<div>{{t "schedule.not_loaded"}}</div></div>
 {{else}}
-<p class="muted small">{{with .Sync.LastSuccessAt}}{{t "schedule.synced_at" "When" (datetime .)}}{{else}}{{t "schedule.never_synced"}}{{end}}</p>
 {{with .Sync.LastError}}
-<p class="warn-text small" role="note">{{t "schedule.sync_failed" "When" (when $.Schedule.Sync.LastAttemptAt) "Error" .}}
-  {{if $.Schedule.Sync.LastSuccessAt}}{{t "schedule.showing_last_good"}}{{end}}</p>
+<div class="alert alert-warning" role="note">{{icon "triangle-alert"}}<div><strong>{{t "schedule.sync_failed" "When" (when $.Schedule.Sync.LastAttemptAt) "Error" .}}</strong>
+  {{if $.Schedule.Sync.LastSuccessAt}}{{t "schedule.showing_last_good"}}{{end}}</div></div>
+{{else}}
+<p class="meta">{{with .Sync.LastSuccessAt}}{{t "schedule.synced_at" "When" (relWhen .)}}{{else}}{{t "schedule.never_synced"}}{{end}}</p>
 {{end}}
 {{end}}
 {{end}}

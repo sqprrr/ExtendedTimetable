@@ -144,7 +144,7 @@ all_links = "Усі посилання"
 new_title = "Нове завдання"
 edit_title = "Редагування завдання"
 empty = "Завдань ще немає."
-due = "до {{.When}}"
+due = "здати {{.When}}"
 no_deadline = "без терміну"
 overdue = "Прострочено"
 max_points = "макс. {{.Points}} б."
@@ -225,6 +225,7 @@ never_synced = "Ще жодного разу не вдалося оновити 
 sync_failed = "Останнє оновлення ({{.When}}) не вдалося: {{.Error}}."
 showing_last_good = "Показано останню вдалу копію."
 subjects_note = 'Предмети, що вперше з’являються в розкладі, додаються до <a href="{{.URL}}">Предметів</a> під скороченою назвою з CIST. Старости можуть вільно їх перейменовувати, а видалені не додаються знову.'
+no_link = "Немає посилання"
 
 [feedback]
 title = "Відгук"
@@ -336,3 +337,70 @@ system = "Як на пристрої"
 [more]
 settings = "Налаштування"
 language = "Мова"
+
+[today]
+classes = "Пари сьогодні"
+due_soon = "Незабаром здавати"
+read_more = "Читати далі"
+current_class = "Поточна пара"
+next_class = "Наступна пара"
+next_at = "Далі · {{.When}}"
+after = "Далі: {{.Title}} · {{.Time}}"
+no_upcoming = "Найближчих пар немає"
+no_upcoming_hint = "Пари з’являться тут, щойно вони будуть у CIST."
+
+[when]
+today = "сьогодні, {{.Time}}"
+tomorrow = "завтра, {{.Time}}"
+yesterday = "вчора, {{.Time}}"
+weekday = "{{.Day}}, {{.Time}}"
+date = "{{.Day}} {{.Month}}"
+date_year = "{{.Day}} {{.Month}} {{.Year}}"
+date_time = "{{.Date}}, {{.Time}}"
+long_date = "{{.Weekday}}, {{.Day}} {{.Month}}"
+
+[month.short]
+jan = "січ."
+feb = "лют."
+mar = "бер."
+apr = "квіт."
+may = "трав."
+jun = "черв."
+jul = "лип."
+aug = "серп."
+sep = "вер."
+oct = "жовт."
+nov = "лист."
+dec = "груд."
+
+[month.long]
+jan = "січня"
+feb = "лютого"
+mar = "березня"
+apr = "квітня"
+may = "травня"
+jun = "червня"
+jul = "липня"
+aug = "серпня"
+sep = "вересня"
+oct = "жовтня"
+nov = "листопада"
+dec = "грудня"
+
+[today.now_left]
+one = "Зараз · залишилась {{.Count}} хв"
+few = "Зараз · залишилось {{.Count}} хв"
+many = "Зараз · залишилось {{.Count}} хв"
+other = "Зараз · залишилось {{.Count}} хв"
+
+[today.next_in]
+one = "Далі · за {{.Count}} хв"
+few = "Далі · за {{.Count}} хв"
+many = "Далі · за {{.Count}} хв"
+other = "Далі · за {{.Count}} хв"
+
+[hw.overdue_days]
+one = "прострочено на {{.Count}} день"
+few = "прострочено на {{.Count}} дні"
+many = "прострочено на {{.Count}} днів"
+other = "прострочено на {{.Count}} дня"

@@ -597,3 +597,38 @@ button.nav-item { width: 100%; background: none; cursor: pointer; font-family: i
   .auth-bar { padding: var(--space-16) var(--space-40); }
   .auth-main { padding-top: var(--space-64); }
 }
+
+/* Utilities */
+@media (max-width: 767.98px) { .hide-sm { display: none !important; } }
+
+/* Progress bars are <progress> elements: the CSP allows no inline widths. */
+progress.bar {
+  -webkit-appearance: none; appearance: none; display: block; width: 100%;
+  border: 0; color: var(--hue, var(--accent)); background: var(--sunken);
+}
+progress.bar::-webkit-progress-bar { background: var(--sunken); border-radius: var(--radius-pill); }
+progress.bar::-webkit-progress-value { background: var(--hue, var(--accent)); border-radius: var(--radius-pill); }
+progress.bar::-moz-progress-bar { background: var(--hue, var(--accent)); border-radius: var(--radius-pill); }
+
+/* Rows */
+.row-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }
+.row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-6); }
+@media (max-width: 479.98px) {
+  .class-row { grid-template-columns: 64px minmax(0, 1fr); }
+  .class-row .row-actions { grid-column: 2; justify-content: flex-start; }
+  .class-row .row-actions:empty { display: none; }
+}
+.hw-row.no-status { grid-template-columns: minmax(0, 1fr) auto; }
+.status-form { margin: 0; }
+.link-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-12); align-items: center; padding: var(--space-12) 0; }
+.link-row .main { display: grid; gap: var(--space-4); min-width: 0; }
+
+/* Now card and notes */
+.now-body { display: grid; gap: var(--space-8); }
+.now-foot .btn-row { justify-content: flex-end; }
+@media (max-width: 479.98px) {
+  .now-foot .btn-row { width: 100%; }
+  .now-foot .btn-row .btn { flex: 1; height: 44px; }
+}
+.note-head h2 { font-size: 16px; line-height: 24px; font-weight: 600; }
+.read-more { font-size: 13px; line-height: 18px; font-weight: 500; justify-self: start; }

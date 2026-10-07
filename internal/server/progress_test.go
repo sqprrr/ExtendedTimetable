@@ -46,7 +46,7 @@ func setupHomework(t *testing.T, e *env, lead *browser) string {
 		t.Fatalf("create homework: %d", code)
 	}
 	_, body, _ = lead.get(g + "/homework")
-	hm := regexp.MustCompile(`href="(` + g + `/homework/\d+)"><strong>Lab 1`).FindStringSubmatch(body)
+	hm := regexp.MustCompile(`<a class="row-title" href="(` + g + `/homework/\d+)">Lab 1<`).FindStringSubmatch(body)
 	if hm == nil {
 		t.Fatalf("homework link missing:\n%s", body)
 	}
@@ -60,7 +60,7 @@ func TestStatusToggleWithHtmx(t *testing.T) {
 	hwURL := setupHomework(t, e, lead)
 
 	_, body, _ := stud.get("/g/KIUKI-25-3/homework")
-	if !strings.Contains(body, `class="status status-not_started"`) || !strings.Contains(body, `name="status" value="in_progress"`) {
+	if !strings.Contains(body, `class="status-check" data-status="not_started"`) || !strings.Contains(body, `name="status" value="in_progress"`) {
 		t.Fatalf("list should offer the toggle:\n%s", body)
 	}
 	if !strings.Contains(body, `<script src="/static/htmx.min.js?v=`) {
@@ -70,10 +70,10 @@ func TestStatusToggleWithHtmx(t *testing.T) {
 
 	// htmx gets just the list item back, already showing the new status.
 	code, frag := stud.htmx(hwURL+"/progress", tok, url.Values{"view": {"item"}, "from": {"list"}, "status": {"in_progress"}})
-	if code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(frag), `<li class="hw`) || strings.Contains(frag, "<html") {
+	if code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(frag), `<li class="hw-row`) || strings.Contains(frag, "<html") {
 		t.Fatalf("htmx toggle: %d\n%s", code, frag)
 	}
-	if !strings.Contains(frag, "status-in_progress") || !strings.Contains(frag, `name="status" value="done"`) {
+	if !strings.Contains(frag, `data-status="in_progress"`) || !strings.Contains(frag, "In progress. Mark as Done") || !strings.Contains(frag, `name="status" value="done"`) {
 		t.Fatalf("fragment should show in progress and offer done:\n%s", frag)
 	}
 

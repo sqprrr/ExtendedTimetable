@@ -109,14 +109,22 @@ func TestSchedulePages(t *testing.T) {
 	lead.submit(g+"/links", g+"/links", url.Values{"subject_id": {m[1]}, "lesson_type": {"lecture"}, "url": {"https://meet.example/oop"}})
 
 	_, body, _ = stud.get(g + "/schedule?week=" + week)
-	for _, want := range []string{"ООПро", "Lecture", ">Now<", "https://meet.example/oop", "Екз · 287", "Synced with CIST"} {
+	for _, want := range []string{"ООПро", "Lecture", ">Now<", "https://meet.example/oop", "Екз</span>", "287</span>", "Synced with CIST"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("schedule page missing %q", want)
 		}
 	}
 	if src.events[0].Start.Day() == now.Day() {
-		if _, body, _ := stud.get(g); !strings.Contains(body, "<h2>Today</h2>") || !strings.Contains(body, "ООПро") {
+		if _, body, _ := stud.get(g); !strings.Contains(body, "<h2>Classes today</h2>") || !strings.Contains(body, "ООПро") {
 			t.Errorf("overview should show today's classes:\n%s", body)
+		}
+	}
+
+	// Today opens with the class in progress, how long is left and its link.
+	_, body, _ = stud.get(g)
+	for _, want := range []string{`class="now-card is-now"`, "Now · 85 min left", "ООПро", `<progress class="bar bar-thin"`, `href="https://meet.example/oop"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Today's now card missing %q", want)
 		}
 	}
 
