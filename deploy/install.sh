@@ -89,6 +89,7 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do
       log "open http://$SERVER_NAME/"
     else
       log "open http://$SERVER_NAME/ — for HTTPS run: certbot --nginx -d $SERVER_NAME --redirect --hsts"
+      log "or route a Cloudflare Tunnel to http://localhost:80 (docs/deploy.md)"
     fi
     exit 0
   fi
