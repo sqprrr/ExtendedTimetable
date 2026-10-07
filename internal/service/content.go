@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"net/url"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
@@ -92,24 +92,25 @@ func notFound(err error) error {
 // checkSubject verifies that subjectID is one of the group's subjects.
 func checkSubject(ctx context.Context, q *store.Queries, groupID, subjectID int64) error {
 	if _, err := q.SubjectByID(ctx, groupID, subjectID); errors.Is(err, store.ErrNotFound) {
-		return &InputError{Field: "subject_id", Msg: "choose a subject from the list"}
+		return inputError("subject_id", "err.choose_subject")
 	} else if err != nil {
 		return err
 	}
 	return nil
 }
 
-// text trims s and checks its length in characters.
+// text trims s and checks its length in characters. label is the message ID
+// of the field's name.
 func text(field, label, s string, required bool, maxLen int) (string, error) {
 	s = strings.TrimSpace(s)
 	if required && s == "" {
-		return "", &InputError{Field: field, Msg: label + " is required"}
+		return "", inputError(field, "err.required", "Field", i18n.M(label))
 	}
 	if utf8.RuneCountInString(s) > maxLen {
-		return "", &InputError{Field: field, Msg: fmt.Sprintf("%s must be at most %d characters", label, maxLen)}
+		return "", inputError(field, "err.too_long", "Field", i18n.M(label), "Count", maxLen)
 	}
 	if strings.ContainsFunc(s, unicode.IsControl) {
-		return "", &InputError{Field: field, Msg: label + " must be a single line"}
+		return "", inputError(field, "err.single_line", "Field", i18n.M(label))
 	}
 	return s, nil
 }
@@ -119,7 +120,7 @@ func text(field, label, s string, required bool, maxLen int) (string, error) {
 func markdown(field, label, s string) (string, error) {
 	s = strings.TrimRight(strings.ReplaceAll(s, "\r\n", "\n"), " \t\n")
 	if utf8.RuneCountInString(s) > maxMarkdownLen {
-		return "", &InputError{Field: field, Msg: fmt.Sprintf("%s must be at most %d characters", label, maxMarkdownLen)}
+		return "", inputError(field, "err.too_long", "Field", i18n.M(label), "Count", maxMarkdownLen)
 	}
 	return s, nil
 }
@@ -129,14 +130,14 @@ func markdown(field, label, s string) (string, error) {
 func link(field, raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return "", &InputError{Field: field, Msg: "link is required"}
+		return "", inputError(field, "err.link_required")
 	}
 	if len(raw) > maxURLLen {
-		return "", &InputError{Field: field, Msg: fmt.Sprintf("link must be at most %d characters", maxURLLen)}
+		return "", inputError(field, "err.too_long", "Field", i18n.M("field.link"), "Count", maxURLLen)
 	}
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return "", &InputError{Field: field, Msg: "link must be a full http:// or https:// address"}
+		return "", inputError(field, "err.link_invalid")
 	}
 	return u.String(), nil
 }
@@ -147,10 +148,10 @@ func points(field string, p *float64) (*float64, error) {
 		return nil, nil
 	}
 	if math.IsNaN(*p) || math.IsInf(*p, 0) || *p <= 0 {
-		return nil, &InputError{Field: field, Msg: "max points must be a positive number"}
+		return nil, inputError(field, "err.max_points_positive")
 	}
 	if *p > maxPoints {
-		return nil, &InputError{Field: field, Msg: fmt.Sprintf("max points must be at most %d", maxPoints)}
+		return nil, inputError(field, "err.max_points_too_big", "Max", maxPoints)
 	}
 	v := *p
 	return &v, nil
@@ -163,7 +164,7 @@ func date(field, s string) (string, error) {
 		return "", nil
 	}
 	if _, err := time.Parse(time.DateOnly, s); err != nil {
-		return "", &InputError{Field: field, Msg: "date must look like 2026-09-01"}
+		return "", inputError(field, "err.date_invalid")
 	}
 	return s, nil
 }

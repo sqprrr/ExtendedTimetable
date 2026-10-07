@@ -11,8 +11,9 @@ type Viewer struct {
 	UserID       int64
 	Username     string
 	IsSuperadmin bool
-	Locale       string
-	Memberships  []store.Membership
+	// Locale is the language the user chose, or "" if they have not.
+	Locale      string
+	Memberships []store.Membership
 }
 
 // RoleIn returns the viewer's role in a group, if they are a member.

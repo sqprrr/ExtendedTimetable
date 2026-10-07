@@ -1,19 +1,19 @@
-{{define "title"}}Class links · {{.Group.Code}}{{end}}
+{{define "title"}}{{t "nav.links"}} · {{.Group.Code}}{{end}}
 {{define "content"}}
 {{template "groupnav" .}}
 {{if .EditID}}
 <section class="card">
-  <h2>Edit class link</h2>
+  <h2>{{t "links.edit_title"}}</h2>
   {{template "form" .}}
 </section>
 {{else}}
 <section class="card">
-  <h2>Class links</h2>
+  <h2>{{t "nav.links"}}</h2>
   {{template "classLinkTable" .}}
 </section>
 {{if .Group.CanManage}}
 <section class="card">
-  <h2>Add a class link</h2>
+  <h2>{{t "links.new_title"}}</h2>
   {{template "form" .}}
 </section>
 {{end}}
@@ -24,19 +24,19 @@
 <form method="post" action="/g/{{.Group.Code}}/links{{if .EditID}}/{{.EditID}}{{end}}">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
   {{template "subjectSelect" .}}
-  <label>Lesson type
+  <label>{{t "field.lesson_type"}}
     <select name="lesson_type" required>
       {{range lessonTypes}}
       <option value="{{.}}"{{if eq (print .) (index $.Fields "lesson_type")}} selected{{end}}>{{lessonLabel .}}</option>
       {{end}}
     </select>
   </label>
-  <label>Meeting link
+  <label>{{t "field.meeting_link"}}
     <input name="url" type="url" value="{{index .Fields "url"}}" placeholder="https://meet.google.com/…" required>
   </label>
-  <label>Note
+  <label>{{t "field.note"}}
     <input name="note" value="{{index .Fields "note"}}" maxlength="200">
-    <small class="muted">Optional, e.g. “subgroup 1” or the meeting password.</small>
+    <small class="muted">{{t "links.note_hint"}}</small>
   </label>
   {{template "formButtons" .}}
 </form>

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 )
 
@@ -32,6 +33,7 @@ func New(svc *service.Service, loc *time.Location) *Handler {
 // Register adds the API routes to mux.
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/me", h.me)
+	mux.HandleFunc("PUT /api/v1/me", h.updateMe)
 	h.registerGroupRoutes(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "not found")
@@ -47,10 +49,12 @@ type groupJSON struct {
 }
 
 type meJSON struct {
-	Username     string      `json:"username"`
-	IsSuperadmin bool        `json:"is_superadmin"`
-	Locale       string      `json:"locale"`
-	Groups       []groupJSON `json:"groups"`
+	Username     string `json:"username"`
+	IsSuperadmin bool   `json:"is_superadmin"`
+	// Locale is the language the user sees: their choice, else the
+	// language cookie, else the default.
+	Locale string      `json:"locale"`
+	Groups []groupJSON `json:"groups"`
 	// CSRFToken must be sent as the X-CSRF-Token header on unsafe requests.
 	CSRFToken string `json:"csrf_token"`
 }
@@ -69,7 +73,7 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	out := meJSON{
 		Username:     v.Username,
 		IsSuperadmin: v.IsSuperadmin,
-		Locale:       v.Locale,
+		Locale:       i18n.FromContext(r.Context()).Lang(),
 		Groups:       make([]groupJSON, 0, len(groups)),
 		CSRFToken:    auth.CSRFToken(r.Context()),
 	}
@@ -81,11 +85,32 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
+// updateMe changes the viewer's settings; the body is {"locale": "uk"|"en"}.
+func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Locale *string `json:"locale"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	if in.Locale != nil {
+		if err := h.svc.SetLocale(r.Context(), *in.Locale); err != nil {
+			h.fail(w, r, err)
+			return
+		}
+		r = r.WithContext(i18n.WithLang(r.Context(), *in.Locale))
+	}
+	h.me(w, r)
+}
+
 func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 	var ie *service.InputError
 	switch {
 	case errors.As(err, &ie):
-		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"error": ie.Msg, "field": ie.Field})
+		// "code" is the message ID, for a client that translates on its own.
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+			"error": i18n.English(ie.Msg), "code": ie.Msg.ID, "field": ie.Field,
+		})
 	case errors.Is(err, service.ErrSubjectInUse), errors.Is(err, service.ErrNoCISTGroup), errors.Is(err, service.ErrSyncDisabled):
 		writeError(w, r, http.StatusConflict, err.Error())
 	case errors.Is(err, service.ErrSyncTooSoon), errors.Is(err, service.ErrSyncRunning):

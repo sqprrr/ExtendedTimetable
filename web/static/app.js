@@ -16,15 +16,17 @@ function showNotice(msg) {
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => notice.classList.remove("visible"), 6000);
 }
+// Messages come translated from the page (data-msg-* on <body>).
+const msg = (name) => document.body.dataset[name] || "";
 document.addEventListener("htmx:responseError", (e) => {
   // Validation errors come back as a short plain-text message.
   const xhr = e.detail.xhr;
   const plain = (xhr.getResponseHeader("Content-Type") || "").startsWith("text/plain");
   const text = plain ? xhr.responseText.trim() : "";
-  showNotice(text && text.length < 300 ? text : "Could not save. Reload the page and try again.");
+  showNotice(text && text.length < 300 ? text : msg("msgSaveFailed"));
 });
 document.addEventListener("htmx:sendError", () => {
-  showNotice("Could not reach the server. Check your connection and try again.");
+  showNotice(msg("msgOffline"));
 });
 
 // Ask for confirmation before submitting forms marked with data-confirm.

@@ -24,12 +24,12 @@ func (in ClassLinkInput) validate() (ClassLinkInput, error) {
 		valid = valid || in.LessonType == t
 	}
 	if !valid {
-		return in, &InputError{Field: "lesson_type", Msg: "choose lecture, practice or lab"}
+		return in, inputError("lesson_type", "err.lesson_type")
 	}
 	if in.URL, err = link("url", in.URL); err != nil {
 		return in, err
 	}
-	if in.Note, err = text("note", "note", in.Note, false, maxNoteLen); err != nil {
+	if in.Note, err = text("note", "field.note", in.Note, false, maxNoteLen); err != nil {
 		return in, err
 	}
 	return in, nil

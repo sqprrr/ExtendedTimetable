@@ -67,6 +67,26 @@ func (c Cookies) SessionToken(r *http.Request) string {
 	return ck.Value
 }
 
+// LangName is the language cookie name.
+func (c Cookies) LangName() string { return c.name("extt_lang") }
+
+// langTTL is how long the language choice is remembered.
+const langTTL = 365 * 24 * time.Hour
+
+// SetLang remembers the visitor's language.
+func (c Cookies) SetLang(w http.ResponseWriter, lang string) {
+	http.SetCookie(w, c.cookie(c.LangName(), lang, time.Now().Add(langTTL)))
+}
+
+// Lang returns the language cookie's value, if any.
+func (c Cookies) Lang(r *http.Request) string {
+	ck, err := r.Cookie(c.LangName())
+	if err != nil {
+		return ""
+	}
+	return ck.Value
+}
+
 // ErrNoSession is returned by an Authenticator when the token does not
 // correspond to a live session.
 var ErrNoSession = errors.New("auth: no valid session")

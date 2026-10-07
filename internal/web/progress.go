@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
+	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
@@ -32,7 +33,7 @@ func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
 	htmx := r.Header.Get("HX-Request") == "true"
 	view := r.PostFormValue("view")
 	if err != nil {
-		msg, status, ok := userMessage(err)
+		msg, status, ok := userMessage(r, err)
 		if !ok {
 			h.renderError(w, r, err)
 			return
@@ -96,7 +97,7 @@ func progressInput(r *http.Request) (service.ProgressInput, string, error) {
 	}
 	g, err := strconv.ParseFloat(strings.Replace(raw, ",", ".", 1), 64)
 	if err != nil {
-		return in, raw, &service.InputError{Field: "grade", Msg: "grade must be a number"}
+		return in, raw, &service.InputError{Field: "grade", Msg: i18n.M("err.grade_nan")}
 	}
 	in.Grade = &g
 	return in, raw, nil

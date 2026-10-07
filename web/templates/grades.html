@@ -1,16 +1,16 @@
-{{define "title"}}My grades · {{.Group.Code}}{{end}}
+{{define "title"}}{{t "nav.grades"}} · {{.Group.Code}}{{end}}
 {{define "content"}}
 {{template "groupnav" .}}
 <section class="card">
   <div class="card-head">
-    <h2>My grades</h2>
-    <span class="muted small">Only you can see this.</span>
+    <h2>{{t "nav.grades"}}</h2>
+    <span class="muted small">{{t "progress.private"}}</span>
   </div>
   {{with .Grades}}
   {{if .Subjects}}
   <table class="list grades">
     <thead>
-      <tr><th>Subject</th><th class="num">Graded</th><th class="num">Points</th><th class="num">%</th></tr>
+      <tr><th>{{t "field.subject"}}</th><th class="num">{{t "grades.graded"}}</th><th class="num">{{t "grades.points"}}</th><th class="num">%</th></tr>
     </thead>
     <tbody>
       {{range .Subjects}}{{template "gradesRow" .}}{{end}}
@@ -18,7 +18,7 @@
     <tfoot>
       {{with .Overall}}
       <tr>
-        <th>Overall</th>
+        <th>{{t "grades.overall"}}</th>
         <th class="num">{{.Graded}} / {{.Assignments}}</th>
         <th class="num">{{num .Earned}}{{if .Max}} / {{num .Max}}{{end}}</th>
         <th class="num">{{percent .Earned .Max}}</th>
@@ -26,10 +26,9 @@
       {{end}}
     </tfoot>
   </table>
-  <p class="muted small">Only assignments with max points are counted. Points are the sum of your grades out of
-    the sum of max points of those assignments, graded or not. Enter grades on each assignment's page.</p>
+  <p class="muted small">{{t "grades.explain"}}</p>
   {{else}}
-  <p class="muted">No assignments with max points yet.</p>
+  <p class="muted">{{t "grades.empty"}}</p>
   {{end}}
   {{end}}
 </section>

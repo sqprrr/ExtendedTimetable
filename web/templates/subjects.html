@@ -1,17 +1,17 @@
-{{define "title"}}Subjects · {{.Group.Code}}{{end}}
+{{define "title"}}{{t "nav.subjects"}} · {{.Group.Code}}{{end}}
 {{define "content"}}
 {{template "groupnav" .}}
 {{if .EditID}}
 <section class="card">
-  <h2>Edit subject</h2>
+  <h2>{{t "subjects.edit_title"}}</h2>
   {{template "form" .}}
 </section>
 {{else}}
 <section class="card">
-  <h2>Subjects</h2>
+  <h2>{{t "nav.subjects"}}</h2>
   {{with .Subjects}}
   <table class="list">
-    <thead><tr><th>Name</th><th>Short name</th>{{if $.Group.CanManage}}<th></th>{{end}}</tr></thead>
+    <thead><tr><th>{{t "field.name"}}</th><th>{{t "field.short_name"}}</th>{{if $.Group.CanManage}}<th></th>{{end}}</tr></thead>
     <tbody>
       {{range .}}
       <tr>
@@ -19,10 +19,10 @@
         <td>{{.ShortName}}</td>
         {{if $.Group.CanManage}}
         <td class="actions">
-          <a href="/g/{{$.Group.Code}}/subjects/{{.ID}}/edit">Edit</a>
-          <form method="post" action="/g/{{$.Group.Code}}/subjects/{{.ID}}/delete" class="inline" data-confirm="Delete subject “{{.Name}}”?">
+          <a href="/g/{{$.Group.Code}}/subjects/{{.ID}}/edit">{{t "action.edit"}}</a>
+          <form method="post" action="/g/{{$.Group.Code}}/subjects/{{.ID}}/delete" class="inline" data-confirm="{{t "subjects.confirm_delete" "Name" .Name}}">
             <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-            <button type="submit" class="link danger">Delete</button>
+            <button type="submit" class="link danger">{{t "action.delete"}}</button>
           </form>
         </td>
         {{end}}
@@ -31,12 +31,12 @@
     </tbody>
   </table>
   {{else}}
-  <p class="muted">No subjects yet.</p>
+  <p class="muted">{{t "subjects.empty"}}</p>
   {{end}}
 </section>
 {{if .Group.CanManage}}
 <section class="card">
-  <h2>Add a subject</h2>
+  <h2>{{t "subjects.new_title"}}</h2>
   {{template "form" .}}
 </section>
 {{end}}
@@ -46,12 +46,12 @@
 {{define "form"}}
 <form method="post" action="/g/{{.Group.Code}}/subjects{{if .EditID}}/{{.EditID}}{{end}}">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-  <label>Name
+  <label>{{t "field.name"}}
     <input name="name" value="{{index .Fields "name"}}" maxlength="100" required>
   </label>
-  <label>Short name
+  <label>{{t "field.short_name"}}
     <input name="short_name" value="{{index .Fields "short_name"}}" maxlength="20">
-    <small class="muted">Optional, e.g. “ОП” or “ВМ”.</small>
+    <small class="muted">{{t "subjects.short_name_hint"}}</small>
   </label>
   {{template "formButtons" .}}
 </form>

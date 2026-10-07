@@ -114,7 +114,7 @@ schedule_events   (id, group_id, subject_id NULL, cist_event_id, starts_at, ends
 | DB | **SQLite** via `modernc.org/sqlite` (pure Go, no CGO) |
 | Migrations | Embedded SQL files, applied on startup |
 | Assets | `embed` for templates, static files, locales |
-| i18n | `go-i18n` with `uk` (default) and `en` message files; the user's choice is stored in `users.locale` with a cookie fallback |
+| i18n | `go-i18n` with `uk` (default) and `en` message files; the user's choice is stored in `users.locale` with a cookie fallback (M5: `''` in `users.locale` means "not chosen", so the cookie or the default applies) |
 | Markdown | `goldmark` + HTML sanitizer (`bluemonday`) |
 | Reverse proxy | nginx + Let's Encrypt |
 
@@ -153,6 +153,7 @@ migrations/          *.sql
 web/templates/       html/template files
 web/static/          css, htmx.min.js
 locales/             uk.toml, en.toml
+deploy/              systemd units, nginx site, install/deploy/backup scripts
 docs/
 ```
 
@@ -171,14 +172,15 @@ docs/
 - Run as a **systemd** service under its own user. Config comes from env vars or a config file (listen addr, DB path, CIST sync interval).
 - **nginx** reverse proxy with TLS from Let's Encrypt (certbot).
 - **Backups:** nightly `sqlite3 extt.db ".backup ..."` via cron, or Litestream for continuous replication.
+- **M5:** the files are in `deploy/` and the steps in [deploy.md](deploy.md). Backups use `extt backup` (SQLite `VACUUM INTO`) from a systemd timer instead of the `sqlite3` tool and cron, and `install.sh` also takes one before every upgrade.
 
 ## 10. Milestones
 
-1. **M1 — Skeleton & auth:** project layout, migrations, register (open groups) / login / logout, admin CLI.
-2. **M2 — Leader tools:** CRUD for subjects, class links, homework, notes, recording/solution links.
-3. **M3 — Student tracker:** homework status toggle, grades, "my grades" totals.
-4. **M4 — Schedule:** CIST client, sync job, schedule views.
-5. **M5 — i18n & deploy:** uk/en translations, systemd + nginx setup, backups.
+1. **M1 — Skeleton & auth:** project layout, migrations, register (open groups) / login / logout, admin CLI. ✅
+2. **M2 — Leader tools:** CRUD for subjects, class links, homework, notes, recording/solution links. ✅
+3. **M3 — Student tracker:** homework status toggle, grades, "my grades" totals. ✅
+4. **M4 — Schedule:** CIST client, sync job, schedule views. ✅
+5. **M5 — i18n & deploy:** uk/en translations, systemd + nginx setup, backups. ✅
 
 ## 11. Open questions
 

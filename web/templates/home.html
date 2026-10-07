@@ -1,15 +1,15 @@
-{{define "title"}}Home{{end}}
+{{define "title"}}{{t "home.title"}}{{end}}
 {{define "content"}}
-<h1>Hi, {{.Viewer.Username}}</h1>
+<h1>{{t "home.hi" "Name" .Viewer.Username}}</h1>
 {{with .Groups}}
   {{range .}}
   <section class="card">
     <h2><a href="/g/{{.Code}}">{{.Name}}</a>{{if ne .Name .Code}} <span class="muted">({{.Code}})</span>{{end}}</h2>
-    {{with .Role}}<p>Your role: <strong>{{.}}</strong></p>{{end}}
-    <p><a href="/g/{{.Code}}">Homework, notes and class links →</a></p>
+    {{with .Role}}<p>{{t "home.your_role"}} <strong>{{roleLabel .}}</strong></p>{{end}}
+    <p><a href="/g/{{.Code}}">{{t "home.open_group"}}</a></p>
   </section>
   {{end}}
 {{else}}
-  <p class="muted">You are not a member of any group yet.</p>
+  <p class="muted">{{t "home.no_groups"}}</p>
 {{end}}
 {{end}}
