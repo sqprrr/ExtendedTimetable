@@ -15,11 +15,13 @@ type Group struct {
 	CreatedAt   time.Time
 }
 
-// Role is a member's role within a group.
+// Role is a member's role within a group. An editor changes the group's
+// content like the leader, but not its invite link or members.
 type Role string
 
 const (
 	RoleStudent Role = "student"
+	RoleEditor  Role = "editor"
 	RoleLeader  Role = "leader"
 )
 
@@ -132,10 +134,12 @@ func scanMember(row interface{ Scan(...any) error }) (*Member, error) {
 	return &m, nil
 }
 
-// ListMembers returns a group's members, the leader first, then by username.
+// ListMembers returns a group's members, the leader first, then the editors,
+// then the students, each by username.
 func (q *Queries) ListMembers(ctx context.Context, groupID int64) ([]*Member, error) {
 	return queryAll(ctx, q, scanMember,
-		memberSelect+`WHERE m.group_id = ? ORDER BY m.role = 'leader' DESC, u.username`, groupID)
+		memberSelect+`WHERE m.group_id = ?
+		ORDER BY CASE m.role WHEN 'leader' THEN 0 WHEN 'editor' THEN 1 ELSE 2 END, u.username`, groupID)
 }
 
 // LeaderOf returns a group's leader, or ErrNotFound if it has none.

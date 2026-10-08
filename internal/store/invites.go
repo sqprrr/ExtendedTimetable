@@ -60,6 +60,8 @@ const (
 	LogLeaderResigned    LogEvent = "leader_resigned"
 	LogLeaderAssigned    LogEvent = "leader_assigned"
 	LogLeaderRemoved     LogEvent = "leader_removed"
+	LogEditorGranted     LogEvent = "editor_granted"
+	LogEditorRevoked     LogEvent = "editor_revoked"
 	LogInviteRegenerated LogEvent = "invite_regenerated"
 )
 

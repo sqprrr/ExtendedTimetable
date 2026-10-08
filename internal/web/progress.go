@@ -62,7 +62,7 @@ func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
 	filter, _ := url.ParseQuery(r.PostFormValue("filter"))
 	item := hwItem{Code: g.Code, CSRF: auth.CSRFToken(r.Context()), HW: hw, From: r.PostFormValue("from"),
 		Filter: homeworkFilterQuery(parseHomeworkFilter(filter))}
-	item.Manage = g.CanManage && item.From == "list"
+	item.Manage = g.CanEdit && item.From == "list"
 	switch {
 	case htmx && view == "panel":
 		// The Overdue badge above the panel depends on the status too.

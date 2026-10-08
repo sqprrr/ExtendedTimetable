@@ -192,7 +192,7 @@ func (s *Service) homeworkWithLinks(ctx context.Context, q *store.Queries, v *Vi
 
 // CreateHomework posts an assignment.
 func (s *Service) CreateHomework(ctx context.Context, groupID int64, in HomeworkInput) (*Homework, error) {
-	v, err := canManage(ctx, groupID)
+	v, err := canEdit(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +228,7 @@ func (s *Service) CreateHomework(ctx context.Context, groupID int64, in Homework
 
 // UpdateHomework changes an assignment and replaces its links.
 func (s *Service) UpdateHomework(ctx context.Context, groupID, id int64, in HomeworkInput) (*Homework, error) {
-	v, err := canManage(ctx, groupID)
+	v, err := canEdit(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +264,7 @@ func (s *Service) UpdateHomework(ctx context.Context, groupID, id int64, in Home
 
 // DeleteHomework removes an assignment and its links.
 func (s *Service) DeleteHomework(ctx context.Context, groupID, id int64) error {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return err
 	}
 	return notFound(s.store.DeleteHomework(ctx, groupID, id))

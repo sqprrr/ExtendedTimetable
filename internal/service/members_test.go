@@ -296,3 +296,104 @@ func TestCreateGroupInPanel(t *testing.T) {
 		t.Fatalf("admin groups: %+v %v", groups, err)
 	}
 }
+
+func TestEditorEditsContentButNotMembers(t *testing.T) {
+	f := setup(t)
+	lead := f.leader(t, "lead")
+	edSess, studSess := f.register(t, "eddie"), f.register(t, "stud")
+	edID := service.ViewerFrom(f.as(t, edSess)).UserID
+	studID := service.ViewerFrom(f.as(t, studSess)).UserID
+	gid := f.group.ID
+
+	// Only the leader and superadmins hand out the role.
+	if err := f.svc.GrantEditor(f.as(t, studSess), gid, edID); !errors.Is(err, service.ErrForbidden) {
+		t.Fatalf("student grants editor: %v", err)
+	}
+	if err := f.svc.GrantEditor(lead, gid, edID); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.GrantEditor(lead, gid, edID); err != nil {
+		t.Fatalf("granting twice: %v", err)
+	}
+	if role(t, f, edSess) != store.RoleEditor {
+		t.Fatal("ed should be an editor")
+	}
+	ed := f.as(t, edSess)
+	if err := f.svc.GrantEditor(ed, gid, studID); !errors.Is(err, service.ErrForbidden) {
+		t.Fatalf("editor grants editor: %v", err)
+	}
+	leadID := service.ViewerFrom(lead).UserID
+	if err := f.svc.GrantEditor(lead, gid, leadID); !errors.Is(err, service.ErrForbidden) {
+		t.Fatalf("granting editor to the leader: %v", err)
+	}
+
+	// The editor changes content like the leader.
+	g, err := f.svc.Group(ed, f.group.Code)
+	if err != nil || !g.CanEdit || g.CanManage || g.Role != store.RoleEditor {
+		t.Fatalf("editor's group view: %+v %v", g, err)
+	}
+	sub, err := f.svc.CreateSubject(ed, gid, service.SubjectInput{Name: "Physics"})
+	if err != nil {
+		t.Fatalf("editor creates subject: %v", err)
+	}
+	if _, err := f.svc.CreateNote(ed, gid, service.NoteInput{Title: "Exam", Body: "On Friday"}); err != nil {
+		t.Fatalf("editor creates note: %v", err)
+	}
+	if err := f.svc.DeleteSubject(ed, gid, sub.ID); err != nil {
+		t.Fatalf("editor deletes subject: %v", err)
+	}
+	if _, err := f.svc.CreateSubject(f.as(t, studSess), gid, service.SubjectInput{Name: "Chemistry"}); !errors.Is(err, service.ErrForbidden) {
+		t.Fatalf("student creates subject: %v", err)
+	}
+
+	// ...but not the invite link or members.
+	if _, err := f.svc.GroupInvite(ed, gid); !errors.Is(err, service.ErrForbidden) {
+		t.Fatalf("editor sees invite: %v", err)
+	}
+	if _, err := f.svc.RegenerateInvite(ed, gid); !errors.Is(err, service.ErrForbidden) {
+		t.Fatalf("editor regenerates invite: %v", err)
+	}
+	if err := f.svc.RemoveMember(ed, gid, studID); !errors.Is(err, service.ErrForbidden) {
+		t.Fatalf("editor removes member: %v", err)
+	}
+	if err := f.svc.RevokeEditor(ed, gid, edID); !errors.Is(err, service.ErrForbidden) {
+		t.Fatalf("editor revokes editor: %v", err)
+	}
+
+	// Editors are listed after the leader.
+	ms, err := f.svc.Members(ed, gid)
+	if err != nil || len(ms) != 3 || ms[0].Username != "lead" || ms[1].Username != "eddie" {
+		t.Fatalf("members order: %v %v", ms, err)
+	}
+
+	if err := f.svc.RevokeEditor(f.superadmin(t), gid, edID); err != nil {
+		t.Fatal(err)
+	}
+	if role(t, f, edSess) != store.RoleStudent {
+		t.Fatal("ed should be a student again")
+	}
+	if _, err := f.svc.CreateSubject(f.as(t, edSess), gid, service.SubjectInput{Name: "Biology"}); !errors.Is(err, service.ErrForbidden) {
+		t.Fatalf("former editor creates subject: %v", err)
+	}
+
+	want := []store.LogEvent{store.LogGroupCreated, store.LogJoined, store.LogLeaderAssigned,
+		store.LogJoined, store.LogJoined, store.LogEditorGranted, store.LogEditorRevoked}
+	if got := logEvents(t, f); !slices.Equal(got, want) {
+		t.Fatalf("log: %v\nwant %v", got, want)
+	}
+}
+
+func TestEditorClaimsLeadership(t *testing.T) {
+	f := setup(t)
+	edSess := f.register(t, "eddie")
+	root := f.superadmin(t)
+	if err := f.svc.GrantEditor(root, f.group.ID, service.ViewerFrom(f.as(t, edSess)).UserID); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.ClaimLeadership(f.as(t, edSess), f.group.ID); err != nil {
+		t.Fatal(err)
+	}
+	if role(t, f, edSess) != store.RoleLeader {
+		t.Fatal("the editor should be the leader")
+	}
+}

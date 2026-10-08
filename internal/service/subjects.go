@@ -88,7 +88,7 @@ func (s *Service) Subject(ctx context.Context, groupID, id int64) (*store.Subjec
 
 // CreateSubject adds a subject to the group.
 func (s *Service) CreateSubject(ctx context.Context, groupID int64, in SubjectInput) (*store.Subject, error) {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
 	in, err := in.validate()
@@ -106,7 +106,7 @@ func (s *Service) CreateSubject(ctx context.Context, groupID int64, in SubjectIn
 
 // UpdateSubject changes a subject's name, colour, teachers or DL page.
 func (s *Service) UpdateSubject(ctx context.Context, groupID, id int64, in SubjectInput) (*store.Subject, error) {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
 	in, err := in.validate()
@@ -124,7 +124,7 @@ func (s *Service) UpdateSubject(ctx context.Context, groupID, id int64, in Subje
 
 // DeleteSubject removes a subject that nothing refers to any more.
 func (s *Service) DeleteSubject(ctx context.Context, groupID, id int64) error {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return err
 	}
 	err := s.store.DeleteSubject(ctx, groupID, id)

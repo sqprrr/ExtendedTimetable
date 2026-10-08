@@ -9,7 +9,7 @@
     {{with .Schedule}}{{if and .HasSource .Sync}}<p class="subtitle">{{template "syncLine" .}}</p>{{end}}{{end}}
   </div>
   <div class="btn-row">
-    {{if and .Group.CanManage .Schedule.HasSource}}
+    {{if and .Group.CanEdit .Schedule.HasSource}}
     <form method="post" action="{{$g}}/schedule/sync" class="inline">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
       <input type="hidden" name="week" value="{{$w.Start.Format "2006-01-02"}}">

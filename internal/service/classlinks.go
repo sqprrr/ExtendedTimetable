@@ -54,7 +54,7 @@ func (s *Service) ClassLink(ctx context.Context, groupID, id int64) (*store.Clas
 
 // CreateClassLink adds a meeting link for a subject's lesson type.
 func (s *Service) CreateClassLink(ctx context.Context, groupID int64, in ClassLinkInput) (*store.ClassLink, error) {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
 	in, err := in.validate()
@@ -81,7 +81,7 @@ func (s *Service) CreateClassLink(ctx context.Context, groupID int64, in ClassLi
 
 // UpdateClassLink changes a class link.
 func (s *Service) UpdateClassLink(ctx context.Context, groupID, id int64, in ClassLinkInput) (*store.ClassLink, error) {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
 	in, err := in.validate()
@@ -108,7 +108,7 @@ func (s *Service) UpdateClassLink(ctx context.Context, groupID, id int64, in Cla
 
 // DeleteClassLink removes a class link.
 func (s *Service) DeleteClassLink(ctx context.Context, groupID, id int64) error {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return err
 	}
 	return notFound(s.store.DeleteClassLink(ctx, groupID, id))

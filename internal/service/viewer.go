@@ -46,8 +46,18 @@ func (v *Viewer) CanTrackGroup(groupID int64) bool {
 	return ok
 }
 
-// CanManageGroup reports whether the viewer may edit a group's content:
-// its leaders and superadmins.
+// CanEditGroup reports whether the viewer may change a group's content: its
+// leader, its editors and superadmins.
+func (v *Viewer) CanEditGroup(groupID int64) bool {
+	if v.IsSuperadmin {
+		return true
+	}
+	role, ok := v.RoleIn(groupID)
+	return ok && (role == store.RoleLeader || role == store.RoleEditor)
+}
+
+// CanManageGroup reports whether the viewer may handle a group's invite link
+// and members: its leader and superadmins.
 func (v *Viewer) CanManageGroup(groupID int64) bool {
 	if v.IsSuperadmin {
 		return true

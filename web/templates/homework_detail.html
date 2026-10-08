@@ -14,7 +14,7 @@
       <span id="overdue-badge">{{if .Overdue}}<span class="badge badge-warning">{{icon "triangle-alert"}}{{t "hw.overdue"}}</span>{{end}}</span>
     </div>
   </div>
-  {{if $.Group.CanManage}}{{template "rowMenu" (rowMenu (print $g "/homework/" .ID) (t "hw.confirm_delete") $.CSRFToken)}}{{end}}
+  {{if $.Group.CanEdit}}{{template "rowMenu" (rowMenu (print $g "/homework/" .ID) (t "hw.confirm_delete") $.CSRFToken)}}{{end}}
 </header>
 <div class="section-gap">
   {{if or .DescriptionMD .Links}}

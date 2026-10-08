@@ -13,7 +13,8 @@ import (
 )
 
 // Group content endpoints. Lists and items are readable by the group's
-// members; POST, PUT and DELETE need a leader (the service checks both).
+// members; POST, PUT and DELETE need the leader or an editor (the service
+// checks both).
 //
 // PUT updates only the fields present in the body: the body is decoded over
 // the current item. Send null to clear an optional field (due_at, max_points)

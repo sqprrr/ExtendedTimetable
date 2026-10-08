@@ -43,7 +43,7 @@ func (s *Service) Note(ctx context.Context, groupID, id int64) (*store.Note, err
 
 // CreateNote posts a note.
 func (s *Service) CreateNote(ctx context.Context, groupID int64, in NoteInput) (*store.Note, error) {
-	v, err := canManage(ctx, groupID)
+	v, err := canEdit(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (s *Service) CreateNote(ctx context.Context, groupID int64, in NoteInput) (
 
 // UpdateNote changes a note.
 func (s *Service) UpdateNote(ctx context.Context, groupID, id int64, in NoteInput) (*store.Note, error) {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
 	in, err := in.validate()
@@ -88,7 +88,7 @@ func (s *Service) UpdateNote(ctx context.Context, groupID, id int64, in NoteInpu
 
 // DeleteNote removes a note.
 func (s *Service) DeleteNote(ctx context.Context, groupID, id int64) error {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return err
 	}
 	return notFound(s.store.DeleteNote(ctx, groupID, id))

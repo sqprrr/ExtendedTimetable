@@ -200,11 +200,11 @@ type hwItem struct {
 	// UpdateBadge also updates the Overdue badge on the homework page when
 	// the panel is swapped in by htmx.
 	UpdateBadge bool
-	// Manage adds the leader's row menu (edit, delete).
+	// Manage adds the editing row menu (edit, delete).
 	Manage bool
 }
 
-// rowMenu is what the rowMenu template renders: a leader's Edit and Delete
+// rowMenu is what the rowMenu template renders: the Edit and Delete
 // for the item at Base (/g/<code>/<section>/<id>).
 type rowMenu struct {
 	Base    string
@@ -245,7 +245,7 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		"lessonTypes": func() []store.LessonType { return service.LessonTypes },
 		"hwItem": func(d pageData, hw *service.Homework, from string) hwItem {
 			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from, Filter: homeworkFilterQuery(d.HomeworkFilter),
-				Manage: d.Group.CanManage && from == "list"}
+				Manage: d.Group.CanEdit && from == "list"}
 		},
 		"rowMenu":    func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
 		"statuses":   func() []store.ProgressStatus { return service.Statuses },

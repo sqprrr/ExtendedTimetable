@@ -16,7 +16,7 @@ import (
 
 // section is one kind of group content with list, create, edit and delete
 // pages under /g/{code}/{name}. The list page also holds the create form for
-// leaders; the edit page reuses that form.
+// the leader and editors; the edit page reuses that form.
 type section struct {
 	name string // URL segment and template name
 	// load fills the data the page needs (the list, the subject picker).
@@ -308,14 +308,14 @@ func (h *Handler) sectionList(s *section) http.HandlerFunc {
 	}
 }
 
-// sectionNew shows the create form on its own page (leaders only).
+// sectionNew shows the create form on its own page (leader and editors only).
 func (h *Handler) sectionNew(s *section) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		g := h.groupPage(w, r)
 		if g == nil {
 			return
 		}
-		if !g.CanManage {
+		if !g.CanEdit {
 			h.renderError(w, r, service.ErrForbidden)
 			return
 		}
@@ -343,7 +343,7 @@ func (h *Handler) sectionEdit(s *section) http.HandlerFunc {
 		if g == nil {
 			return
 		}
-		if !g.CanManage {
+		if !g.CanEdit {
 			h.renderError(w, r, service.ErrForbidden)
 			return
 		}
