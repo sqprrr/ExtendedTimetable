@@ -53,7 +53,7 @@ type Config struct {
 // partials.html.
 var pages = []string{
 	"home", "login", "join", "error",
-	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources", "grades", "schedule",
+	"group", "subjects", "subject", "links", "homework", "homework_detail", "notes", "resources", "grades", "schedule",
 	"members", "feedback", "feedback_inbox", "admin_groups", "more",
 }
 
@@ -151,6 +151,12 @@ type pageData struct {
 	HomeworkList []*service.Homework
 	// HomeworkFilter is the homework list's subject and status filter.
 	HomeworkFilter service.HomeworkFilter
+	// SubjectPage is the subject page's subject with its links, homework and
+	// recordings; SubjectTab is its open tab and Lesson the recordings'
+	// lesson type filter ("" for all).
+	SubjectPage *service.SubjectPage
+	SubjectTab  string
+	Lesson      store.LessonType
 	// HomeworkGroups is HomeworkList grouped by when things are due.
 	HomeworkGroups hwList
 	// Query is the page's query string.
@@ -183,7 +189,7 @@ type hwItem struct {
 	Code string
 	CSRF string
 	HW   *service.Homework
-	// From is the page the item is on (overview, list, detail), to come back
+	// From is the page the item is on (overview, list, detail, subject), to come back
 	// to after a form post without JavaScript.
 	From string
 	// Filter is the homework list's filter query, to keep it on that trip.

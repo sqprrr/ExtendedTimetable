@@ -75,6 +75,8 @@ func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
 		switch item.From {
 		case "overview":
 			back = "/g/" + g.Code
+		case "subject":
+			back = "/g/" + g.Code + "/subjects/" + strconv.FormatInt(hw.SubjectID, 10)
 		case "list":
 			back = "/g/" + g.Code + "/homework"
 			if item.Filter != "" {

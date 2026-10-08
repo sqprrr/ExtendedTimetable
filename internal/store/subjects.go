@@ -18,13 +18,18 @@ type Subject struct {
 	ShortName string
 	// Hue is the subject's colour, or '' for the default (see service.Hue).
 	Hue string
+	// Lecturer teaches the lectures and Instructor the practice classes and
+	// labs; DLURL is the subject's distance-learning page. '' when not set.
+	Lecturer   string
+	Instructor string
+	DLURL      string
 }
 
-const subjectColumns = `id, group_id, name, short_name, hue`
+const subjectColumns = `id, group_id, name, short_name, hue, lecturer, instructor, dl_url`
 
 func scanSubject(row interface{ Scan(...any) error }) (*Subject, error) {
 	var s Subject
-	if err := row.Scan(&s.ID, &s.GroupID, &s.Name, &s.ShortName, &s.Hue); err != nil {
+	if err := row.Scan(&s.ID, &s.GroupID, &s.Name, &s.ShortName, &s.Hue, &s.Lecturer, &s.Instructor, &s.DLURL); err != nil {
 		return nil, mapErr(err)
 	}
 	return &s, nil
@@ -37,8 +42,9 @@ func subjectKey(name string) string { return strings.ToLower(name) }
 // group already has a subject with that name, ignoring case.
 func (q *Queries) CreateSubject(ctx context.Context, s *Subject) error {
 	res, err := q.db.ExecContext(ctx,
-		`INSERT INTO subjects (group_id, name, name_key, short_name, hue) VALUES (?, ?, ?, ?, ?)`,
-		s.GroupID, s.Name, subjectKey(s.Name), s.ShortName, s.Hue)
+		`INSERT INTO subjects (group_id, name, name_key, short_name, hue, lecturer, instructor, dl_url)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.GroupID, s.Name, subjectKey(s.Name), s.ShortName, s.Hue, s.Lecturer, s.Instructor, s.DLURL)
 	if err != nil {
 		return mapErr(err)
 	}
@@ -46,12 +52,13 @@ func (q *Queries) CreateSubject(ctx context.Context, s *Subject) error {
 	return err
 }
 
-// UpdateSubject saves the name, short name and hue of a subject. Returns
-// ErrConflict like CreateSubject.
+// UpdateSubject saves a subject's editable fields. Returns ErrConflict like
+// CreateSubject.
 func (q *Queries) UpdateSubject(ctx context.Context, s *Subject) error {
 	return expectOne(q.db.ExecContext(ctx,
-		`UPDATE subjects SET name = ?, name_key = ?, short_name = ?, hue = ? WHERE id = ? AND group_id = ?`,
-		s.Name, subjectKey(s.Name), s.ShortName, s.Hue, s.ID, s.GroupID))
+		`UPDATE subjects SET name = ?, name_key = ?, short_name = ?, hue = ?, lecturer = ?, instructor = ?, dl_url = ?
+		 WHERE id = ? AND group_id = ?`,
+		s.Name, subjectKey(s.Name), s.ShortName, s.Hue, s.Lecturer, s.Instructor, s.DLURL, s.ID, s.GroupID))
 }
 
 // DeleteSubject removes a subject. Returns ErrReferenced while class links,

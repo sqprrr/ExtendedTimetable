@@ -38,6 +38,9 @@ join = "Join"
 more_actions = "More actions"
 
 [field]
+lecturer = "Lecturer"
+instructor = "Practice classes and labs"
+dl_url = "Distance learning page"
 username = "Username"
 password = "Password"
 group = "Group"
@@ -205,6 +208,7 @@ confirm_delete = "Delete this link?"
 empty_hint = "Links to class recordings and solutions show up here."
 
 [subjects]
+dl_hint = "The subject's page on dl.nure.ua, where attendance is marked."
 new_title = "Add a subject"
 edit_title = "Edit subject"
 empty = "No subjects yet."
@@ -340,6 +344,17 @@ group_name_hint = "Defaults to the code."
 cist_id = "CIST timetable id"
 cist_id_hint = "Find it on the server with <code>extt admin find-cist-group КІУКІ-25-3</code>."
 create_group = "Create group"
+
+[subject]
+sections = "Subject sections"
+lecturer = "Lectures"
+instructor = "Practice classes and labs"
+dl = "Attendance in DL"
+no_links_hint = 'No class links or DL page yet. Add links on the <a href="{{.Links}}">Class links</a> tab and the DL page in the <a href="{{.Edit}}">subject settings</a>.'
+no_homework = "No homework for this subject yet."
+all_lessons = "All"
+no_resources = "No recordings or solutions for this subject yet."
+no_resources_lesson = "Nothing for this lesson type yet."
 
 # Errors. {{.Field}} is a translated field name from [field].
 [err]

@@ -1,0 +1,105 @@
+{{define "title"}}{{.SubjectPage.Subject.Name}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-subject{{end}}
+{{define "content"}}
+{{$g := print "/g/" .Group.Code}}
+{{$p := .SubjectPage}}{{$s := $p.Subject}}
+{{$base := print $g "/subjects/" $s.ID}}
+<a class="back-link" href="{{$g}}/subjects"{{boost}}>{{icon "chevron-left"}}{{t "nav.subjects"}}</a>
+
+<section class="card subject-card" data-hue="{{hue $s.ID $s.Hue}}">
+  <div class="subject-card-head">
+    <div>
+      {{with $s.ShortName}}<p class="subject-chip mono">{{.}}</p>{{end}}
+      <h1>{{$s.Name}}</h1>
+    </div>
+    {{if .Group.CanManage}}<a class="btn btn-ghost btn-sm" href="{{$base}}/edit"{{boost}}>{{icon "pencil"}}{{t "action.edit"}}</a>{{end}}
+  </div>
+  {{if or $s.Lecturer $s.Instructor}}
+  <dl class="teachers">
+    {{with $s.Lecturer}}<dt>{{t "subject.lecturer"}}</dt><dd>{{.}}</dd>{{end}}
+    {{with $s.Instructor}}<dt>{{t "subject.instructor"}}</dt><dd>{{.}}</dd>{{end}}
+  </dl>
+  {{end}}
+  {{if or $p.ClassLinks $s.DLURL}}
+  <div class="btn-row subject-links">
+    {{range $p.ClassLinks}}
+    <a class="btn btn-secondary" href="{{.URL}}" target="_blank" rel="noopener noreferrer"{{with .Note}} title="{{.}}"{{end}}>{{icon "video"}}{{lessonLabel .LessonType}}{{with .Note}} <span class="text-tertiary">· {{.}}</span>{{end}}</a>
+    {{end}}
+    {{with $s.DLURL}}<a class="btn btn-secondary" href="{{.}}" target="_blank" rel="noopener noreferrer">{{icon "circle-check"}}{{t "subject.dl"}}{{icon "external-link"}}</a>{{end}}
+  </div>
+  {{else if .Group.CanManage}}
+  <p class="small-text subject-hint">{{th "subject.no_links_hint" "Links" (print $g "/links") "Edit" (print $base "/edit")}}</p>
+  {{end}}
+</section>
+
+<div class="toolbar subject-tabs">
+  <nav class="segmented" aria-label="{{t "subject.sections"}}">
+    <a href="{{$base}}"{{if eq .SubjectTab "homework"}} aria-current="page"{{end}}>{{icon "list-checks"}}{{t "nav.homework"}} <span class="count">{{len $p.Homework}}</span></a>
+    <a href="{{$base}}?tab=recordings"{{if eq .SubjectTab "recordings"}} aria-current="page"{{end}}>{{icon "video"}}{{t "nav.resources"}} <span class="count">{{len $p.Resources}}</span></a>
+  </nav>
+  {{if and .Group.CanManage (eq .SubjectTab "homework")}}<a class="btn btn-secondary btn-sm" href="{{$g}}/homework/new"{{boost}}>{{icon "plus"}}{{t "hw.new_title"}}</a>{{end}}
+  {{if and .Group.CanManage (eq .SubjectTab "recordings")}}<a class="btn btn-secondary btn-sm" href="{{$g}}/resources/new"{{boost}}>{{icon "plus"}}{{t "resources.new_title"}}</a>{{end}}
+</div>
+
+{{if eq .SubjectTab "homework"}}
+{{$hw := .HomeworkGroups}}
+<section class="card" aria-label="{{t "nav.homework"}}">
+  {{range $hw.Groups}}
+  <h2 class="group-title">{{t (print "hw.group." .Key)}} <span class="count">{{len .Items}}</span></h2>
+  <ul class="rows">
+    {{range .Items}}{{template "homeworkItem" (hwItem $ . "subject")}}{{end}}
+  </ul>
+  {{end}}
+  {{with $hw.Done}}
+  <details class="group"{{if $hw.OpenDone}} open{{end}}>
+    <summary class="group-title">{{t "hw.group.done"}} <span class="count">{{len .}}</span>{{icon "chevron-down"}}</summary>
+    <ul class="rows">
+      {{range .}}{{template "homeworkItem" (hwItem $ . "subject")}}{{end}}
+    </ul>
+  </details>
+  {{end}}
+  {{if not $p.Homework}}
+  <div class="empty">
+    <span class="glyph">{{icon "list-checks"}}</span>
+    <h3>{{t "subject.no_homework"}}</h3>
+  </div>
+  {{end}}
+</section>
+{{else}}
+<nav class="chips lesson-filter" aria-label="{{t "field.lesson_type"}}">
+  <a class="chip" href="{{$base}}?tab=recordings" aria-pressed="{{not .Lesson}}">{{t "subject.all_lessons"}}</a>
+  {{range lessonTypes}}
+  <a class="chip" href="{{$base}}?tab=recordings&amp;lesson={{.}}" aria-pressed="{{eq . $.Lesson}}">{{lessonLabel .}}</a>
+  {{end}}
+</nav>
+{{with .Resources}}
+<section class="card card-flush" aria-label="{{t "nav.resources"}}">
+  <ul class="rows">
+    {{range .}}
+    <li class="link-row">
+      <div class="main">
+        <a class="row-title" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a>
+        <div class="meta">
+          <span class="badge">{{if eq (print .Kind) "recording"}}{{icon "video"}}{{else}}{{icon "list-checks"}}{{end}}{{kindLabel .Kind}}</span>
+          {{with .LessonType}}<span class="meta-item">{{lessonLabel .}}</span>{{end}}
+          {{with .Date}}<span class="meta-item mono">{{.}}</span>{{end}}
+        </div>
+      </div>
+      <div class="row-end">
+        {{if $.Group.CanManage}}{{template "rowMenu" (rowMenu (print $g "/resources/" .ID) (t "resources.confirm_delete") $.CSRFToken)}}{{else}}<span class="text-tertiary">{{icon "external-link"}}</span>{{end}}
+      </div>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{else}}
+<section class="card">
+  <div class="empty">
+    <span class="glyph">{{icon "video"}}</span>
+    <h3>{{if .Lesson}}{{t "subject.no_resources_lesson"}}{{else}}{{t "subject.no_resources"}}{{end}}</h3>
+    {{if not .Lesson}}<p>{{t "resources.empty_hint"}}</p>{{end}}
+  </div>
+</section>
+{{end}}
+{{end}}
+{{end}}

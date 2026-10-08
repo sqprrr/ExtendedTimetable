@@ -49,6 +49,12 @@ notes, and a private homework tracker per student. See
   take it away there, create groups and see every group at `/admin/groups`,
   and read each group's log (joins, departures, removals, leader changes,
   new links) on its Members page or with `extt admin group-log`.
+- **Subject page:** each subject on the Subjects tab opens
+  `/g/<code>/subjects/<id>`: its lecturer and practice/lab teacher and its
+  DL page (the leader fills them in on the subject form), its class links,
+  and tabs for its homework and for its recordings and solutions, which can
+  be filtered by lesson type (recordings and solutions now take an optional
+  one).
 
 ## Quick start (local)
 
@@ -163,11 +169,11 @@ in effect.
 
 | Resource | Endpoints |
 |---|---|
-| `subjects` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
+| `subjects` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` (with `lecturer`, `instructor`, `dl_url`) |
 | `class-links` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
 | `homework` | `GET`, `GET /{id}` (with links and rendered HTML), `POST`, `PUT /{id}`, `DELETE /{id}` |
 | `notes` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
-| `resources` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
+| `resources` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` (optional `lesson_type`) |
 | `homework/{id}/progress` | `PUT` — the viewer's own `{"status", "grade"}` |
 | `grades` | `GET` — the viewer's totals per subject and overall |
 | `schedule` | `GET ?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: the 7 days from today), `POST /sync` (leaders) |

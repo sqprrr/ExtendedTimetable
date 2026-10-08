@@ -743,3 +743,19 @@ li.feedback.resolved .feedback-message { color: var(--text-secondary); }
 .log-empty { padding: 0 var(--space-16) var(--space-16); }
 @media (min-width: 768px) { .log-empty { padding: 0 var(--space-20) var(--space-20); } }
 .page-join .auth-card h2 { font-size: 18px; line-height: 26px; font-weight: 600; }
+
+/* Subject page */
+.subject-card { margin-bottom: var(--space-24); border-top: 3px solid var(--hue, var(--line)); }
+.subject-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); }
+.subject-card-head .subject-chip { margin-bottom: var(--space-8); }
+.subject-card h1 { font-size: 22px; line-height: 30px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+.teachers { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-4) var(--space-16); margin: var(--space-12) 0 0; font-size: 14px; line-height: 20px; }
+.teachers dt { color: var(--text-tertiary); }
+.teachers dd { margin: 0; }
+.subject-links { margin-top: var(--space-16); padding-top: var(--space-16); border-top: 1px solid var(--line); }
+.subject-hint { margin-top: var(--space-12); }
+.subject-tabs .segmented .count { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); }
+.lesson-filter { margin-bottom: var(--space-16); }
+a.chip { text-decoration: none; }
+@media (min-width: 768px) { .subject-card h1 { font-size: 26px; line-height: 34px; } }
+@media (max-width: 480px) { .teachers { grid-template-columns: minmax(0, 1fr); gap: 0; } .teachers dd + dt { margin-top: var(--space-8); } }

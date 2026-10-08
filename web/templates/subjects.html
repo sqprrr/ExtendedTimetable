@@ -18,7 +18,7 @@
       {{range .}}
       <li class="link-row">
         <div class="main">
-          <span class="row-title subject-name"><span class="subject" data-hue="{{hue .ID .Hue}}"><span class="sr-only">{{t (print "hue." (hue .ID .Hue))}}</span></span>{{.Name}}</span>
+          <a class="row-title subject-name" href="{{$g}}/subjects/{{.ID}}"{{boost}}><span class="subject" data-hue="{{hue .ID .Hue}}"><span class="sr-only">{{t (print "hue." (hue .ID .Hue))}}</span></span>{{.Name}}</a>
           {{with .ShortName}}<div class="meta"><span class="meta-item mono">{{.}}</span></div>{{end}}
         </div>
         <div class="row-end">
@@ -57,6 +57,21 @@
       <span class="field-hint">{{t "subjects.short_name_hint"}}</span>
     </label>
   </div>
+  <div class="form-row">
+    <label class="field">
+      <span class="field-label">{{t "field.lecturer"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+      <input class="input" name="lecturer" value="{{index .Fields "lecturer"}}" maxlength="100">
+    </label>
+    <label class="field">
+      <span class="field-label">{{t "field.instructor"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+      <input class="input" name="instructor" value="{{index .Fields "instructor"}}" maxlength="100">
+    </label>
+  </div>
+  <label class="field">
+    <span class="field-label">{{t "field.dl_url"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+    <input class="input" name="dl_url" type="url" value="{{index .Fields "dl_url"}}" placeholder="https://dl.nure.ua/…">
+    <span class="field-hint">{{t "subjects.dl_hint"}}</span>
+  </label>
   <fieldset class="field">
     <legend class="field-label">{{t "field.colour"}}</legend>
     <div class="chips hue-chips">
