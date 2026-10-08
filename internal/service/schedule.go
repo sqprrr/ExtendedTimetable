@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/cist"
+	"github.com/sqprrr/ExtendedTimetable/internal/metrics"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
@@ -73,7 +74,9 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 	now := s.now()
 	from, to := now.Add(-syncPast), now.Add(syncAhead)
 	slog.DebugContext(ctx, "schedule sync started", "group", g.Code, "cist_group", *g.CISTGroupID)
+	started := time.Now()
 	events, err := s.cfg.CIST.GroupEvents(ctx, *g.CISTGroupID, from, to)
+	metrics.ScheduleSync(err == nil, time.Since(started))
 
 	rec, lerr := s.store.ScheduleSyncFor(ctx, g.ID)
 	if errors.Is(lerr, store.ErrNotFound) {

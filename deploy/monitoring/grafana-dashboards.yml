@@ -1,0 +1,14 @@
+# Installed as /etc/grafana/provisioning/dashboards/extt.yml: loads the
+# dashboards in /etc/grafana/dashboards, which install-monitoring.sh replaces
+# on every run. Edits made in the Grafana UI cannot be saved over them; save
+# a copy instead, or change extt.json in the repository.
+apiVersion: 1
+providers:
+  - name: extt
+    folder: ExtendedTimetable
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 60
+    options:
+      path: /etc/grafana/dashboards

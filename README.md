@@ -112,6 +112,7 @@ restoring a backup.
 | `EXTT_CIST_INTERVAL` | `--cist-interval` | `6h` (how often `serve` syncs schedules from CIST; `0` turns it off) |
 | `EXTT_LOG_LEVEL` | `--log-level` | `info` (`debug`, `info`, `warn`, `error`; `debug` also logs the source line) |
 | `EXTT_LOG_FORMAT` | `--log-format` | `text` (`json` for log collectors) |
+| `EXTT_METRICS_ADDR` | `--metrics-addr` | none: off (address for Prometheus metrics at `/metrics`, e.g. `127.0.0.1:9101`; keep it on loopback) |
 
 ### Logs
 
@@ -131,6 +132,28 @@ at `debug`, CIST requests. Passwords, tokens (invite tokens are cut out of
 `/join/…` paths), cookies, query strings, request bodies and homework
 statuses or grades are never logged.
 
+### Metrics
+
+With `--metrics-addr` set, `serve` exposes Prometheus metrics at `/metrics`
+on that address, a listener of its own that nginx does not proxy.
+[docs/deploy.md](docs/deploy.md#monitoring) sets up Prometheus and a
+Grafana dashboard on the server.
+
+| Metric | What it counts |
+|---|---|
+| `extt_http_requests_total{method,route,code}` | Requests; `route` is the URL pattern (`/g/{code}/homework`), `unmatched` for 404s |
+| `extt_http_request_duration_seconds{method,route}` | Response times (histogram) |
+| `extt_http_requests_in_flight`, `extt_http_panics_total` | Requests being served; panics answered with 500 |
+| `extt_logins_total{result}` | `success`, `failure`, `rate_limited` |
+| `extt_registrations_total{result}` | `success`, `rate_limited` |
+| `extt_csrf_rejections_total{reason}` | `cross_origin`, `no_cookie`, `no_token`, `mismatch` |
+| `extt_schedule_syncs_total{result}`, `extt_schedule_sync_duration_seconds` | CIST syncs and how long they took |
+| `extt_users`, `extt_groups`, `extt_signed_in_users`, `extt_sessions`, `extt_homework`, `extt_notes`, `extt_feedback_open`, `extt_db_size_bytes` | Read from the database on each scrape |
+| `extt_schedule_last_success_timestamp_seconds{group}`, `extt_schedule_events{group}` | Each CIST-linked group's last good sync |
+
+plus the Go runtime (`go_*`) and the process (`process_*`). Labels never
+hold usernames, paths or anything else a client chooses.
+
 Migrations in `migrations/` are embedded and applied automatically on every
 command; `extt migrate` applies them and exits.
 
@@ -149,6 +172,7 @@ Layout follows the design doc: `internal/store` (SQLite queries),
 `internal/i18n` with `locales/{uk,en}.toml` (translations, go-i18n),
 `internal/cist` (CIST client: timetable CSV export, group lookup),
 `internal/logging` (slog setup, request ID and user in every log line),
+`internal/metrics` (Prometheus metrics),
 `internal/server` (middleware wiring).
 
 ### Translations

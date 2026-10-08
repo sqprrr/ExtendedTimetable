@@ -12,6 +12,7 @@ import (
 	"time"
 	_ "time/tzdata" // the static binary must not depend on the host's zoneinfo
 
+	"github.com/sqprrr/ExtendedTimetable/internal/metrics"
 	"github.com/sqprrr/ExtendedTimetable/internal/server"
 )
 
@@ -24,6 +25,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	tz := fs.String("tz", envOr("EXTT_TZ", "Europe/Kyiv"), "time zone for showing and entering dates")
 	cistEvery := fs.Duration("cist-interval", envDuration("EXTT_CIST_INTERVAL", 6*time.Hour), "how often to sync schedules from CIST (0 turns it off)")
 	baseURL := baseURLFlag(fs)
+	metricsAddr := fs.String("metrics-addr", envOr("EXTT_METRICS_ADDR", ""), "listen address for Prometheus metrics at /metrics; keep it on loopback (empty turns it off)")
 	logLevel := fs.String("log-level", envOr("EXTT_LOG_LEVEL", "info"), "debug, info, warn or error")
 	logFormat := fs.String("log-format", envOr("EXTT_LOG_FORMAT", "text"), "text or json")
 	if _, err := parseArgs(fs, args, 0); err != nil {
@@ -70,12 +72,33 @@ func cmdServe(ctx context.Context, args []string) error {
 		IdleTimeout:       2 * time.Minute,
 		MaxHeaderBytes:    64 << 10,
 	}
-	errc := make(chan error, 1)
+	errc := make(chan error, 2)
 	go func() {
 		slog.Info("listening", "addr", *addr, "db", *dbPath, "secure_cookies", *secure, "trust_proxy", *trustProxy,
 			"tz", loc.String(), "cist_interval", cistEvery.String(), "log_level", *logLevel)
 		errc <- srv.ListenAndServe()
 	}()
+
+	// Metrics get a listener of their own so that nginx, which proxies only
+	// --addr, never makes them public.
+	var metricsSrv *http.Server
+	if *metricsAddr != "" {
+		metrics.RegisterStore(st, svc.Now)
+		mux := http.NewServeMux()
+		mux.Handle("GET /metrics", metrics.Handler())
+		metricsSrv = &http.Server{
+			Addr:              *metricsAddr,
+			Handler:           mux,
+			ReadHeaderTimeout: 10 * time.Second,
+			WriteTimeout:      30 * time.Second,
+		}
+		go func() {
+			slog.Info("serving metrics", "addr", *metricsAddr)
+			if err := metricsSrv.ListenAndServe(); err != nil {
+				errc <- fmt.Errorf("metrics: %w", err)
+			}
+		}()
+	}
 
 	select {
 	case err := <-errc:
@@ -85,6 +108,9 @@ func cmdServe(ctx context.Context, args []string) error {
 	slog.Info("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	if metricsSrv != nil {
+		metricsSrv.Shutdown(shutdownCtx)
+	}
 	if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

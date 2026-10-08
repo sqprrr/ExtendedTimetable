@@ -1,0 +1,52 @@
+# Alert rules, installed as /etc/prometheus/extt-alerts.yml. Firing alerts
+# show in Grafana (Alerting → Alert rules, "Data source-managed") and in
+# Prometheus at /alerts. Nothing sends notifications until a contact point
+# is set up in Grafana or an Alertmanager is added.
+groups:
+  - name: extt
+    rules:
+      - alert: ExttDown
+        expr: up{job="extt"} == 0
+        for: 2m
+        annotations:
+          summary: "extt does not answer on its metrics address"
+          description: "Check `systemctl status extt` and `journalctl -u extt -n 50`."
+
+      - alert: ExttServerErrors
+        expr: |
+          sum(rate(extt_http_requests_total{code=~"5.."}[10m]))
+            / sum(rate(extt_http_requests_total[10m])) > 0.05
+          and sum(rate(extt_http_requests_total[10m])) > 0.01
+        for: 10m
+        annotations:
+          summary: "More than 5% of requests fail with 5xx"
+          description: "Look for level=ERROR lines: `journalctl -u extt -p err`."
+
+      - alert: ExttSlowRequests
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(extt_http_request_duration_seconds_bucket[10m]))) > 1
+          and sum(rate(extt_http_requests_total[10m])) > 0.01
+        for: 15m
+        annotations:
+          summary: "95th percentile request time is above 1s"
+
+      - alert: ExttScheduleStale
+        # The sync runs every 6 hours; two missed runs in a row.
+        expr: time() - extt_schedule_last_success_timestamp_seconds > 13 * 3600
+        for: 10m
+        annotations:
+          summary: "The schedule of {{ $labels.group }} has not synced from CIST for over 13 hours"
+          description: "CIST may be down; the site keeps showing the last good copy."
+
+      - alert: ExttLoginAttack
+        expr: sum(increase(extt_logins_total{result=~"failure|rate_limited"}[15m])) > 100
+        annotations:
+          summary: "Over 100 failed or rate-limited logins in 15 minutes"
+
+      - alert: DiskAlmostFull
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/", fstype!="rootfs"}
+            / node_filesystem_size_bytes{mountpoint="/", fstype!="rootfs"} < 0.10
+        for: 15m
+        annotations:
+          summary: "Less than 10% disk space left on /"

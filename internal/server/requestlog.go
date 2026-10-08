@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/logging"
+	"github.com/sqprrr/ExtendedTimetable/internal/metrics"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 )
 
@@ -15,12 +16,16 @@ const maxLoggedPath = 200
 
 // requestLog gives every request an ID (sent back as X-Request-ID) and logs
 // one line when it is done: method, path, status, size and duration, plus
-// the request ID and user that every line of the request carries. It must
-// wrap everything else, recoverer included, so a panic is logged as a 500.
+// the request ID and user that every line of the request carries. It also
+// records the request in the metrics, by the mux pattern it matches: a
+// pattern ("/g/{code}/homework") rather than the path keeps the number of
+// series small, and is known even for requests that middleware rejects
+// before they reach the mux. It must wrap everything else, recoverer
+// included, so a panic is logged and counted as a 500.
 //
 // The query string and body are never logged: they can carry form values.
 // Neither are invite tokens: anyone who reads one could join the group.
-func requestLog(trustProxy bool, next http.Handler) http.Handler {
+func requestLog(trustProxy bool, mux *http.ServeMux, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		id := ""
@@ -35,11 +40,16 @@ func requestLog(trustProxy bool, next http.Handler) http.Handler {
 		w.Header().Set("X-Request-ID", id)
 		ctx := logging.WithRequest(r.Context(), id)
 		sw := &statusWriter{ResponseWriter: w}
+		done := metrics.RequestStarted()
 		defer func() {
+			done()
+			elapsed := time.Since(start)
 			status := sw.status
 			if status == 0 {
 				status = http.StatusOK
 			}
+			_, route := mux.Handler(r)
+			metrics.ObserveRequest(r.Method, route, status, elapsed)
 			path := loggedPath(r.URL.Path)
 			if len(path) > maxLoggedPath {
 				path = path[:maxLoggedPath] + "…"
@@ -56,7 +66,7 @@ func requestLog(trustProxy bool, next http.Handler) http.Handler {
 				slog.String("path", path),
 				slog.Int("status", status),
 				slog.Int64("bytes", sw.bytes),
-				slog.Float64("duration_ms", float64(time.Since(start).Microseconds())/1000),
+				slog.Float64("duration_ms", float64(elapsed.Microseconds())/1000),
 			)
 		}()
 		next.ServeHTTP(sw, r.WithContext(ctx))
