@@ -121,7 +121,10 @@ type subjectJSON struct {
 	ShortName string `json:"short_name"`
 	// Hue is the colour the subject is shown in (the default one when none
 	// was chosen).
-	Hue string `json:"hue"`
+	Hue        string `json:"hue"`
+	Lecturer   string `json:"lecturer"`
+	Instructor string `json:"instructor"`
+	DLURL      string `json:"dl_url"`
 }
 
 type subjectRequest struct {
@@ -129,10 +132,18 @@ type subjectRequest struct {
 	ShortName string `json:"short_name"`
 	// Hue is one of the eight hues, or "" for the default.
 	Hue string `json:"hue"`
+	// Lecturer, Instructor (practice classes and labs) and DLURL (the
+	// distance-learning page) may be "".
+	Lecturer   string `json:"lecturer"`
+	Instructor string `json:"instructor"`
+	DLURL      string `json:"dl_url"`
 }
 
 func toSubject(s *store.Subject) subjectJSON {
-	return subjectJSON{ID: s.ID, Name: s.Name, ShortName: s.ShortName, Hue: service.Hue(s.ID, s.Hue)}
+	return subjectJSON{
+		ID: s.ID, Name: s.Name, ShortName: s.ShortName, Hue: service.Hue(s.ID, s.Hue),
+		Lecturer: s.Lecturer, Instructor: s.Instructor, DLURL: s.DLURL,
+	}
 }
 
 func (h *Handler) listSubjects(w http.ResponseWriter, r *http.Request) {
@@ -160,7 +171,10 @@ func (h *Handler) updateSubject(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	req := subjectRequest{Name: cur.Name, ShortName: cur.ShortName, Hue: cur.Hue}
+	req := subjectRequest{
+		Name: cur.Name, ShortName: cur.ShortName, Hue: cur.Hue,
+		Lecturer: cur.Lecturer, Instructor: cur.Instructor, DLURL: cur.DLURL,
+	}
 	if decode(w, r, &req) {
 		s, err := h.svc.UpdateSubject(r.Context(), gid, id, service.SubjectInput(req))
 		reply(h, w, r, http.StatusOK, s, err, toSubject)
@@ -520,6 +534,7 @@ type resourceJSON struct {
 	Title       string             `json:"title"`
 	URL         string             `json:"url"`
 	Date        string             `json:"date,omitempty"`
+	LessonType  store.LessonType   `json:"lesson_type,omitempty"`
 	CreatedAt   time.Time          `json:"created_at"`
 }
 
@@ -529,12 +544,14 @@ type resourceRequest struct {
 	Title     string             `json:"title"`
 	URL       string             `json:"url"`
 	Date      string             `json:"date"`
+	// LessonType is "lecture", "practice", "lab" or "" for none.
+	LessonType store.LessonType `json:"lesson_type"`
 }
 
 func toResource(l *store.ResourceLink) resourceJSON {
 	return resourceJSON{
 		ID: l.ID, SubjectID: l.SubjectID, SubjectName: l.SubjectName, Kind: l.Kind, Title: l.Title, URL: l.URL,
-		Date: l.Date, CreatedAt: l.CreatedAt,
+		Date: l.Date, LessonType: l.LessonType, CreatedAt: l.CreatedAt,
 	}
 }
 
@@ -563,7 +580,9 @@ func (h *Handler) updateResource(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	req := resourceRequest{SubjectID: cur.SubjectID, Kind: cur.Kind, Title: cur.Title, URL: cur.URL, Date: cur.Date}
+	req := resourceRequest{
+		SubjectID: cur.SubjectID, Kind: cur.Kind, Title: cur.Title, URL: cur.URL, Date: cur.Date, LessonType: cur.LessonType,
+	}
 	if decode(w, r, &req) {
 		l, err := h.svc.UpdateResourceLink(r.Context(), gid, id, service.ResourceLinkInput(req))
 		reply(h, w, r, http.StatusOK, l, err, toResource)

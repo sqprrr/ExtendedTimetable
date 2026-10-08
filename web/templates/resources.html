@@ -19,7 +19,8 @@
       <div class="main">
         <a class="row-title" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.Title}}</a>
         <div class="meta">
-          <span class="subject" data-hue="{{hue .SubjectID .SubjectHue}}">{{.SubjectName}}</span>
+          <a class="subject link-quiet" data-hue="{{hue .SubjectID .SubjectHue}}" href="{{$g}}/subjects/{{.SubjectID}}"{{boost}}>{{.SubjectName}}</a>
+          {{with .LessonType}}<span class="meta-item">{{lessonLabel .}}</span>{{end}}
           <span class="badge">{{if eq (print .Kind) "recording"}}{{icon "video"}}{{else}}{{icon "list-checks"}}{{end}}{{kindLabel .Kind}}</span>
           {{with .Date}}<span class="meta-item mono">{{.}}</span>{{end}}
         </div>
@@ -60,6 +61,13 @@
   <label class="field">
     <span class="field-label">{{t "field.title"}}</span>
     <input class="input" name="title" value="{{index .Fields "title"}}" maxlength="200" required>
+  </label>
+  <label class="field">
+    <span class="field-label">{{t "field.lesson_type"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+    <select class="select" name="lesson_type">
+      <option value="">—</option>
+      {{range lessonTypes}}<option value="{{.}}"{{if eq (print .) (index $.Fields "lesson_type")}} selected{{end}}>{{lessonLabel .}}</option>{{end}}
+    </select>
   </label>
   <label class="field">
     <span class="field-label">{{t "field.link"}}</span>

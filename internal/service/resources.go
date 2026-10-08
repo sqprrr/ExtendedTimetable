@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"slices"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
@@ -13,6 +14,8 @@ type ResourceLinkInput struct {
 	Title     string
 	URL       string
 	Date      string // "YYYY-MM-DD" or empty
+	// LessonType is the class it belongs to, or empty.
+	LessonType store.LessonType
 }
 
 func (in ResourceLinkInput) validate() (ResourceLinkInput, error) {
@@ -28,6 +31,9 @@ func (in ResourceLinkInput) validate() (ResourceLinkInput, error) {
 	}
 	if in.Date, err = date("date", in.Date); err != nil {
 		return in, err
+	}
+	if in.LessonType != "" && !slices.Contains(LessonTypes, in.LessonType) {
+		return in, inputError("lesson_type", "err.lesson_type")
 	}
 	return in, nil
 }
@@ -61,7 +67,7 @@ func (s *Service) CreateResourceLink(ctx context.Context, groupID int64, in Reso
 	}
 	l := &store.ResourceLink{
 		GroupID: groupID, SubjectID: in.SubjectID, Kind: in.Kind, Title: in.Title, URL: in.URL, Date: in.Date,
-		CreatedBy: &v.UserID, CreatedAt: s.now(),
+		LessonType: in.LessonType, CreatedBy: &v.UserID, CreatedAt: s.now(),
 	}
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
 		if err := checkSubject(ctx, q, groupID, in.SubjectID); err != nil {
@@ -99,6 +105,7 @@ func (s *Service) UpdateResourceLink(ctx context.Context, groupID, id int64, in 
 			return err
 		}
 		old.SubjectID, old.Kind, old.Title, old.URL, old.Date = in.SubjectID, in.Kind, in.Title, in.URL, in.Date
+		old.LessonType = in.LessonType
 		if err := q.UpdateResourceLink(ctx, old); err != nil {
 			return err
 		}

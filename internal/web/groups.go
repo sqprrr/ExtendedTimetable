@@ -38,7 +38,10 @@ func (h *Handler) sections() []*section {
 				if err != nil {
 					return nil, err
 				}
-				return map[string]string{"name": s.Name, "short_name": s.ShortName, "hue": s.Hue}, nil
+				return map[string]string{
+					"name": s.Name, "short_name": s.ShortName, "hue": s.Hue,
+					"lecturer": s.Lecturer, "instructor": s.Instructor, "dl_url": s.DLURL,
+				}, nil
 			},
 			create: func(ctx context.Context, h *Handler, groupID int64, r *http.Request) error {
 				_, err := h.svc.CreateSubject(ctx, groupID, subjectInput(r))
@@ -181,7 +184,7 @@ func (h *Handler) sections() []*section {
 				}
 				return map[string]string{
 					"subject_id": strconv.FormatInt(l.SubjectID, 10), "kind": string(l.Kind),
-					"title": l.Title, "url": l.URL, "date": l.Date,
+					"title": l.Title, "url": l.URL, "date": l.Date, "lesson_type": string(l.LessonType),
 				}, nil
 			},
 			create: func(ctx context.Context, h *Handler, groupID int64, r *http.Request) error {
@@ -247,6 +250,7 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /g/{code}/grades", h.myGrades)
 	mux.HandleFunc("GET /g/{code}/schedule", h.schedulePage)
 	mux.HandleFunc("POST /g/{code}/schedule/sync", h.syncSchedule)
+	mux.HandleFunc("GET /g/{code}/subjects/{id}", h.subjectPage)
 	for _, s := range h.sections() {
 		base := "/g/{code}/" + s.name
 		mux.HandleFunc("GET "+base, h.sectionList(s))
@@ -453,7 +457,10 @@ func (h *Handler) homeworkDetail(w http.ResponseWriter, r *http.Request) {
 // only values that need converting are checked here.
 
 func subjectInput(r *http.Request) service.SubjectInput {
-	return service.SubjectInput{Name: r.PostFormValue("name"), ShortName: r.PostFormValue("short_name"), Hue: r.PostFormValue("hue")}
+	return service.SubjectInput{
+		Name: r.PostFormValue("name"), ShortName: r.PostFormValue("short_name"), Hue: r.PostFormValue("hue"),
+		Lecturer: r.PostFormValue("lecturer"), Instructor: r.PostFormValue("instructor"), DLURL: r.PostFormValue("dl_url"),
+	}
 }
 
 func formSubjectID(r *http.Request) (int64, error) {
@@ -485,11 +492,12 @@ func noteInput(r *http.Request) service.NoteInput {
 func resourceInput(r *http.Request) (service.ResourceLinkInput, error) {
 	subjectID, err := formSubjectID(r)
 	return service.ResourceLinkInput{
-		SubjectID: subjectID,
-		Kind:      store.ResourceKind(r.PostFormValue("kind")),
-		Title:     r.PostFormValue("title"),
-		URL:       r.PostFormValue("url"),
-		Date:      r.PostFormValue("date"),
+		SubjectID:  subjectID,
+		Kind:       store.ResourceKind(r.PostFormValue("kind")),
+		Title:      r.PostFormValue("title"),
+		URL:        r.PostFormValue("url"),
+		Date:       r.PostFormValue("date"),
+		LessonType: store.LessonType(r.PostFormValue("lesson_type")),
 	}, err
 }
 

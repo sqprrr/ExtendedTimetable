@@ -89,6 +89,10 @@ extt admin create-group KIUKI-25-3 --cist-id <id>   # prints the invite link
 ### 4.4 Notes / announcements
 - The leader posts notes (Markdown), optionally pinned to the top. This is the "blog" part.
 
+### 4.4a Subject page
+- `/g/<code>/subjects/<id>` gathers one subject: who teaches the lectures and the practice classes and labs, its class links and its distance-learning (DL) page, then a tab for its homework (with the viewer's status, as in the homework list) and a tab for its recordings and solutions, filtered by lesson type. The tab and the filter are in the URL, so the page works without JavaScript.
+- The teachers and the DL page are filled in by the leader on the subject form (CIST's export has no teachers); empty ones are not shown. A recording or solution may carry a lesson type.
+
 ### 4.5 Recordings & solutions
 - **Links only, no file uploads.** Recordings (YouTube / Drive / Teams) and solutions (Drive / GitHub, etc.) are stored as links attached to a subject and an optional date.
 - The earlier idea of ≤5 MB ZIP uploads is dropped for now. That keeps the server free of file storage and moderation.
@@ -102,13 +106,13 @@ memberships       (user_id, group_id, role[student|leader], joined_at)   PK(user
 group_invites     (group_id PK, token UNIQUE, expires_at, created_at)
 group_log         (id, group_id, event, actor_id NULL, user_id NULL, created_at)   actor NULL = server CLI
 sessions          (id, user_id, expires_at, created_at)
-subjects          (id, group_id, name, short_name)
+subjects          (id, group_id, name, short_name, hue, lecturer, instructor, dl_url)
 class_links       (id, group_id, subject_id, lesson_type, url, note)
 homework          (id, group_id, subject_id, title, description_md, due_at, max_points NULL, created_by, created_at, updated_at)
 homework_links    (id, homework_id, title, url)
 homework_progress (user_id, homework_id, status[not_started|in_progress|done], grade NULL, updated_at)  PK(user_id, homework_id)
 notes             (id, group_id, title, body_md, pinned, created_by, created_at, updated_at)
-resource_links    (id, group_id, subject_id, kind[recording|solution], title, url, date NULL, created_by, created_at)
+resource_links    (id, group_id, subject_id, kind[recording|solution], title, url, date NULL, lesson_type NULL, created_by, created_at)
 schedule_events   (id, group_id, subject_id NULL, cist_event_id, starts_at, ends_at, lesson_type, room, teacher, raw_title, synced_at)
 ```
 
