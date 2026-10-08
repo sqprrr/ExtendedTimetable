@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/sqprrr/ExtendedTimetable/internal/metrics"
 )
 
 const (
@@ -32,6 +34,7 @@ func (c Cookies) CSRF(next http.Handler) http.Handler {
 	cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		slog.WarnContext(r.Context(), "cross-origin request rejected", "method", r.Method, "path", r.URL.Path,
 			"origin", r.Header.Get("Origin"), "sec_fetch_site", r.Header.Get("Sec-Fetch-Site"))
+		metrics.CSRFRejected(metrics.CSRFCrossOrigin)
 		http.Error(w, "cross-origin request rejected", http.StatusForbidden)
 	}))
 	check := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,14 +49,15 @@ func (c Cookies) CSRF(next http.Handler) http.Handler {
 			}
 			if token == "" || subtle.ConstantTimeCompare([]byte(sent), []byte(token)) != 1 {
 				// The tokens themselves are never logged.
-				reason := "token mismatch"
+				reason, metric := "token mismatch", metrics.CSRFMismatch
 				switch {
 				case token == "":
-					reason = "no CSRF cookie"
+					reason, metric = "no CSRF cookie", metrics.CSRFNoCookie
 				case sent == "":
-					reason = "no token sent"
+					reason, metric = "no token sent", metrics.CSRFNoToken
 				}
 				slog.WarnContext(r.Context(), "CSRF check failed", "method", r.Method, "path", r.URL.Path, "reason", reason)
+				metrics.CSRFRejected(metric)
 				http.Error(w, "invalid CSRF token, reload the page and try again", http.StatusForbidden)
 				return
 			}

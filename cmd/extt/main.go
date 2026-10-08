@@ -62,6 +62,8 @@ Environment:
   EXTT_BASE_URL       the site's address for invite links, e.g. https://example.org
                       (serve takes it from each request when unset; the CLI then
                       prints only the path)
+  EXTT_METRICS_ADDR   address serve exposes Prometheus metrics on, at
+                      /metrics, e.g. 127.0.0.1:9101 (default: off)
   EXTT_LOG_LEVEL      debug, info, warn or error      (default info)
   EXTT_LOG_FORMAT     text or json                    (default text)
 

@@ -1,0 +1,24 @@
+# Prometheus for ExtendedTimetable. install-monitoring.sh installs it as
+# /etc/prometheus/prometheus.yml and replaces it on every run: change this
+# file in the repository, not on the server.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/extt-alerts.yml
+
+scrape_configs:
+  # The app: `extt serve` with EXTT_METRICS_ADDR=127.0.0.1:9101.
+  - job_name: extt
+    static_configs:
+      - targets: ["127.0.0.1:9101"]
+
+  # The server: CPU, memory, disk, network (prometheus-node-exporter).
+  - job_name: node
+    static_configs:
+      - targets: ["127.0.0.1:9100"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["127.0.0.1:9090"]

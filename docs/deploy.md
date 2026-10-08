@@ -13,6 +13,7 @@ with systemd. Everything needed is in [`deploy/`](../deploy):
 | `extt-backup.service`, `.timer` | `/etc/systemd/system/` | Nightly backup at 03:30 |
 | `backup.sh` | `/usr/local/lib/extt/` | Gzipped snapshot of the database, keeps 14 days |
 | `exttctl` | `/usr/local/sbin/` | Runs the `extt` CLI as the service user against the live database |
+| `monitoring.sh`, `install-monitoring.sh`, `monitoring/` | see [Monitoring](#monitoring) | Optional: Prometheus, node exporter and Grafana with the dashboard |
 
 The database lives in `/var/lib/extt/extt.db`, backups in `/var/backups/extt`.
 
@@ -136,6 +137,76 @@ This relies on the query string being part of the cache key, which is
 Cloudflare's default ("Standard" caching level). Keep it that way, and don't
 add a Cache Rule that ignores the query string or overrides the origin's
 `Cache-Control` for `/static/`.
+
+## Monitoring
+
+Prometheus and Grafana run on the same server, listening on loopback only:
+
+```
+extt :9101/metrics ─┐
+node exporter :9100 ┼─▶ Prometheus :9090 (scrapes every 15 s, keeps 30 days) ─▶ Grafana :3000
+```
+
+extt serves its metrics on a separate address (`EXTT_METRICS_ADDR`) that
+nginx does not proxy, so they never reach the internet. Install with:
+
+```sh
+deploy/deploy.sh user@server        # first, so extt knows --metrics-addr
+deploy/monitoring.sh user@server
+```
+
+`install-monitoring.sh` sets `EXTT_METRICS_ADDR=127.0.0.1:9101` in
+`/etc/extt/extt.env` and restarts extt, installs `prometheus` and
+`prometheus-node-exporter` from the distribution and `grafana` from
+apt.grafana.com, and provisions the Prometheus data source and the
+**ExtendedTimetable** dashboard (also Grafana's home page). On the first run
+it prints the `admin` password it generated (kept in
+`/etc/grafana/extt-admin.env`); change it after logging in. Together they
+need about 300 MB of RAM.
+
+Open Grafana through an SSH tunnel:
+
+```sh
+ssh -L 3000:127.0.0.1:3000 user@server     # then http://localhost:3000
+```
+
+or on its own subdomain through the [Cloudflare Tunnel](#cloudflare-tunnel)
+the site already uses:
+
+1. Protect it first: in Cloudflare Zero Trust → Access → Applications, add a
+   **Self-hosted** application for `grafana.example.org` with a policy
+   *Allow* → *Emails* → your address. Visitors then have to enter a one-time
+   code Cloudflare e-mails them before they even see Grafana's login page.
+2. In the tunnel's **Public Hostname** tab, add `grafana.example.org` with
+   service type `HTTP` and URL `localhost:3000`. It goes straight to Grafana,
+   not through nginx; Cloudflare creates the DNS record.
+3. Tell Grafana its address, so that its links, redirects and login checks
+   use it:
+
+   ```sh
+   deploy/monitoring.sh user@server https://grafana.example.org
+   ```
+
+The metrics themselves stay off the internet either way:
+`https://example.org/metrics` reaches nginx and extt's site address, where
+there is no such page (404).
+
+The dashboard shows the site's status, requests per minute, 5xx share and
+response times, the busiest and slowest pages, logins, new accounts and
+rejected (CSRF) requests, when each group's schedule last synced from CIST,
+extt's memory and CPU, and the server's CPU, memory, disk and network.
+Restarts (deploys) are marked on every graph.
+
+Alert rules in `monitoring/extt-alerts.yml` (extt down, over 5% 5xx, slow
+responses, a schedule not synced for 13 hours, a burst of failed logins,
+disk almost full) show under Alerting → Alert rules in Grafana. To be
+notified, add a contact point there (Telegram, e-mail, …) and an alert rule
+that uses it.
+
+`monitoring.sh` replaces the configuration and the dashboard on every run;
+Prometheus' data and Grafana's users are kept. Change the dashboard in
+`deploy/monitoring/extt.json` (or save a copy in Grafana: the provisioned
+one cannot be saved over).
 
 ## Day to day
 

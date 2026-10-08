@@ -10,6 +10,7 @@ import (
 	"github.com/sqprrr/ExtendedTimetable/internal/api"
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
 	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
+	"github.com/sqprrr/ExtendedTimetable/internal/metrics"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/web"
 )
@@ -49,7 +50,7 @@ func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	h = cookies.CSRF(h)
 	h = securityHeaders(h)
 	h = recoverer(h)
-	h = requestLog(cfg.TrustProxy, h)
+	h = requestLog(cfg.TrustProxy, mux, h)
 	return h, nil
 }
 
@@ -90,6 +91,7 @@ func recoverer(next http.Handler) http.Handler {
 					panic(v)
 				}
 				slog.ErrorContext(r.Context(), "panic", "value", v, "stack", string(debug.Stack()))
+				metrics.Panic()
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			}
 		}()

@@ -11,6 +11,7 @@ import (
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
 	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
+	"github.com/sqprrr/ExtendedTimetable/internal/metrics"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
@@ -50,6 +51,7 @@ type RegisterInput struct {
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, error) {
 	if !s.registerByIP.Allow(in.ClientIP) {
 		slog.WarnContext(ctx, "registration rate limited")
+		metrics.Registration(metrics.RateLimited)
 		return nil, ErrRateLimited
 	}
 	username, err := normalizeUsername(in.Username)
@@ -93,6 +95,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 		return nil, err
 	}
 	slog.InfoContext(ctx, "registered", "username", username, "group", g.Code)
+	metrics.Registration(metrics.Success)
 	sess, err := s.createSession(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -116,26 +119,31 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error)
 	username := strings.ToLower(strings.TrimSpace(in.Username))
 	if !s.loginByIP.Allow(in.ClientIP) {
 		slog.WarnContext(ctx, "login rate limited", "by", "ip")
+		metrics.Login(metrics.RateLimited)
 		return nil, ErrRateLimited
 	}
 	if !s.loginByUsername.Allow(username) {
 		slog.WarnContext(ctx, "login rate limited", "by", "username")
+		metrics.Login(metrics.RateLimited)
 		return nil, ErrRateLimited
 	}
 	u, err := s.store.UserByUsername(ctx, username)
 	if errors.Is(err, store.ErrNotFound) {
 		auth.BurnPasswordCheck(in.Password)
 		slog.InfoContext(ctx, "login failed", "reason", "unknown username")
+		metrics.Login(metrics.Failure)
 		return nil, ErrInvalidCredentials
 	} else if err != nil {
 		return nil, err
 	}
 	if !auth.CheckPassword(u.PasswordHash, in.Password) {
 		slog.InfoContext(ctx, "login failed", "reason", "wrong password", "username", u.Username)
+		metrics.Login(metrics.Failure)
 		return nil, ErrInvalidCredentials
 	}
 	s.loginByUsername.Reset(username)
 	slog.InfoContext(ctx, "login", "username", u.Username)
+	metrics.Login(metrics.Success)
 	sess, err := s.createSession(ctx, u.ID)
 	if err != nil {
 		return nil, err
