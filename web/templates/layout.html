@@ -18,6 +18,7 @@
       {{if .Viewer}}
         <span class="muted">{{.Viewer.Username}}{{if .Viewer.IsSuperadmin}} · {{t "role.superadmin"}}{{end}}</span>
       {{end}}
+      {{if and .Viewer .Viewer.IsSuperadmin}}<a href="/admin/groups">{{t "nav.admin_groups"}}</a>{{end}}
       {{if .Viewer}}<a href="/feedback">{{t "nav.feedback"}}</a>{{end}}
       {{template "langSwitch" .}}
       {{if .Viewer}}
@@ -27,7 +28,6 @@
         </form>
       {{else}}
         <a href="/login">{{t "nav.login"}}</a>
-        <a href="/register">{{t "nav.register"}}</a>
       {{end}}
     </nav>
   </header>

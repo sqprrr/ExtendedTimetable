@@ -168,11 +168,7 @@ func TestProgressStaysInItsGroup(t *testing.T) {
 	if _, err := f.svc.AdminCreateGroup(ctx, "OTHER-1", "", nil); err != nil {
 		t.Fatal(err)
 	}
-	sess, err := f.svc.Register(ctx, service.RegisterInput{Username: "olga", Password: "correct horse", GroupCode: "OTHER-1", ClientIP: "o"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	olga := f.as(t, sess)
+	olga := f.as(t, f.registerInto(t, "OTHER-1", "olga"))
 	other, err := f.svc.Group(olga, "OTHER-1")
 	if err != nil {
 		t.Fatal(err)

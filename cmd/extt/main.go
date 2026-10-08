@@ -28,10 +28,18 @@ Commands:
                                           <file> (safe while serve runs; no migrations)
   admin create-superadmin <username>      Create a superadmin account
   admin create-group <code> [--cist-id N] [--name NAME]
-                                          Create a group; anyone can register into it
-  admin promote <username> --group CODE   Make a user a leader (староста) of a group;
-                                          this is the only way to appoint one
-  admin demote <username> --group CODE    Make a leader a regular student again
+                                          Create a group and print its invite link;
+                                          people join a group only through it
+  admin invite-link <code> [--regenerate] Print a group's invite link (with
+                                          --regenerate, replace it first: the old
+                                          one stops working)
+  admin promote <username> --group CODE   Make a user the leader (староста) of a
+                                          group, replacing the current one; a user
+                                          in no group is added to it
+  admin demote <username> --group CODE    Make the leader a regular student again,
+                                          leaving the group without a leader
+  admin group-log <code> [--limit N]      Print who joined, left or was removed and
+                                          how the leader changed (default 50 entries)
   admin reset-password <username>         Set a new password and sign the user out
   admin find-cist-group <name>            Look up a group's CIST timetable id by its
                                           Ukrainian name, e.g. КІУКІ-25-3
@@ -51,6 +59,9 @@ Environment:
   EXTT_TRUST_PROXY    "true" to use X-Real-IP         (default false)
   EXTT_TZ             time zone for dates             (default Europe/Kyiv)
   EXTT_CIST_INTERVAL  how often serve syncs schedules (default 6h; 0 turns it off)
+  EXTT_BASE_URL       the site's address for invite links, e.g. https://example.org
+                      (serve takes it from each request when unset; the CLI then
+                      prints only the path)
   EXTT_LOG_LEVEL      debug, info, warn or error      (default info)
   EXTT_LOG_FORMAT     text or json                    (default text)
 
@@ -160,6 +171,11 @@ const cistTimeout = 12 * time.Second
 // newService returns the service; loc is the time zone of "today" (UTC if nil).
 func newService(st *store.Store, loc *time.Location) *service.Service {
 	return service.New(st, service.Config{CIST: cist.New(nil, cistTimeout), Location: loc})
+}
+
+// baseURLFlag is the site's public address, used to print full invite links.
+func baseURLFlag(fs *flag.FlagSet) *string {
+	return fs.String("base-url", envOr("EXTT_BASE_URL", ""), "the site's address for invite links, e.g. https://example.org")
 }
 
 func newFlagSet(name string) *flag.FlagSet {

@@ -1,0 +1,45 @@
+{{define "title"}}{{t "admin.groups"}}{{end}}
+{{define "content"}}
+<h1>{{t "admin.groups"}}</h1>
+<section class="card">
+  {{with .AdminGroups}}
+  <table class="list">
+    <thead><tr><th>{{t "field.group"}}</th><th>{{t "members.leader"}}</th><th>{{t "nav.members"}}</th><th>{{t "admin.invite_until"}}</th></tr></thead>
+    <tbody>
+      {{range .}}
+      <tr>
+        <td><a href="/g/{{.Code}}/members">{{.Name}}</a>{{if ne .Name .Code}} <span class="muted">({{.Code}})</span>{{end}}</td>
+        <td>{{or .Leader "—"}}</td>
+        <td>{{.Members}}</td>
+        <td class="nowrap">{{with .Invite}}{{when .ExpiresAt}}{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="muted">{{t "admin.no_groups"}}</p>
+  {{end}}
+</section>
+<section class="card">
+  <h2>{{t "admin.new_group"}}</h2>
+  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+  <form method="post" action="/admin/groups">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <div class="row">
+      <label>{{t "admin.group_code"}}
+        <input name="code" value="{{index .Fields "code"}}" maxlength="32" pattern="[A-Za-z0-9_\-]+" required>
+        <small class="muted">{{t "admin.group_code_hint"}}</small>
+      </label>
+      <label>{{t "field.name"}}
+        <input name="name" value="{{index .Fields "name"}}" maxlength="100">
+        <small class="muted">{{t "admin.group_name_hint"}}</small>
+      </label>
+    </div>
+    <label>{{t "admin.cist_id"}}
+      <input name="cist_id" value="{{index .Fields "cist_id"}}" inputmode="numeric">
+      <small class="muted">{{th "admin.cist_id_hint"}}</small>
+    </label>
+    <div class="form-actions"><button type="submit">{{t "admin.create_group"}}</button></div>
+  </form>
+</section>
+{{end}}

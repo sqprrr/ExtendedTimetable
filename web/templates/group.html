@@ -2,6 +2,16 @@
 {{define "content"}}
 {{template "groupnav" .}}
 
+{{if and (not .Group.Leader) (eq .Group.Role "student")}}
+<section class="card">
+  <p>{{t "members.no_leader"}}</p>
+  <form method="post" action="/g/{{.Group.Code}}/leader/claim" class="inline" data-confirm="{{t "members.confirm_claim"}}">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <button type="submit">{{t "members.claim"}}</button>
+  </form>
+</section>
+{{end}}
+
 {{with .Schedule}}
 <section class="card">
   <div class="card-head">

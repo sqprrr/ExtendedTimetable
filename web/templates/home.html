@@ -10,6 +10,6 @@
   </section>
   {{end}}
 {{else}}
-  <p class="muted">{{t "home.no_groups"}}</p>
+  <p class="muted">{{if .Viewer.IsSuperadmin}}{{th "home.no_groups_admin"}}{{else}}{{t "home.no_groups"}}{{end}}</p>
 {{end}}
 {{end}}

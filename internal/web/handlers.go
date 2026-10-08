@@ -42,58 +42,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		h.formError(w, r, "login", form, err)
 		return
 	}
-	h.startSession(w, r, sess)
-}
-
-func (h *Handler) registerForm(w http.ResponseWriter, r *http.Request) {
-	if service.ViewerFrom(r.Context()) != nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
-	}
-	// Allow sharing a link with the group preselected: /register?group=KIUKI-25-3
-	h.renderRegister(w, r, http.StatusOK, formValues{Group: r.URL.Query().Get("group")}, "")
-}
-
-func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
-	form := formValues{Username: r.PostFormValue("username"), Group: r.PostFormValue("group")}
-	password := r.PostFormValue("password")
-	if password != r.PostFormValue("password_confirm") {
-		h.renderRegister(w, r, http.StatusUnprocessableEntity, form, i18n.FromContext(r.Context()).T("err.password_mismatch"))
-		return
-	}
-	sess, err := h.svc.Register(r.Context(), service.RegisterInput{
-		Username:  form.Username,
-		Password:  password,
-		GroupCode: form.Group,
-		ClientIP:  auth.ClientIP(r, h.trustProxy),
-		// Keep the language the visitor picked with the switch, if any.
-		Locale: h.cookies.Lang(r),
-	})
-	if err != nil {
-		msg, status, ok := userMessage(r, err)
-		if !ok {
-			h.renderError(w, r, err)
-			return
-		}
-		h.renderRegister(w, r, status, form, msg)
-		return
-	}
-	h.startSession(w, r, sess)
-}
-
-// renderRegister renders the registration form with the group picker. With a
-// single group, it is preselected.
-func (h *Handler) renderRegister(w http.ResponseWriter, r *http.Request, status int, form formValues, errMsg string) {
-	groups, err := h.svc.JoinableGroups(r.Context())
-	if err != nil {
-		h.renderError(w, r, err)
-		return
-	}
-	form.Group = strings.ToUpper(strings.TrimSpace(form.Group))
-	if form.Group == "" && len(groups) == 1 {
-		form.Group = groups[0].Code
-	}
-	h.render(w, r, status, "register", pageData{Form: form, Error: errMsg, JoinableGroups: groups})
+	h.startSession(w, r, sess, "/")
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +54,8 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
-func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, sess *service.NewSession) {
+// startSession sets the session cookie and redirects to the local path to.
+func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, sess *service.NewSession, to string) {
 	// Drop any session this browser already had so it does not linger.
 	if old := h.cookies.SessionToken(r); old != "" {
 		_ = h.svc.Logout(r.Context(), old)
@@ -115,7 +65,7 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, sess *ser
 	if sess.Locale != "" {
 		h.cookies.SetLang(w, sess.Locale)
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
 // setLang switches the language: in a cookie for this browser and, for a

@@ -67,6 +67,8 @@ var (
 		"role.student", "role.leader", "lesson.lecture", "lesson.practice", "lesson.lab",
 		"kind.recording", "kind.solution", "error.status.403", "error.status.404", "error.status.500",
 		"weekday.short.mon", "weekday.short.sun", "weekday.long.mon", "weekday.long.sun",
+		"log.group_created", "log.joined", "log.left", "log.removed", "log.leader_claimed",
+		"log.leader_resigned", "log.leader_assigned", "log.leader_removed", "log.invite_regenerated",
 	}
 )
 

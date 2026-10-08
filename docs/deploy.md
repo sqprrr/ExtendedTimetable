@@ -115,11 +115,18 @@ Run `deploy/deploy.sh user@server` again. Before the new version starts (and
 migrates the database), `install.sh` writes a `…-pre-upgrade.db.gz` backup.
 Settings and the nginx site are left as they are.
 
+Settings added in a new version are therefore missing from an existing
+`/etc/extt/extt.env`; compare it with `deploy/extt.env`. In particular, set
+`EXTT_BASE_URL=https://example.org` (the site's public address) so that
+`exttctl admin invite-link` prints full links; the site itself falls back to
+the address each request came to.
+
 ## Day to day
 
 ```sh
 sudo systemctl status extt
 sudo journalctl -u extt -f                 # server log
+sudo exttctl admin invite-link KIUKI-25-3   # the group's invite link
 sudo exttctl admin promote alice --group KIUKI-25-3
 sudo systemctl start extt-backup           # back up now
 systemctl list-timers extt-backup.timer    # next nightly backup

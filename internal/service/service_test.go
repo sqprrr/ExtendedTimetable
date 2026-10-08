@@ -56,8 +56,24 @@ func (f *fixture) as(t *testing.T, sess *service.NewSession) context.Context {
 
 func (f *fixture) register(t *testing.T, username string) *service.NewSession {
 	t.Helper()
+	return f.registerInto(t, f.group.Code, username)
+}
+
+// invite returns the token of a group's invite link.
+func (f *fixture) invite(t *testing.T, groupCode string) string {
+	t.Helper()
+	inv, err := f.svc.AdminInvite(context.Background(), groupCode, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return inv.Token
+}
+
+// registerInto registers username through the invite link of a group.
+func (f *fixture) registerInto(t *testing.T, groupCode, username string) *service.NewSession {
+	t.Helper()
 	sess, err := f.svc.Register(context.Background(), service.RegisterInput{
-		Username: username, Password: "correct horse", GroupCode: f.group.Code, ClientIP: "ip-" + username,
+		Username: username, Password: "correct horse", InviteToken: f.invite(t, groupCode), ClientIP: "ip-" + username,
 	})
 	if err != nil {
 		t.Fatalf("register %s: %v", username, err)
@@ -98,59 +114,51 @@ func TestRegisterJoinsGroupAsStudent(t *testing.T) {
 func TestRegisterValidation(t *testing.T) {
 	f := setup(t)
 	f.register(t, "taken")
+	token := f.invite(t, f.group.Code)
 	_, err := f.svc.Register(context.Background(), service.RegisterInput{
-		Username: "TAKEN", Password: "correct horse", GroupCode: f.group.Code, ClientIP: "t",
+		Username: "TAKEN", Password: "correct horse", InviteToken: token, ClientIP: "t",
 	})
 	if !errors.Is(err, service.ErrUsernameTaken) {
 		t.Errorf("taken username: got %v, want ErrUsernameTaken", err)
 	}
 
 	inputErrs := []service.RegisterInput{
-		{Username: "ab", Password: "correct horse", GroupCode: f.group.Code},
-		{Username: "_bob", Password: "correct horse", GroupCode: f.group.Code},
-		{Username: "боб", Password: "correct horse", GroupCode: f.group.Code},
-		{Username: "bob", Password: "short", GroupCode: f.group.Code},
-		{Username: "bob", Password: "correct horse", GroupCode: ""},
-		{Username: "bob", Password: "correct horse", GroupCode: "NO-SUCH-GROUP"},
+		{Username: "ab", Password: "correct horse"},
+		{Username: "_bob", Password: "correct horse"},
+		{Username: "боб", Password: "correct horse"},
+		{Username: "bob", Password: "short"},
 	}
 	for _, in := range inputErrs {
-		in.ClientIP = in.Username + in.Password + in.GroupCode
+		in.InviteToken = token
+		in.ClientIP = in.Username + in.Password
 		var ie *service.InputError
 		if _, err := f.svc.Register(context.Background(), in); !errors.As(err, &ie) {
 			t.Errorf("%+v: got %v, want InputError", in, err)
 		}
 	}
+	for _, bad := range []string{"", "no-such-token"} {
+		_, err := f.svc.Register(context.Background(), service.RegisterInput{
+			Username: "bob", Password: "correct horse", InviteToken: bad, ClientIP: "bad" + bad,
+		})
+		if !errors.Is(err, service.ErrInviteInvalid) {
+			t.Errorf("invite %q: got %v, want ErrInviteInvalid", bad, err)
+		}
+	}
 }
 
-func TestAnyoneCanJoinAnyGroup(t *testing.T) {
+func TestRegisterJoinsTheInvitesGroup(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	other, err := f.svc.AdminCreateGroup(ctx, "OTHER-1", "Other group", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	groups, err := f.svc.JoinableGroups(ctx) // no viewer needed
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []service.JoinableGroup{{Code: "KIUKI-25-3", Name: "KIUKI-25-3"}, {Code: "OTHER-1", Name: "Other group"}}
-	if len(groups) != len(want) || groups[0] != want[0] || groups[1] != want[1] {
-		t.Fatalf("joinable groups = %+v, want %+v", groups, want)
-	}
-
-	sess, err := f.svc.Register(ctx, service.RegisterInput{
-		Username: "olga", Password: "correct horse", GroupCode: " other-1 ", ClientIP: "o",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	v := service.ViewerFrom(f.as(t, sess))
+	v := service.ViewerFrom(f.as(t, f.registerInto(t, "OTHER-1", "olga")))
 	if role, ok := v.RoleIn(other.ID); !ok || role != store.RoleStudent {
 		t.Errorf("role in OTHER-1 = %q, %v; want student", role, ok)
 	}
 	if _, ok := v.RoleIn(f.group.ID); ok {
-		t.Error("should not be a member of a group they did not pick")
+		t.Error("should not be a member of a group whose link they did not use")
 	}
 }
 
@@ -196,7 +204,7 @@ func TestLoginRateLimitPerUsername(t *testing.T) {
 	}
 }
 
-func TestOnlyAdminCLIMakesLeaders(t *testing.T) {
+func TestAdminCLISetsTheLeader(t *testing.T) {
 	f := setup(t)
 	ctx := context.Background()
 	sess := f.register(t, "grace")
@@ -204,7 +212,7 @@ func TestOnlyAdminCLIMakesLeaders(t *testing.T) {
 		t.Fatal("a freshly registered user must not manage the group")
 	}
 
-	if err := f.svc.AdminSetRole(ctx, "grace", "kiuki-25-3", store.RoleLeader); err != nil {
+	if err := f.svc.AdminSetLeader(ctx, "grace", "kiuki-25-3"); err != nil {
 		t.Fatal(err)
 	}
 	leader := f.as(t, sess) // memberships are loaded per request
@@ -219,14 +227,37 @@ func TestOnlyAdminCLIMakesLeaders(t *testing.T) {
 		t.Fatalf("leader groups: %+v", groups)
 	}
 
-	if err := f.svc.AdminSetRole(ctx, "grace", "KIUKI-25-3", store.RoleStudent); err != nil {
+	// Promoting someone else replaces the leader.
+	hank := f.register(t, "hank")
+	if err := f.svc.AdminSetLeader(ctx, "hank", "KIUKI-25-3"); err != nil {
 		t.Fatal(err)
 	}
 	if service.ViewerFrom(f.as(t, sess)).CanManageGroup(f.group.ID) {
+		t.Fatal("the previous leader still manages the group")
+	}
+	if !service.ViewerFrom(f.as(t, hank)).CanManageGroup(f.group.ID) {
+		t.Fatal("the new leader does not manage the group")
+	}
+
+	if err := f.svc.AdminRemoveLeader(ctx, "grace", "KIUKI-25-3"); err == nil {
+		t.Fatal("demoting someone who is not the leader should fail")
+	}
+	if err := f.svc.AdminRemoveLeader(ctx, "hank", "KIUKI-25-3"); err != nil {
+		t.Fatal(err)
+	}
+	if service.ViewerFrom(f.as(t, hank)).CanManageGroup(f.group.ID) {
 		t.Fatal("demoted user still manages the group")
 	}
-	if err := f.svc.AdminSetRole(ctx, "nobody", "KIUKI-25-3", store.RoleLeader); err == nil {
+	if err := f.svc.AdminSetLeader(ctx, "nobody", "KIUKI-25-3"); err == nil {
 		t.Fatal("promoting an unknown user should fail")
+	}
+
+	// A member of another group cannot be made leader here.
+	if _, err := f.svc.AdminCreateGroup(ctx, "OTHER-1", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.AdminSetLeader(ctx, "grace", "OTHER-1"); err == nil {
+		t.Fatal("a user can be in one group only")
 	}
 }
 
