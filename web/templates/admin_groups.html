@@ -1,0 +1,57 @@
+{{define "title"}}{{t "admin.groups"}}{{end}}
+{{define "mainClass"}}page-admin-groups{{end}}
+{{define "content"}}
+<header class="page-head">
+  <div><h1>{{t "admin.groups"}}</h1></div>
+</header>
+<div class="section-gap">
+  {{with .AdminGroups}}
+  <section class="card card-flush" aria-label="{{t "admin.groups"}}"{{boost}}>
+    <ul class="rows">
+      {{range .}}
+      <li class="link-row">
+        <div class="main">
+          <div class="row-head"><a class="row-title" href="/g/{{.Code}}/members">{{.Name}}</a><span class="group-code">{{.Code}}</span></div>
+          <div class="meta">
+            <span class="meta-item">{{icon "graduation-cap"}}{{or .Leader "—"}}</span>
+            <span class="meta-item mono">{{icon "users"}}{{.Members}}</span>
+            {{with .Invite}}<span class="meta-item">{{icon "link"}}{{t "admin.invite_until"}} {{relWhen .ExpiresAt}}</span>{{end}}
+          </div>
+        </div>
+      </li>
+      {{end}}
+    </ul>
+  </section>
+  {{else}}
+  <section class="card">
+    <div class="empty"><span class="glyph">{{icon "users"}}</span><h3>{{t "admin.no_groups"}}</h3></div>
+  </section>
+  {{end}}
+
+  <section class="card" aria-labelledby="admin-new-group">
+    <div class="card-head"><h2 id="admin-new-group">{{t "admin.new_group"}}</h2></div>
+    {{with .Error}}<div class="alert alert-danger form-alert" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+    <form class="form" method="post" action="/admin/groups">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <div class="form-row">
+        <label class="field">
+          <span class="field-label">{{t "admin.group_code"}}</span>
+          <input class="input" name="code" value="{{index .Fields "code"}}" maxlength="32" pattern="[A-Za-z0-9_\-]+" autocapitalize="characters" spellcheck="false" required>
+          <span class="field-hint">{{t "admin.group_code_hint"}}</span>
+        </label>
+        <label class="field">
+          <span class="field-label">{{t "field.name"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+          <input class="input" name="name" value="{{index .Fields "name"}}" maxlength="100">
+          <span class="field-hint">{{t "admin.group_name_hint"}}</span>
+        </label>
+      </div>
+      <label class="field">
+        <span class="field-label">{{t "admin.cist_id"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+        <input class="input" name="cist_id" value="{{index .Fields "cist_id"}}" inputmode="numeric">
+        <span class="field-hint">{{th "admin.cist_id_hint"}}</span>
+      </label>
+      <div class="btn-row"><button type="submit" class="btn btn-primary">{{t "admin.create_group"}}</button></div>
+    </form>
+  </section>
+</div>
+{{end}}

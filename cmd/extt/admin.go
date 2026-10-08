@@ -24,6 +24,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 	sub, args := args[0], args[1:]
 	fs := newFlagSet("admin " + sub)
 	dbPath := dbFlag(fs)
+	baseURL := baseURLFlag(fs)
 
 	// open parses flags and opens the database; call it after defining
 	// subcommand-specific flags.
@@ -64,11 +65,53 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		if *cistID != 0 {
 			cistGroup = cistID
 		}
-		g, err := newService(st, nil).AdminCreateGroup(ctx, pos[0], *name, cistGroup)
+		svc := newService(st, nil)
+		g, err := svc.AdminCreateGroup(ctx, pos[0], *name, cistGroup)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(stdout, "group %s created; anyone can now register into it\n", g.Code)
+		inv, err := svc.AdminInvite(ctx, g.Code, false)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "group %s created; share its invite link:\n", g.Code)
+		printInvite(stdout, *baseURL, inv)
+
+	case "invite-link":
+		regenerate := fs.Bool("regenerate", false, "replace the link first; the old one stops working")
+		pos, st, err := open(1)
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		inv, err := newService(st, nil).AdminInvite(ctx, pos[0], *regenerate)
+		if err != nil {
+			return err
+		}
+		printInvite(stdout, *baseURL, inv)
+
+	case "group-log":
+		limit := fs.Int("limit", 50, "how many entries to print")
+		pos, st, err := open(1)
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+		entries, err := newService(st, nil).AdminGroupLog(ctx, pos[0], *limit)
+		if err != nil {
+			return err
+		}
+		for _, e := range entries {
+			actor := e.ActorName
+			if e.ActorID == nil {
+				actor = "(server CLI)"
+			}
+			fmt.Fprintf(stdout, "%s  %-18s  by %s", e.CreatedAt.Local().Format("2006-01-02 15:04"), e.Event, actor)
+			if e.UserID != nil {
+				fmt.Fprintf(stdout, "  user %s", e.UserName)
+			}
+			fmt.Fprintln(stdout)
+		}
 
 	case "promote", "demote":
 		group := fs.String("group", "", "group code")
@@ -80,14 +123,18 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		if *group == "" {
 			return fmt.Errorf("admin %s: --group is required", sub)
 		}
-		role := store.RoleLeader
-		if sub == "demote" {
-			role = store.RoleStudent
+		svc := newService(st, nil)
+		if sub == "promote" {
+			if err := svc.AdminSetLeader(ctx, pos[0], *group); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "%s is now the leader of %s\n", pos[0], strings.ToUpper(*group))
+		} else {
+			if err := svc.AdminRemoveLeader(ctx, pos[0], *group); err != nil {
+				return err
+			}
+			fmt.Fprintf(stdout, "%s is now a student of %s; the group has no leader\n", pos[0], strings.ToUpper(*group))
 		}
-		if err := newService(st, nil).AdminSetRole(ctx, pos[0], *group, role); err != nil {
-			return err
-		}
-		fmt.Fprintf(stdout, "%s is now a %s of %s\n", pos[0], role, strings.ToUpper(*group))
 
 	case "reset-password":
 		pos, st, err := open(1)
@@ -188,6 +235,15 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		return fmt.Errorf("admin: unknown subcommand %q", sub)
 	}
 	return nil
+}
+
+// printInvite prints an invite link, in full when the site's address is known.
+func printInvite(w io.Writer, baseURL string, inv *store.Invite) {
+	fmt.Fprintf(w, "%s/join/%s\n", strings.TrimRight(baseURL, "/"), inv.Token)
+	fmt.Fprintf(w, "valid until %s\n", inv.ExpiresAt.Local().Format("2006-01-02 15:04"))
+	if baseURL == "" {
+		fmt.Fprintln(w, "(set EXTT_BASE_URL or --base-url to print the full address)")
+	}
 }
 
 // readNewPassword prompts twice on a terminal, or reads one line otherwise.

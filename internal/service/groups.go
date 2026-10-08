@@ -44,23 +44,3 @@ func (s *Service) MyGroups(ctx context.Context) ([]GroupSummary, error) {
 	}
 	return out, nil
 }
-
-// JoinableGroup is a group offered on the registration form.
-type JoinableGroup struct {
-	Code string
-	Name string
-}
-
-// JoinableGroups lists the groups a new user can register into: all of them.
-// It is public, so it exposes only the code and name.
-func (s *Service) JoinableGroups(ctx context.Context) ([]JoinableGroup, error) {
-	groups, err := s.store.ListGroups(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]JoinableGroup, 0, len(groups))
-	for _, g := range groups {
-		out = append(out, JoinableGroup{Code: g.Code, Name: g.Name})
-	}
-	return out, nil
-}

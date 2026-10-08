@@ -22,12 +22,15 @@ type Config struct {
 	TrustProxy bool
 	// Location is the time zone dates are shown and entered in; UTC if nil.
 	Location *time.Location
+	// BaseURL is the site's public address for invite links; if empty, it
+	// is taken from each request.
+	BaseURL string
 }
 
 // New returns the application's root handler.
 func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	cookies := auth.Cookies{Secure: cfg.SecureCookies}
-	webH, err := web.New(svc, web.Config{Cookies: cookies, TrustProxy: cfg.TrustProxy, Location: cfg.Location})
+	webH, err := web.New(svc, web.Config{Cookies: cookies, TrustProxy: cfg.TrustProxy, Location: cfg.Location, BaseURL: cfg.BaseURL})
 	if err != nil {
 		return nil, err
 	}

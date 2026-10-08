@@ -17,6 +17,7 @@
       <li><a class="row-link" href="{{$g}}/links">{{icon "link"}}<span>{{t "nav.links"}}</span>{{icon "chevron-right"}}</a></li>
       <li><a class="row-link" href="{{$g}}/resources">{{icon "video"}}<span>{{t "nav.resources"}}</span>{{icon "chevron-right"}}</a></li>
       <li><a class="row-link" href="{{$g}}/subjects">{{icon "book-open"}}<span>{{t "nav.subjects"}}</span>{{icon "chevron-right"}}</a></li>
+      <li><a class="row-link" href="{{$g}}/members">{{icon "users"}}<span>{{t "nav.members"}}</span>{{icon "chevron-right"}}</a></li>
     </ul>
   </section>
   {{end}}
@@ -24,6 +25,7 @@
     <ul class="rows">
       <li><a class="row-link" href="/">{{icon "house"}}<span>{{t "nav.my_groups"}}</span>{{icon "chevron-right"}}</a></li>
       <li><a class="row-link" href="/feedback">{{icon "message-square"}}<span>{{t "nav.feedback"}}</span>{{icon "chevron-right"}}</a></li>
+      {{if .Viewer.IsSuperadmin}}<li><a class="row-link" href="/admin/groups">{{icon "users"}}<span>{{t "nav.admin_groups"}}</span>{{icon "chevron-right"}}</a></li>{{end}}
       {{if .Viewer.IsSuperadmin}}<li><a class="row-link" href="/admin/feedback">{{icon "list-checks"}}<span>{{t "feedback.inbox"}}</span>{{icon "chevron-right"}}</a></li>{{end}}
     </ul>
   </section>

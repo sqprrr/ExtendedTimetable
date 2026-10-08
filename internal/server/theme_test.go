@@ -77,9 +77,7 @@ func TestThemeIsKeptInTheAccount(t *testing.T) {
 	// Chosen before registering: kept in the account.
 	b := e.browser(t)
 	b.submit("/login", "/theme", url.Values{"theme": {"light"}, "back": {"/login"}})
-	b.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {"alice"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
-	})
+	b.register("KIUKI-25-3", "alice")
 	other := e.browser(t)
 	other.submit("/login", "/login", url.Values{"username": {"alice"}, "password": {"correct horse"}})
 	if _, body, _ := other.get("/"); !strings.Contains(htmlTag(body), `data-theme="light"`) {

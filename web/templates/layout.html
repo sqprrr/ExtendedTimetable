@@ -28,6 +28,7 @@
     <header class="auth-bar">
       <a class="wordmark" href="/">ExtendedTimetable</a>
       <div class="btn-row">
+        {{if ne .Section "login"}}<a class="btn btn-ghost btn-sm" href="/login">{{t "nav.login"}}</a>{{end}}
         {{template "langSwitch" .}}
         {{template "themeSwitch" .}}
       </div>
@@ -65,13 +66,17 @@
     <a class="nav-item" href="{{$g}}/links"{{current $.Section "links"}}>{{icon "link"}}<span>{{t "nav.links"}}</span></a>
     <a class="nav-item" href="{{$g}}/resources"{{current $.Section "resources"}}>{{icon "video"}}<span>{{t "nav.resources"}}</span></a>
     <a class="nav-item" href="{{$g}}/subjects"{{current $.Section "subjects"}}>{{icon "book-open"}}<span>{{t "nav.subjects"}}</span></a>
+    <a class="nav-item" href="{{$g}}/members"{{current $.Section "members"}}>{{icon "users"}}<span>{{t "nav.members"}}</span></a>
     {{else}}
     <a class="nav-item" href="/"{{current $.Section "home"}}>{{icon "house"}}<span>{{t "nav.my_groups"}}</span></a>
     {{end}}
   </nav>
   <div class="sidebar-foot">
     <a class="nav-item" href="/feedback"{{current .Section "feedback"}}>{{icon "message-square"}}<span>{{t "nav.feedback"}}</span></a>
-    {{if .Viewer.IsSuperadmin}}<a class="nav-item" href="/admin/feedback"{{current .Section "inbox"}}>{{icon "list-checks"}}<span>{{t "feedback.inbox"}}</span></a>{{end}}
+    {{if .Viewer.IsSuperadmin}}
+    <a class="nav-item" href="/admin/groups"{{current .Section "admin_groups"}}>{{icon "users"}}<span>{{t "nav.admin_groups"}}</span></a>
+    <a class="nav-item" href="/admin/feedback"{{current .Section "inbox"}}>{{icon "list-checks"}}<span>{{t "feedback.inbox"}}</span></a>
+    {{end}}
     <div class="user-line">
       <span>{{.Viewer.Username}}{{with viewerRole .Viewer .NavGroup}} · {{.}}{{end}}</span>
       {{template "langSwitch" .}}
@@ -105,11 +110,11 @@
   <a href="{{$g}}/schedule"{{current $.Section "schedule"}}>{{icon "calendar-days"}}<span>{{t "nav.schedule"}}</span></a>
   <a href="{{$g}}/homework"{{current $.Section "homework"}}>{{icon "list-checks"}}<span>{{t "nav.homework_short"}}</span></a>
   {{if .CanTrack}}<a href="{{$g}}/grades"{{current $.Section "grades"}}>{{icon "graduation-cap"}}<span>{{t "nav.grades_short"}}</span></a>{{end}}
-  <a href="{{$g}}/more"{{current $.Section "more" "notes" "links" "resources" "subjects" "feedback" "inbox" "home"}}>{{icon "menu"}}<span>{{t "nav.more"}}</span></a>
+  <a href="{{$g}}/more"{{current $.Section "more" "notes" "links" "resources" "subjects" "members" "feedback" "inbox" "admin_groups" "home"}}>{{icon "menu"}}<span>{{t "nav.more"}}</span></a>
   {{else}}
   <a href="/"{{current $.Section "home"}}>{{icon "house"}}<span>{{t "nav.my_groups"}}</span></a>
   <a href="/feedback"{{current $.Section "feedback"}}>{{icon "message-square"}}<span>{{t "nav.feedback"}}</span></a>
-  <a href="/more"{{current $.Section "more" "inbox"}}>{{icon "menu"}}<span>{{t "nav.more"}}</span></a>
+  <a href="/more"{{current $.Section "more" "inbox" "admin_groups"}}>{{icon "menu"}}<span>{{t "nav.more"}}</span></a>
   {{end}}
 </nav>
 {{end}}

@@ -31,6 +31,8 @@ type Handler struct {
 	loc        *time.Location
 	icons      iconSet
 	static     *staticAssets
+	// base is the configured site address for shared links; "" uses the request's.
+	base string
 	// pages holds the parsed templates per language, then per page.
 	pages map[string]map[string]*template.Template
 }
@@ -42,19 +44,23 @@ type Config struct {
 	TrustProxy bool
 	// Location is the time zone dates are shown and entered in; UTC if nil.
 	Location *time.Location
+	// BaseURL is the site's address (https://example.org) for the invite
+	// links shown to leaders; if empty, it is taken from each request.
+	BaseURL string
 }
 
 // pages lists the page templates; each is parsed with layout.html and
 // partials.html.
 var pages = []string{
-	"home", "login", "register", "error",
+	"home", "login", "join", "error",
 	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources", "grades", "schedule",
-	"feedback", "feedback_inbox", "more",
+	"members", "feedback", "feedback_inbox", "admin_groups", "more",
 }
 
 // New parses the templates and returns a Handler.
 func New(svc *service.Service, cfg Config) (*Handler, error) {
-	h := &Handler{svc: svc, cookies: cfg.Cookies, trustProxy: cfg.TrustProxy, loc: cfg.Location, pages: map[string]map[string]*template.Template{}}
+	h := &Handler{svc: svc, cookies: cfg.Cookies, trustProxy: cfg.TrustProxy, loc: cfg.Location,
+		base: strings.TrimRight(cfg.BaseURL, "/"), pages: map[string]map[string]*template.Template{}}
 	if h.loc == nil {
 		h.loc = time.UTC
 	}
@@ -90,14 +96,13 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.home)
 	mux.HandleFunc("GET /login", h.loginForm)
 	mux.HandleFunc("POST /login", h.login)
-	mux.HandleFunc("GET /register", h.registerForm)
-	mux.HandleFunc("POST /register", h.register)
 	mux.HandleFunc("POST /logout", h.logout)
 	mux.HandleFunc("POST /lang", h.setLang)
 	mux.HandleFunc("POST /theme", h.setTheme)
 	mux.HandleFunc("GET /more", h.morePage)
 	mux.HandleFunc("GET /g/{code}/more", h.groupMorePage)
 	h.registerGroupRoutes(mux)
+	h.registerMemberRoutes(mux)
 	h.registerFeedbackRoutes(mux)
 }
 
@@ -116,8 +121,19 @@ type pageData struct {
 	Status   string
 	Form     formValues
 	Groups   []service.GroupSummary
-	// JoinableGroups fills the group picker on the registration form.
-	JoinableGroups []service.JoinableGroup
+
+	// JoinInvite is the invite page's link; nil when the link is dead.
+	JoinInvite *service.InviteView
+	// Token is the invite page's token, for its form actions.
+	Token string
+	// BaseURL is the site's address, to show full invite links.
+	BaseURL string
+	// Invite is the group's invite link, for those who manage the group.
+	Invite   *store.Invite
+	Members  []*store.Member
+	GroupLog []*store.LogEntry
+	// AdminGroups lists every group in the superadmins' panel.
+	AdminGroups []service.AdminGroup
 
 	// Group pages.
 	Group *service.GroupView
@@ -329,6 +345,7 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		"feedbackKinds": func() []store.FeedbackKind { return service.FeedbackKinds },
 		"feedbackKind":  func(k store.FeedbackKind) string { return label(l, "feedback.kind.", string(k)) },
 		"ratings":       func() []int64 { return []int64{5, 4, 3, 2, 1} },
+		"logEvent":      func(e store.LogEvent) string { return label(l, "log.", string(e)) },
 		"stars": func(n int64) string {
 			n = max(0, min(n, 5))
 			return strings.Repeat("★", int(n)) + strings.Repeat("☆", 5-int(n))
@@ -359,7 +376,6 @@ func label(l *i18n.Localizer, prefix, value string) string {
 // formValues echoes non-secret fields back into a form after an error.
 type formValues struct {
 	Username string
-	Group    string
 }
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, page string, data pageData) {
@@ -439,6 +455,9 @@ var knownErrors = []struct {
 	{service.ErrNoCISTGroup, i18n.M("err.no_cist_group"), http.StatusConflict},
 	{service.ErrSyncDisabled, i18n.M("err.sync_disabled"), http.StatusConflict},
 	{service.ErrSubjectInUse, i18n.M("err.subject_in_use"), http.StatusConflict},
+	{service.ErrInviteInvalid, i18n.M("err.invite_invalid"), http.StatusNotFound},
+	{service.ErrLeaderTaken, i18n.M("err.leader_taken"), http.StatusConflict},
+	{service.ErrLeaderMustResign, i18n.M("err.leader_must_resign"), http.StatusConflict},
 }
 
 // userMessage turns expected service errors into a translated form error

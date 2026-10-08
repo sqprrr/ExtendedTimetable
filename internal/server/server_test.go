@@ -108,6 +108,28 @@ func (b *browser) submit(formPage, action string, fields url.Values) (int, strin
 	return b.post(action, fields)
 }
 
+// joinPath returns the path of a group's invite link.
+func (e *env) joinPath(t *testing.T, groupCode string) string {
+	t.Helper()
+	inv, err := e.svc.AdminInvite(context.Background(), groupCode, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return "/join/" + inv.Token
+}
+
+// register signs up username through a group's invite link.
+func (b *browser) register(groupCode, username string) {
+	b.t.Helper()
+	join := b.e.joinPath(b.t, groupCode)
+	code, _, _ := b.submit(join, join+"/register", url.Values{
+		"username": {username}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
+	})
+	if code != http.StatusSeeOther {
+		b.t.Fatalf("register %s: %d", username, code)
+	}
+}
+
 func (b *browser) post(action string, fields url.Values) (int, string, http.Header) {
 	b.t.Helper()
 	resp, err := b.c.PostForm(b.e.srv.URL+action, fields)
@@ -128,25 +150,26 @@ func TestRegisterLoginLogoutFlow(t *testing.T) {
 		t.Fatalf("GET / anonymous: %d %s", code, h.Get("Location"))
 	}
 
-	// The only group is offered and preselected.
-	_, body, _ := b.get("/register")
-	if !strings.Contains(body, `<option value="KIUKI-25-3" selected>`) {
-		t.Fatalf("register form should preselect the only group:\n%s", body)
+	// The invite page names the group.
+	join := e.joinPath(t, "KIUKI-25-3")
+	_, body, _ := b.get(join)
+	if !strings.Contains(body, "Join KIUKI-25-3") {
+		t.Fatalf("invite page should name the group:\n%s", body)
 	}
 
 	// Mismatched passwords keep the user on the form.
-	code, body, _ := b.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {"alice"}, "password": {"correct horse"}, "password_confirm": {"different"},
+	code, body, _ := b.submit(join, join+"/register", url.Values{
+		"username": {"alice"}, "password": {"correct horse"}, "password_confirm": {"different"},
 	})
 	if code != http.StatusUnprocessableEntity || !strings.Contains(body, "Passwords do not match") {
 		t.Fatalf("mismatched passwords: %d", code)
 	}
-	if !strings.Contains(body, `<option value="KIUKI-25-3" selected>`) || !strings.Contains(body, `value="alice"`) {
-		t.Fatal("group and username should be kept in the form after an error")
+	if !strings.Contains(body, `value="alice"`) {
+		t.Fatal("the username should be kept in the form after an error")
 	}
 
-	code, _, h := b.submit("/register", "/register", url.Values{
-		"group": {"kiuki-25-3"}, "username": {"alice"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
+	code, _, h := b.submit(join, join+"/register", url.Values{
+		"username": {"alice"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
 	})
 	if code != http.StatusSeeOther || h.Get("Location") != "/" {
 		t.Fatalf("register: %d %s", code, h.Get("Location"))
@@ -197,74 +220,15 @@ func TestPostWithoutCSRFTokenIsRejected(t *testing.T) {
 	}
 }
 
-func TestRegisterIntoChosenGroup(t *testing.T) {
-	e := newEnv(t)
-	if _, err := e.svc.AdminCreateGroup(context.Background(), "OTHER-1", "Other group", nil); err != nil {
-		t.Fatal(err)
-	}
-	b := e.browser(t)
-
-	// With several groups nothing is preselected unless the link asks for one.
-	_, body, _ := b.get("/register")
-	if strings.Contains(body, " selected>") || !strings.Contains(body, `<option value="">`) {
-		t.Fatalf("no group should be preselected:\n%s", body)
-	}
-	_, body, _ = b.get("/register?group=other-1")
-	if !strings.Contains(body, `<option value="OTHER-1" selected>Other group (OTHER-1)</option>`) {
-		t.Fatalf("?group= should preselect the group:\n%s", body)
-	}
-
-	code, body, _ := b.submit("/register", "/register", url.Values{
-		"group": {""}, "username": {"bob"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
-	})
-	if code != http.StatusUnprocessableEntity || !strings.Contains(body, "Choose your group") {
-		t.Fatalf("missing group: %d", code)
-	}
-
-	code, _, _ = b.submit("/register", "/register", url.Values{
-		"group": {"OTHER-1"}, "username": {"bob"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
-	})
-	if code != http.StatusSeeOther {
-		t.Fatalf("register: %d", code)
-	}
-	if _, body, _ := b.get("/"); !strings.Contains(body, "Other group") || strings.Contains(body, "KIUKI-25-3") {
-		t.Fatalf("home should show only the chosen group:\n%s", body)
-	}
-}
-
-func TestRegisterWithoutGroups(t *testing.T) {
-	ctx := context.Background()
-	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
-	if err := st.Migrate(ctx, migrations.FS); err != nil {
-		t.Fatal(err)
-	}
-	h, err := server.New(service.New(st, service.Config{}), server.Config{SecureCookies: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	srv := httptest.NewTLSServer(h)
-	t.Cleanup(srv.Close)
-	b := (&env{srv: srv}).browser(t)
-	if _, body, _ := b.get("/register"); !strings.Contains(body, "no groups have been created") || strings.Contains(body, `name="group"`) {
-		t.Fatalf("register without groups:\n%s", body)
-	}
-}
-
-func TestLeaderIsAppointedOnlyByAdmin(t *testing.T) {
+func TestLeaderIsAppointedByAdmin(t *testing.T) {
 	e := newEnv(t)
 	b := e.browser(t)
-	b.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {"lead"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
-	})
+	b.register("KIUKI-25-3", "lead")
 	if _, body, _ := b.get("/"); !strings.Contains(body, "<strong>student</strong>") {
-		t.Fatal("self-registered users must start as students")
+		t.Fatal("new users must start as students")
 	}
 
-	if err := e.svc.AdminSetRole(context.Background(), "lead", "KIUKI-25-3", store.RoleLeader); err != nil {
+	if err := e.svc.AdminSetLeader(context.Background(), "lead", "KIUKI-25-3"); err != nil {
 		t.Fatal(err)
 	}
 	if _, body, _ := b.get("/"); !strings.Contains(body, "<strong>leader</strong>") {
@@ -285,9 +249,7 @@ func TestAPIMe(t *testing.T) {
 		t.Fatalf("anonymous /api/v1/me: %d", resp.StatusCode)
 	}
 
-	b.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {"api"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
-	})
+	b.register("KIUKI-25-3", "api")
 	resp, err = b.c.Get(e.srv.URL + "/api/v1/me")
 	if err != nil {
 		t.Fatal(err)

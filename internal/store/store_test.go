@@ -16,12 +16,18 @@ import (
 
 func openTest(t *testing.T) *store.Store {
 	t.Helper()
+	return openTestWith(t, migrations.FS)
+}
+
+// openTestWith opens a fresh database migrated with the migrations in fsys.
+func openTestWith(t *testing.T, fsys fs.FS) *store.Store {
+	t.Helper()
 	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { st.Close() })
-	if err := st.Migrate(context.Background(), migrations.FS); err != nil {
+	if err := st.Migrate(context.Background(), fsys); err != nil {
 		t.Fatal(err)
 	}
 	return st
@@ -135,7 +141,7 @@ func TestOpenGroupsMigrationKeepsMemberships(t *testing.T) {
 		t.Fatalf("memberships after migration: %+v", ms)
 	}
 	// Foreign keys are back on for normal queries.
-	if err := st.UpsertMembership(ctx, &store.Membership{UserID: 3, GroupID: 999, Role: store.RoleStudent, JoinedAt: time.Now()}); err == nil {
+	if err := st.AddMembership(ctx, &store.Membership{UserID: 3, GroupID: 999, Role: store.RoleStudent, JoinedAt: time.Now()}); err == nil {
 		t.Fatal("expected foreign key violation for unknown group")
 	}
 }
@@ -197,5 +203,64 @@ func TestBackup(t *testing.T) {
 	defer cp.Close()
 	if got, err := cp.UserByUsername(ctx, "alice"); err != nil || got.ID != u.ID {
 		t.Fatalf("user in backup: %v %v", got, err)
+	}
+}
+
+// The 0010 migration gives existing groups an invite link and keeps only the
+// first leader of a group that has several.
+func TestInvitesMigration(t *testing.T) {
+	ctx := context.Background()
+	before := fstest.MapFS{}
+	names, err := fs.Glob(migrations.FS, "*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range names {
+		if name >= "0010" {
+			continue
+		}
+		data, err := fs.ReadFile(migrations.FS, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before[name] = &fstest.MapFile{Data: data}
+	}
+	st := openTestWith(t, before)
+
+	g := &store.Group{Code: "G", Name: "G", CreatedAt: time.Now()}
+	if err := st.CreateGroup(ctx, g); err != nil {
+		t.Fatal(err)
+	}
+	for i, name := range []string{"first", "second", "third"} {
+		u := &store.User{Username: name, PasswordHash: "x", CreatedAt: time.Now()}
+		if err := st.CreateUser(ctx, u); err != nil {
+			t.Fatal(err)
+		}
+		role := store.RoleLeader
+		if name == "third" {
+			role = store.RoleStudent
+		}
+		if err := st.AddMembership(ctx, &store.Membership{UserID: u.ID, GroupID: g.ID, Role: role, JoinedAt: time.Unix(int64(100+i), 0)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := st.Migrate(ctx, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	inv, err := st.InviteByGroup(ctx, g.ID)
+	if err != nil || len(inv.Token) != 64 || !inv.ExpiresAt.After(time.Now().Add(9*24*time.Hour)) {
+		t.Fatalf("invite after migration: %+v %v", inv, err)
+	}
+	if lead, err := st.LeaderOf(ctx, g.ID); err != nil || lead.Username != "first" {
+		t.Fatalf("leader after migration: %+v %v", lead, err)
+	}
+	members, err := st.ListMembers(ctx, g.ID)
+	if err != nil || len(members) != 3 {
+		t.Fatalf("members after migration: %v %v", members, err)
+	}
+	// The database refuses a second leader from now on.
+	if err := st.SetRole(ctx, members[1].UserID, g.ID, store.RoleLeader); !errors.Is(err, store.ErrConflict) {
+		t.Fatalf("second leader: got %v, want ErrConflict", err)
 	}
 }

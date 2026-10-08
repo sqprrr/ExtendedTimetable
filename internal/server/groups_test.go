@@ -19,14 +19,9 @@ import (
 func (e *env) signUp(t *testing.T, username string, role store.Role) *browser {
 	t.Helper()
 	b := e.browser(t)
-	code, _, _ := b.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {username}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
-	})
-	if code != http.StatusSeeOther {
-		t.Fatalf("register %s: %d", username, code)
-	}
+	b.register("KIUKI-25-3", username)
 	if role == store.RoleLeader {
-		if err := e.svc.AdminSetRole(context.Background(), username, "KIUKI-25-3", role); err != nil {
+		if err := e.svc.AdminSetLeader(context.Background(), username, "KIUKI-25-3"); err != nil {
 			t.Fatal(err)
 		}
 	}

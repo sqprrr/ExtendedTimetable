@@ -24,7 +24,7 @@
 <section class="card">
   <div class="empty">
     <span class="glyph">{{icon "graduation-cap"}}</span>
-    <h3>{{t "home.no_groups"}}</h3>
+    <h3>{{if .Viewer.IsSuperadmin}}{{th "home.no_groups_admin"}}{{else}}{{t "home.no_groups"}}{{end}}</h3>
   </div>
 </section>
 {{end}}

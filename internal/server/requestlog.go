@@ -19,6 +19,7 @@ const maxLoggedPath = 200
 // wrap everything else, recoverer included, so a panic is logged as a 500.
 //
 // The query string and body are never logged: they can carry form values.
+// Neither are invite tokens: anyone who reads one could join the group.
 func requestLog(trustProxy bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -39,7 +40,7 @@ func requestLog(trustProxy bool, next http.Handler) http.Handler {
 			if status == 0 {
 				status = http.StatusOK
 			}
-			path := r.URL.Path
+			path := loggedPath(r.URL.Path)
 			if len(path) > maxLoggedPath {
 				path = path[:maxLoggedPath] + "…"
 			}
@@ -60,6 +61,18 @@ func requestLog(trustProxy bool, next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(sw, r.WithContext(ctx))
 	})
+}
+
+// loggedPath hides the invite token in /join/<token>[/…].
+func loggedPath(path string) string {
+	rest, ok := strings.CutPrefix(path, "/join/")
+	if !ok {
+		return path
+	}
+	if _, tail, found := strings.Cut(rest, "/"); found {
+		return "/join/…/" + tail
+	}
+	return "/join/…"
 }
 
 // recordUser notes the signed-in user for the request's log lines. It goes

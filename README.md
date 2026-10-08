@@ -38,6 +38,17 @@ notes, and a private homework tracker per student. See
   what they sent and whether it was resolved. Superadmins read, resolve and
   delete feedback at `/admin/feedback`, or print it on the server with
   `extt admin feedback`.
+- **Invite links:** groups are joined only through their invite link,
+  `/join/<token>`, where a visitor creates an account or logs in. A user is
+  in one group at most. A link works for 10 days or until it is replaced; it
+  is created with the group and shown to the leader and superadmins on the
+  group's Members page (`/g/<code>/members`), where they replace it, and
+  where they remove members (which replaces the link too). Students may
+  leave a group. While a group has no leader, any member can take the role;
+  the leader can give it up. Superadmins hand the role to another member or
+  take it away there, create groups and see every group at `/admin/groups`,
+  and read each group's log (joins, departures, removals, leader changes,
+  new links) on its Members page or with `extt admin group-log`.
 
 ## Quick start (local)
 
@@ -46,27 +57,30 @@ Requires Go 1.26+.
 ```sh
 go build -o extt ./cmd/extt
 
-# Bootstrap: superadmin, group, leader
+# Bootstrap: superadmin and group
 ./extt admin create-superadmin root          # prompts for a password
 ./extt admin find-cist-group КІУКІ-25-3        # prints the CIST id: 11881842
-./extt admin create-group KIUKI-25-3 --cist-id 11881842 --name "<display name>"
+./extt admin create-group KIUKI-25-3 --cist-id 11881842 --name "<display name>" \
+    --base-url http://127.0.0.1:8080           # prints the invite link
 ./extt admin sync-schedule KIUKI-25-3          # load the schedule now
 
 # Run over plain HTTP locally (Secure cookies need HTTPS)
 ./extt serve --secure-cookies=false          # http://127.0.0.1:8080
 ```
 
-Register at `/register` and pick the group (share
-`/register?group=KIUKI-25-3` to preselect it). Everyone joins as a student;
-the superadmin makes someone the group leader from the server:
+Open the invite link to register: everyone joins as a student, and the
+first to press "Become the leader" gets the role. The superadmin can also
+create groups and change leaders in the panel at `/admin/groups`, or from the
+server:
 
 ```sh
-./extt admin promote <username> --group KIUKI-25-3
+./extt admin invite-link KIUKI-25-3 [--regenerate]   # print (or replace) the link
+./extt admin promote <username> --group KIUKI-25-3   # replaces the current leader
 ```
 
 Run `./extt help` for all commands. Other admin commands: `demote`,
-`reset-password`, `set-cist-id <code> <id|none>` (link an existing group to
-CIST), `feedback [--all]` (print the feedback users sent). `./extt backup <file>` writes a consistent copy of the database, also
+`group-log <code>`, `reset-password`, `set-cist-id <code> <id|none>` (link an
+existing group to CIST), `feedback [--all]` (print the feedback users sent). `./extt backup <file>` writes a consistent copy of the database, also
 while the server runs.
 
 ## Deployment
@@ -87,6 +101,7 @@ restoring a backup.
 | `EXTT_ADDR` | `--addr` | `127.0.0.1:8080` |
 | `EXTT_SECURE_COOKIES` | `--secure-cookies` | `true` |
 | `EXTT_TRUST_PROXY` | `--trust-proxy` | `false` (set `true` behind nginx so `X-Real-IP` is used for rate limiting) |
+| `EXTT_BASE_URL` | `--base-url` | none (the site's address for full invite links, e.g. `https://example.org`; `serve` falls back to the request's host, the CLI prints only the path) |
 | `EXTT_TZ` | `--tz` | `Europe/Kyiv` (time zone for showing and entering dates) |
 | `EXTT_CIST_INTERVAL` | `--cist-interval` | `6h` (how often `serve` syncs schedules from CIST; `0` turns it off) |
 | `EXTT_LOG_LEVEL` | `--log-level` | `info` (`debug`, `info`, `warn`, `error`; `debug` also logs the source line) |
@@ -105,9 +120,10 @@ Each request gets an ID, returned as the `X-Request-ID` header (kept from
 the proxy when `--trust-proxy` is on) and added to every line logged while
 serving it, so an error can be matched to its request. Also logged: logins
 and failed logins, registrations, rate limiting, CSRF and cross-origin
-rejections, schedule syncs and, at `debug`, CIST requests. Passwords,
-tokens, cookies, query strings, request bodies and homework statuses or
-grades are never logged.
+rejections, schedule syncs, joining and leaving groups, leader changes and,
+at `debug`, CIST requests. Passwords, tokens (invite tokens are cut out of
+`/join/…` paths), cookies, query strings, request bodies and homework
+statuses or grades are never logged.
 
 Migrations in `migrations/` are embedded and applied automatically on every
 command; `extt migrate` applies them and exits.

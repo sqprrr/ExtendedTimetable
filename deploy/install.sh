@@ -38,10 +38,13 @@ esac
 if [ ! -e /etc/extt/extt.env ]; then
   log "creating /etc/extt/extt.env"
   install -m 0640 -g extt ./extt.env /etc/extt/extt.env
+  scheme=https
   if $is_ip; then
     # No certificate for a bare IP address: serve plain HTTP.
     sed -i 's/^EXTT_SECURE_COOKIES=true/EXTT_SECURE_COOKIES=false/' /etc/extt/extt.env
+    scheme=http
   fi
+  sed -i "s|^EXTT_BASE_URL=.*|EXTT_BASE_URL=$scheme://$SERVER_NAME|" /etc/extt/extt.env
 fi
 
 # The running server has not migrated yet: back up the old schema. The new
@@ -89,6 +92,7 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do
       log "open http://$SERVER_NAME/"
     else
       log "open http://$SERVER_NAME/ — for HTTPS run: certbot --nginx -d $SERVER_NAME --redirect --hsts"
+      log "or route a Cloudflare Tunnel to http://localhost:80 (docs/deploy.md)"
     fi
     exit 0
   fi

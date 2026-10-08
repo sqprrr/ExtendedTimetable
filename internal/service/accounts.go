@@ -20,8 +20,6 @@ const (
 	minPasswordLen = 8
 )
 
-var errChooseGroup = inputError("group", "err.choose_group")
-
 // NewSession is a freshly issued session; Token goes into the cookie.
 type NewSession struct {
 	Token     string
@@ -36,9 +34,9 @@ type NewSession struct {
 type RegisterInput struct {
 	Username string
 	Password string
-	// GroupCode is the group to join; every group is open to everyone.
-	GroupCode string
-	ClientIP  string
+	// InviteToken is the token of the invite link of the group to join.
+	InviteToken string
+	ClientIP    string
 	// Locale is the language the visitor chose before registering, if any;
 	// an unsupported one is ignored.
 	Locale string
@@ -47,8 +45,8 @@ type RegisterInput struct {
 	Theme string
 }
 
-// Register creates an account, makes it a student of the chosen group and
-// signs the user in. Leaders are only ever appointed through the admin CLI.
+// Register creates an account through a group's invite link, makes it a
+// student of that group and signs the user in.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, error) {
 	if !s.registerByIP.Allow(in.ClientIP) {
 		slog.WarnContext(ctx, "registration rate limited")
@@ -61,10 +59,6 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 	if err := validatePassword(in.Password); err != nil {
 		return nil, err
 	}
-	groupCode := strings.TrimSpace(in.GroupCode)
-	if groupCode == "" {
-		return nil, errChooseGroup
-	}
 	hash, err := auth.HashPassword(in.Password)
 	if err != nil {
 		return nil, err
@@ -72,11 +66,13 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 
 	now := s.now()
 	var userID int64
+	var g *store.Group
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
-		g, err := q.GroupByCode(ctx, groupCode)
-		if errors.Is(err, store.ErrNotFound) {
-			return errChooseGroup
-		} else if err != nil {
+		inv, err := s.validInvite(ctx, q, in.InviteToken)
+		if err != nil {
+			return err
+		}
+		if g, err = q.GroupByID(ctx, inv.GroupID); err != nil {
 			return err
 		}
 		u := &store.User{Username: username, PasswordHash: hash, Locale: chosenLocale(in.Locale), Theme: chosenTheme(in.Theme), CreatedAt: now}
@@ -86,14 +82,17 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 			return err
 		}
 		userID = u.ID
-		return q.UpsertMembership(ctx, &store.Membership{
+		if err := q.AddMembership(ctx, &store.Membership{
 			UserID: u.ID, GroupID: g.ID, Role: store.RoleStudent, JoinedAt: now,
-		})
+		}); err != nil {
+			return err
+		}
+		return s.logEvent(ctx, q, g.ID, store.LogJoined, ptr(u.ID), ptr(u.ID))
 	})
 	if err != nil {
 		return nil, err
 	}
-	slog.InfoContext(ctx, "registered", "username", username, "group", strings.ToUpper(groupCode))
+	slog.InfoContext(ctx, "registered", "username", username, "group", g.Code)
 	sess, err := s.createSession(ctx, userID)
 	if err != nil {
 		return nil, err

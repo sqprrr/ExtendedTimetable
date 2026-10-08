@@ -19,10 +19,10 @@ ExtendedTimetable is a small blog-like hub for KHNURE student groups. Each group
 | Role | Who | How they get it |
 |---|---|---|
 | **Superadmin** | Site owner | Created through CLI on the server |
-| **Group leader** | Class representative (староста) | Superadmin promotes a registered user with the server CLI (`extt admin promote`). There is no web UI for this |
-| **Student** | Group member | Self-registers and picks their group. Every group is open to everyone |
+| **Group leader** | Class representative (староста) | Any member takes the role while the group has none ("Become the leader"). A superadmin can hand it to another member or take it away, in the web panel or the CLI (`extt admin promote` / `demote`) |
+| **Student** | Group member | Registers (or logs in) through the group's invite link |
 
-A user belongs to a group through a membership. The membership carries the role (`student` or `leader`). Superadmin is a flag on the user.
+A user belongs to at most one group, through a membership. The membership carries the role (`student` or `leader`); a group has at most one leader. Superadmin is a flag on the user.
 
 ### Permission matrix
 
@@ -32,7 +32,12 @@ A user belongs to a group through a membership. The membership carries the role 
 | Set **own** homework status / grade | ✅ | ✅ | — |
 | See other users' status / grades | ❌ | ❌ | ❌ |
 | CRUD class links, homework, notes, recording & solution links | ❌ | ✅ | ✅ |
-| Create groups, promote/demote leaders | ❌ | ❌ | ✅ (CLI only) |
+| See and replace the invite link, remove members | ❌ | ✅ (not themselves) | ✅ |
+| Take the leader role while the group has none | ✅ | — | — |
+| Give up the leader role | — | ✅ | — |
+| Leave the group | ✅ | ❌ (give up the role first) | — |
+| Create groups, hand over or take away the leader role | ❌ | ❌ | ✅ (panel or CLI) |
+| Read the group log | ❌ | ❌ | ✅ |
 | Reset a user's password | ❌ | ✅ (own group) | ✅ |
 
 Homework status and grades are **private to the student**. Nobody else can see them, including the leader and the superadmin through the UI.
@@ -41,14 +46,15 @@ Homework status and grades are **private to the student**. Nobody else can see t
 
 ```
 extt admin create-superadmin <username>
-extt admin create-group KIUKI-25-3 --cist-id <id>
-extt admin promote <username> --group KIUKI-25-3
+extt admin create-group KIUKI-25-3 --cist-id <id>   # prints the invite link
+# share the link; the first member to press "Become the leader" is the leader
 ```
 
 ## 3. Onboarding & authentication
 
-- **Registration:** username + password + **group**. Groups are open: anyone can register into any group and joins it as `student`. The form lists every group (for now only KIUKI-25-3, preselected when it is the only one); `/register?group=<code>` preselects a group for sharing in the group chat.
-- **Leaders:** only the superadmin can appoint a leader, from the server CLI (`extt admin promote <username> --group <code>`). Nobody can become a leader through the website.
+- **Invite links:** a group is joined only through its invite link, `/join/<token>` (a random 256-bit token). There, a visitor registers (username + password) or logs in, and joins as `student`; a signed-in user joins with one button. A user is in one group at most: a member of another group is told to leave it first. Each group has one link at a time, created with the group. It works for **10 days** or until the leader or a superadmin replaces it; a replaced link stops working at once, and those who joined through it stay. Removing a member replaces the link too, so they cannot come straight back. There is no other way to register.
+- **Leaders:** while a group has no leader, any member may take the role (first come, first served). The leader may give it up, and must before leaving the group. A superadmin hands the role to another member (the previous leader becomes a student) or takes it away, leaving the group without one.
+- **Group log:** joins, departures, removals, leader changes and new invite links are recorded with who did it and when (`group_log`). Only superadmins read it.
 - **Login:** username + password. Passwords are hashed with **bcrypt**.
 - **Sessions:** random session ID in an HttpOnly cookie, with sessions stored in the DB. That way they can be revoked, and the setup also works for a same-origin SPA later.
 - **Password reset:** no email in MVP. The leader (for their group) or the superadmin sets a temporary password.
@@ -92,7 +98,9 @@ extt admin promote <username> --group KIUKI-25-3
 ```
 groups            (id, code, name, cist_group_id, created_at)
 users             (id, username UNIQUE, password_hash, is_superadmin, locale, created_at)
-memberships       (user_id, group_id, role[student|leader], joined_at)   PK(user_id, group_id)
+memberships       (user_id, group_id, role[student|leader], joined_at)   PK(user_id, group_id), one leader per group
+group_invites     (group_id PK, token UNIQUE, expires_at, created_at)
+group_log         (id, group_id, event, actor_id NULL, user_id NULL, created_at)   actor NULL = server CLI
 sessions          (id, user_id, expires_at, created_at)
 subjects          (id, group_id, name, short_name)
 class_links       (id, group_id, subject_id, lesson_type, url, note)
@@ -165,6 +173,7 @@ docs/
 - Authorization enforced in the service layer, never only in templates.
 - Markdown output sanitized.
 - Users can only ever read or write their own `homework_progress` rows.
+- Invite tokens are random (256 bits), expire after 10 days and are replaced on demand and whenever a member is removed. They are stored as is, so the leader can see the link again.
 - Logs never contain secrets or students' grades; see §9.
 
 ## 9. Logging
@@ -191,7 +200,7 @@ Logs exist to debug the running site and to notice abuse. The rules below keep e
 |---|---|---|
 | `ERROR` | Something is broken and needs a person: a 5xx, a panic, a background job failing for a reason other than CIST being down | `request` with status ≥ 500, `panic`, `load session`, `request failed`, `api request failed`, `schedule sync` |
 | `WARN` | Unexpected but handled, or security-relevant | `CSRF check failed`, `cross-origin request rejected`, `login rate limited`, `schedule sync failed` (CIST down; the cache is kept) |
-| `INFO` | Normal events worth a line in production | `request`, `login`, `login failed`, `registered`, `schedule synced`, `CIST server unavailable, trying the next one`, `listening` |
+| `INFO` | Normal events worth a line in production | `request`, `login`, `login failed`, `registered`, `joined group`, `left group`, `member removed`, `leader assigned`, `group created`, `schedule synced`, `CIST server unavailable, trying the next one`, `listening` |
 | `DEBUG` | Detail for chasing a bug; off in production | `request` for `/static/` and `/healthz`, `CIST request`, `schedule sync started`, `expired sessions removed` |
 
 ### 9.4 Attribute names
@@ -217,11 +226,11 @@ Durations are `duration_ms` (milliseconds). Times other than the record's own `t
 - `internal/server.requestLog` wraps every other middleware and writes exactly **one `request` line per request** when it finishes. Handlers do not log "handling X".
 - Every request gets a 16-hex-character ID, returned in `X-Request-ID`. Behind nginx (`--trust-proxy`) an incoming `X-Request-ID` is kept if it is 1–64 characters of `[A-Za-z0-9._-]`; otherwise it is ignored. nginx overwrites the header with its own `$request_id` (`deploy/nginx.conf`), so a client cannot choose the ID.
 - `user` is known only after the session is loaded. Requests refused before that (a CSRF failure) and the `POST /login` request itself have no `user`; the `login` line with the same `request_id` names the account.
-- Only the path is logged, cut to 200 characters. Never the query string or the body.
+- Only the path is logged, cut to 200 characters. Never the query string or the body. The invite token is cut out of `/join/<token>` paths (`/join/…/register`): anyone who reads it could join the group.
 
 ### 9.6 What is never logged
 
-- Passwords, session tokens, CSRF tokens, cookies, `Authorization` headers.
+- Passwords, session tokens, CSRF tokens, invite tokens, cookies, `Authorization` headers. (nginx's access log, readable only by root, does hold the `/join/<token>` paths; a leaked one is fixed by creating a new link.)
 - Query strings and request or response bodies (they hold form values).
 - Students' homework statuses and grades (§2: private to the student). A request line for `…/progress` may appear; its values may not.
 - What was typed as a username when no such account exists: it may be a password typed into the wrong field. `login failed` names the account only when it exists.
@@ -250,6 +259,7 @@ Durations are `duration_ms` (milliseconds). Times other than the record's own `t
 3. **M3 — Student tracker:** homework status toggle, grades, "my grades" totals. ✅
 4. **M4 — Schedule:** CIST client, sync job, schedule views. ✅
 5. **M5 — i18n & deploy:** uk/en translations, systemd + nginx setup, backups. ✅
+6. **Invite links & leaders:** joining by invite link only, one group per user, self-appointed leader, superadmin panel (`/admin/groups`), group log. ✅
 
 ## 12. Open questions
 

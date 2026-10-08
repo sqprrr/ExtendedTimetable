@@ -730,3 +730,16 @@ li.feedback.resolved .feedback-message { color: var(--text-secondary); }
 .sk-line.sk-short { width: 40%; height: 12px; }
 .sk-tail { width: 48px; height: 14px; }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+
+/* Members, invites and the groups panel */
+.claim { align-items: center; flex-wrap: wrap; margin-bottom: var(--space-16); }
+.claim > div { flex: 1; min-width: 12rem; }
+.claim form { margin: 0; }
+.leader-name { display: flex; align-items: center; gap: var(--space-8); }
+.leader-name .icon { color: var(--text-secondary); }
+.inline-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-12); }
+.inline-form .field { flex: 1 1 14rem; }
+.invite-link { font-size: 14px; }
+.log-empty { padding: 0 var(--space-16) var(--space-16); }
+@media (min-width: 768px) { .log-empty { padding: 0 var(--space-20) var(--space-20); } }
+.page-join .auth-card h2 { font-size: 18px; line-height: 26px; font-weight: 600; }
