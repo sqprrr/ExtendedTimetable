@@ -26,6 +26,7 @@ admin_groups = "Groups"
 [role]
 student = "student"
 leader = "leader"
+editor = "editor"
 superadmin = "superadmin"
 
 [action]
@@ -310,6 +311,11 @@ you = "you"
 remove = "Remove"
 confirm_remove = "Remove {{.Name}} from the group? The invite link will be replaced so they cannot rejoin with it."
 remove_hint = "Removing a member also replaces the invite link."
+grant_editor = "Make editor"
+confirm_grant_editor = "Make {{.Name}} an editor? They will be able to change the group's subjects, homework, notes, links and recordings, but not the invite link or members."
+revoke_editor = "Remove editor"
+confirm_revoke_editor = "Make {{.Name}} a student again?"
+editor_hint = "Editors change the group's content like the leader, but not the invite link or members."
 empty = "No members yet."
 leave = "Leave the group"
 leave_hint = "You can join another group afterwards with its invite link."
@@ -331,6 +337,8 @@ leader_claimed = "Became the leader"
 leader_resigned = "Gave up the leader role"
 leader_assigned = "Made the leader"
 leader_removed = "Leader role taken away"
+editor_granted = "Made an editor"
+editor_revoked = "Editor role taken away"
 invite_regenerated = "New invite link"
 
 [admin]

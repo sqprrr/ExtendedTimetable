@@ -20,7 +20,7 @@
       <p class="text-secondary">{{t "members.no_leader"}}</p>
       {{end}}
       <div class="btn-row">
-        {{if and (not .Group.Leader) (eq .Group.Role "student")}}
+        {{if and (not .Group.Leader) (or (eq .Group.Role "student") (eq .Group.Role "editor"))}}
         <form method="post" action="{{$g}}/leader/claim" class="inline" data-confirm="{{t "members.confirm_claim"}}">
           <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
           <button type="submit" class="btn btn-primary">{{t "members.claim"}}</button>
@@ -83,11 +83,22 @@
           <div class="row-head">
             <span class="row-title">{{.Username}}</span>
             {{if eq .Username $.Viewer.Username}}<span class="badge">{{t "members.you"}}</span>{{end}}
-            {{if eq .Role "leader"}}<span class="badge badge-accent">{{roleLabel .Role}}</span>{{end}}
+            {{if eq .Role "leader"}}<span class="badge badge-accent">{{roleLabel .Role}}</span>{{else if eq .Role "editor"}}<span class="badge">{{roleLabel .Role}}</span>{{end}}
           </div>
-          <div class="meta"><span>{{if ne .Role "leader"}}{{roleLabel .Role}} · {{end}}{{t "members.joined"}} {{shortDate .JoinedAt}}</span></div>
+          <div class="meta"><span>{{if eq .Role "student"}}{{roleLabel .Role}} · {{end}}{{t "members.joined"}} {{shortDate .JoinedAt}}</span></div>
         </div>
         <div class="row-end">
+          {{if and $.Group.CanManage (eq .Role "student")}}
+          <form method="post" action="{{$g}}/members/{{.UserID}}/editor" class="inline" data-confirm="{{t "members.confirm_grant_editor" "Name" .Username}}">
+            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            <button type="submit" class="btn btn-secondary btn-sm">{{icon "pencil"}}{{t "members.grant_editor"}}</button>
+          </form>
+          {{else if and $.Group.CanManage (eq .Role "editor")}}
+          <form method="post" action="{{$g}}/members/{{.UserID}}/editor/revoke" class="inline" data-confirm="{{t "members.confirm_revoke_editor" "Name" .Username}}">
+            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            <button type="submit" class="btn btn-secondary btn-sm">{{t "members.revoke_editor"}}</button>
+          </form>
+          {{end}}
           {{if and $.Group.CanManage (ne .Username $.Viewer.Username) (or (ne .Role "leader") $.Group.IsSuperadmin)}}
           <form method="post" action="{{$g}}/members/{{.UserID}}/remove" class="inline" data-confirm="{{t "members.confirm_remove" "Name" .Username}}">
             <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
@@ -102,7 +113,7 @@
     <div class="empty"><span class="glyph">{{icon "users"}}</span><h3>{{t "members.empty"}}</h3></div>
     {{end}}
   </section>
-  {{if and .Group.CanManage .Members}}<p class="small-text">{{t "members.remove_hint"}}</p>{{end}}
+  {{if and .Group.CanManage .Members}}<p class="small-text">{{t "members.editor_hint"}} {{t "members.remove_hint"}}</p>{{end}}
 
   {{if .Group.Role}}
   <section class="card" aria-labelledby="members-leave">

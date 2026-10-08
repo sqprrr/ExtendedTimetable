@@ -20,25 +20,27 @@ ExtendedTimetable is a small blog-like hub for KHNURE student groups. Each group
 |---|---|---|
 | **Superadmin** | Site owner | Created through CLI on the server |
 | **Group leader** | Class representative (староста) | Any member takes the role while the group has none ("Become the leader"). A superadmin can hand it to another member or take it away, in the web panel or the CLI (`extt admin promote` / `demote`) |
+| **Editor** | A member the leader trusts with the group's content | The leader (or a superadmin) makes a student an editor on the Members page, and can make them a student again |
 | **Student** | Group member | Registers (or logs in) through the group's invite link |
 
-A user belongs to at most one group, through a membership. The membership carries the role (`student` or `leader`); a group has at most one leader. Superadmin is a flag on the user.
+A user belongs to at most one group, through a membership. The membership carries the role (`student`, `editor` or `leader`); a group has at most one leader and any number of editors. Superadmin is a flag on the user.
 
 ### Permission matrix
 
-| Action | Student | Leader (own group) | Superadmin |
-|---|:-:|:-:|:-:|
-| View schedule, homework, notes, links | ✅ | ✅ | ✅ |
-| Set **own** homework status / grade | ✅ | ✅ | — |
-| See other users' status / grades | ❌ | ❌ | ❌ |
-| CRUD class links, homework, notes, recording & solution links | ❌ | ✅ | ✅ |
-| See and replace the invite link, remove members | ❌ | ✅ (not themselves) | ✅ |
-| Take the leader role while the group has none | ✅ | — | — |
-| Give up the leader role | — | ✅ | — |
-| Leave the group | ✅ | ❌ (give up the role first) | — |
-| Create groups, hand over or take away the leader role | ❌ | ❌ | ✅ (panel or CLI) |
-| Read the group log | ❌ | ❌ | ✅ |
-| Reset a user's password | ❌ | ✅ (own group) | ✅ |
+| Action | Student | Editor (own group) | Leader (own group) | Superadmin |
+|---|:-:|:-:|:-:|:-:|
+| View schedule, homework, notes, links | ✅ | ✅ | ✅ | ✅ |
+| Set **own** homework status / grade | ✅ | ✅ | ✅ | — |
+| See other users' status / grades | ❌ | ❌ | ❌ | ❌ |
+| CRUD subjects, class links, homework, notes, recording & solution links; sync the schedule | ❌ | ✅ | ✅ | ✅ |
+| See and replace the invite link, remove members | ❌ | ❌ | ✅ (not themselves) | ✅ |
+| Make a student an editor, or an editor a student | ❌ | ❌ | ✅ | ✅ |
+| Take the leader role while the group has none | ✅ | ✅ | — | — |
+| Give up the leader role | — | — | ✅ | — |
+| Leave the group | ✅ | ✅ | ❌ (give up the role first) | — |
+| Create groups, hand over or take away the leader role | ❌ | ❌ | ❌ | ✅ (panel or CLI) |
+| Read the group log | ❌ | ❌ | ❌ | ✅ |
+| Reset a user's password | ❌ | ❌ | ✅ (own group) | ✅ |
 
 Homework status and grades are **private to the student**. Nobody else can see them, including the leader and the superadmin through the UI.
 
@@ -54,7 +56,8 @@ extt admin create-group KIUKI-25-3 --cist-id <id>   # prints the invite link
 
 - **Invite links:** a group is joined only through its invite link, `/join/<token>` (a random 256-bit token). There, a visitor registers (username + password) or logs in, and joins as `student`; a signed-in user joins with one button. A user is in one group at most: a member of another group is told to leave it first. Each group has one link at a time, created with the group. It works for **10 days** or until the leader or a superadmin replaces it; a replaced link stops working at once, and those who joined through it stay. Removing a member replaces the link too, so they cannot come straight back. There is no other way to register.
 - **Leaders:** while a group has no leader, any member may take the role (first come, first served). The leader may give it up, and must before leaving the group. A superadmin hands the role to another member (the previous leader becomes a student) or takes it away, leaving the group without one.
-- **Group log:** joins, departures, removals, leader changes and new invite links are recorded with who did it and when (`group_log`). Only superadmins read it.
+- **Editors:** the leader (or a superadmin) makes a student an editor, or an editor a student again, on the Members page. Editors change the group's content like the leader, but do not see the invite link or touch members.
+- **Group log:** joins, departures, removals, leader and editor changes and new invite links are recorded with who did it and when (`group_log`). Only superadmins read it.
 - **Login:** username + password. Passwords are hashed with **bcrypt**.
 - **Sessions:** random session ID in an HttpOnly cookie, with sessions stored in the DB. That way they can be revoked, and the setup also works for a same-origin SPA later.
 - **Password reset:** no email in MVP. The leader (for their group) or the superadmin sets a temporary password.

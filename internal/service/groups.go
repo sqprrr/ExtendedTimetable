@@ -13,6 +13,7 @@ type GroupSummary struct {
 	Name string
 	// Role is empty when a superadmin sees a group they are not a member of.
 	Role      store.Role
+	CanEdit   bool
 	CanManage bool
 }
 
@@ -38,7 +39,7 @@ func (s *Service) MyGroups(ctx context.Context) ([]GroupSummary, error) {
 	}
 	out := make([]GroupSummary, 0, len(groups))
 	for _, g := range groups {
-		gs := GroupSummary{ID: g.ID, Code: g.Code, Name: g.Name, CanManage: v.CanManageGroup(g.ID)}
+		gs := GroupSummary{ID: g.ID, Code: g.Code, Name: g.Name, CanEdit: v.CanEditGroup(g.ID), CanManage: v.CanManageGroup(g.ID)}
 		gs.Role, _ = v.RoleIn(g.ID)
 		out = append(out, gs)
 	}

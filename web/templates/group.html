@@ -11,7 +11,7 @@
 </header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 
-{{if and (not .Group.Leader) (eq .Group.Role "student")}}
+{{if and (not .Group.Leader) (or (eq .Group.Role "student") (eq .Group.Role "editor"))}}
 <div class="alert alert-info claim" role="note">{{icon "info"}}
   <div>{{t "members.no_leader"}}</div>
   <form method="post" action="{{$g}}/leader/claim" data-confirm="{{t "members.confirm_claim"}}">
@@ -107,7 +107,7 @@
     <section class="card">
       <div class="card-head">
         <h2>{{t "nav.links"}}</h2>
-        <a class="action" href="{{$g}}/links"{{boost}}>{{if $.Group.CanManage}}{{t "overview.manage"}}{{else}}{{t "overview.all_links"}}{{end}}{{icon "chevron-right"}}</a>
+        <a class="action" href="{{$g}}/links"{{boost}}>{{if $.Group.CanEdit}}{{t "overview.manage"}}{{else}}{{t "overview.all_links"}}{{end}}{{icon "chevron-right"}}</a>
       </div>
       <ul class="rows">
         {{range .}}

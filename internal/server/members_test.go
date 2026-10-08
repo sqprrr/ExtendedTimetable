@@ -235,3 +235,53 @@ func userID(t *testing.T, e *env, username string) string {
 	}
 	return strconv.FormatInt(u.ID, 10)
 }
+
+func TestLeaderMakesAnEditor(t *testing.T) {
+	e := newEnv(t)
+	lead := e.signUp(t, "lead", store.RoleLeader)
+	ed := e.signUp(t, "eddie", store.RoleStudent)
+	stud := e.signUp(t, "stud", store.RoleStudent)
+	const g = "/g/KIUKI-25-3"
+	edID, studID := userID(t, e, "eddie"), userID(t, e, "stud")
+
+	// Students cannot hand out the role.
+	if code, _, _ := stud.submit(g+"/members", g+"/members/"+edID+"/editor", url.Values{}); code != http.StatusForbidden {
+		t.Fatalf("student grants editor: %d", code)
+	}
+	if _, body, _ := lead.get(g + "/members"); !strings.Contains(body, g+"/members/"+edID+"/editor\"") {
+		t.Fatalf("leader should be offered to make a member an editor:\n%s", body)
+	}
+	if code, _, h := lead.submit(g+"/members", g+"/members/"+edID+"/editor", url.Values{}); code != http.StatusSeeOther || h.Get("Location") != g+"/members" {
+		t.Fatalf("grant editor: %d %s", code, h.Get("Location"))
+	}
+
+	// The editor edits content...
+	if _, body, _ := ed.get(g + "/subjects"); !strings.Contains(body, g+"/subjects/new") {
+		t.Fatalf("editor should be offered to add a subject:\n%s", body)
+	}
+	if code, _, _ := ed.submit(g+"/subjects", g+"/subjects", url.Values{"name": {"Physics"}}); code != http.StatusSeeOther {
+		t.Fatalf("editor creates subject: %d", code)
+	}
+	if _, body, _ := stud.get(g + "/subjects"); strings.Contains(body, g+"/subjects/new") {
+		t.Fatal("student should not be offered to add a subject")
+	}
+
+	// ...but does not see the invite link or member actions.
+	_, body, _ := ed.get(g + "/members")
+	if inviteLinkRe.MatchString(body) || strings.Contains(body, "/remove\"") || strings.Contains(body, "/editor\"") {
+		t.Fatalf("editor should not manage members:\n%s", body)
+	}
+	if code, _, _ := ed.submit(g+"/members", g+"/members/"+studID+"/remove", url.Values{}); code != http.StatusForbidden {
+		t.Fatalf("editor removes member: %d", code)
+	}
+	if code, _, _ := ed.submit(g+"/members", g+"/invite", url.Values{}); code != http.StatusForbidden {
+		t.Fatalf("editor regenerates invite: %d", code)
+	}
+
+	if code, _, _ := lead.submit(g+"/members", g+"/members/"+edID+"/editor/revoke", url.Values{}); code != http.StatusSeeOther {
+		t.Fatalf("revoke editor: %d", code)
+	}
+	if code, _, _ := ed.get(g + "/subjects/new"); code != http.StatusForbidden {
+		t.Fatalf("former editor opens the new-subject form: %d", code)
+	}
+}

@@ -8,7 +8,7 @@
 {{$g := print "/g/" .Group.Code}}
 <header class="page-head">
   <div><h1>{{t "nav.subjects"}}</h1></div>
-  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/subjects/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+  {{if .Group.CanEdit}}<a class="btn btn-secondary" href="{{$g}}/subjects/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
 </header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 <div class="section-gap">
@@ -22,7 +22,7 @@
           {{with .ShortName}}<div class="meta"><span class="meta-item mono">{{.}}</span></div>{{end}}
         </div>
         <div class="row-end">
-          {{if $.Group.CanManage}}{{template "rowMenu" (rowMenu (print $g "/subjects/" .ID) (t "subjects.confirm_delete" "Name" .Name) $.CSRFToken)}}{{end}}
+          {{if $.Group.CanEdit}}{{template "rowMenu" (rowMenu (print $g "/subjects/" .ID) (t "subjects.confirm_delete" "Name" .Name) $.CSRFToken)}}{{end}}
         </div>
       </li>
       {{end}}
@@ -34,7 +34,7 @@
       <span class="glyph">{{icon "book-open"}}</span>
       <h3>{{t "subjects.empty"}}</h3>
       <p>{{t "subjects.empty_hint"}}</p>
-      {{if $.Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/subjects/new"{{boost}}>{{icon "plus"}}{{t "subjects.new_title"}}</a>{{end}}
+      {{if $.Group.CanEdit}}<a class="btn btn-secondary btn-sm" href="{{$g}}/subjects/new"{{boost}}>{{icon "plus"}}{{t "subjects.new_title"}}</a>{{end}}
     </div>
   </section>
   {{end}}

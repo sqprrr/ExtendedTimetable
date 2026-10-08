@@ -16,7 +16,7 @@ import (
 
 // Group content (subjects, class links, homework, notes, recordings and
 // solutions) is readable by the group's members and superadmins, and writable
-// by the group's leaders and superadmins.
+// by the group's leader, its editors and superadmins.
 
 const (
 	maxNameLen      = 100
@@ -36,6 +36,9 @@ var ErrSubjectInUse = errors.New("this subject still has class links, homework o
 // GroupView is a group together with what the viewer may do in it.
 type GroupView struct {
 	*store.Group
+	// CanEdit is true when the viewer may change the group's content.
+	CanEdit bool
+	// CanManage is true when the viewer may handle the invite link and members.
 	CanManage bool
 	// CanTrack is true when the viewer has a homework tracker here.
 	CanTrack bool
@@ -60,7 +63,7 @@ func (s *Service) HomeGroup(ctx context.Context) (*GroupView, error) {
 	if err != nil {
 		return nil, notFound(err)
 	}
-	gv := &GroupView{Group: g, CanManage: v.CanManageGroup(id), CanTrack: v.CanTrackGroup(id), IsSuperadmin: v.IsSuperadmin}
+	gv := &GroupView{Group: g, CanEdit: v.CanEditGroup(id), CanManage: v.CanManageGroup(id), CanTrack: v.CanTrackGroup(id), IsSuperadmin: v.IsSuperadmin}
 	gv.Role, _ = v.RoleIn(id)
 	return gv, nil
 }
@@ -78,7 +81,7 @@ func (s *Service) Group(ctx context.Context, code string) (*GroupView, error) {
 	if !v.CanViewGroup(g.ID) {
 		return nil, ErrForbidden
 	}
-	gv := &GroupView{Group: g, CanManage: v.CanManageGroup(g.ID), CanTrack: v.CanTrackGroup(g.ID), IsSuperadmin: v.IsSuperadmin}
+	gv := &GroupView{Group: g, CanEdit: v.CanEditGroup(g.ID), CanManage: v.CanManageGroup(g.ID), CanTrack: v.CanTrackGroup(g.ID), IsSuperadmin: v.IsSuperadmin}
 	gv.Role, _ = v.RoleIn(g.ID)
 	if lead, err := s.store.LeaderOf(ctx, g.ID); err == nil {
 		gv.Leader = lead.Username
@@ -100,7 +103,20 @@ func canView(ctx context.Context, groupID int64) (*Viewer, error) {
 	return v, nil
 }
 
-// canManage checks that the viewer may change the group's content.
+// canEdit checks that the viewer may change the group's content.
+func canEdit(ctx context.Context, groupID int64) (*Viewer, error) {
+	v, err := requireViewer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !v.CanEditGroup(groupID) {
+		return nil, ErrForbidden
+	}
+	return v, nil
+}
+
+// canManage checks that the viewer may handle the group's invite link and
+// members.
 func canManage(ctx context.Context, groupID int64) (*Viewer, error) {
 	v, err := requireViewer(ctx)
 	if err != nil {

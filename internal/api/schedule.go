@@ -89,7 +89,7 @@ func (h *Handler) schedule(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// syncSchedule fetches the schedule from CIST now (leaders only).
+// syncSchedule fetches the schedule from CIST now (leader and editors only).
 func (h *Handler) syncSchedule(w http.ResponseWriter, r *http.Request) {
 	if gid := h.group(w, r); gid != 0 {
 		rec, err := h.svc.SyncScheduleNow(r.Context(), gid)

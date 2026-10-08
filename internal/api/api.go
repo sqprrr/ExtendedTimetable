@@ -42,11 +42,14 @@ func (h *Handler) Register(mux *http.ServeMux) {
 }
 
 type groupJSON struct {
-	ID        int64  `json:"id"`
-	Code      string `json:"code"`
-	Name      string `json:"name"`
-	Role      string `json:"role,omitempty"`
-	CanManage bool   `json:"can_manage"`
+	ID   int64  `json:"id"`
+	Code string `json:"code"`
+	Name string `json:"name"`
+	Role string `json:"role,omitempty"`
+	// CanEdit: may change the group's content (leader, editors, superadmins).
+	CanEdit bool `json:"can_edit"`
+	// CanManage: may handle the invite link and members (leader, superadmins).
+	CanManage bool `json:"can_manage"`
 }
 
 type meJSON struct {
@@ -84,7 +87,7 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, g := range groups {
 		out.Groups = append(out.Groups, groupJSON{
-			ID: g.ID, Code: g.Code, Name: g.Name, Role: string(g.Role), CanManage: g.CanManage,
+			ID: g.ID, Code: g.Code, Name: g.Name, Role: string(g.Role), CanEdit: g.CanEdit, CanManage: g.CanManage,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)

@@ -8,7 +8,7 @@
 {{$g := print "/g/" .Group.Code}}
 <header class="page-head">
   <div><h1>{{t "nav.notes"}}</h1></div>
-  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/notes/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+  {{if .Group.CanEdit}}<a class="btn btn-secondary" href="{{$g}}/notes/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
 </header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 <div class="stack">
@@ -17,7 +17,7 @@
     <div class="note-head">
       {{if .Pinned}}<span class="badge badge-accent">{{icon "pin"}}{{t "notes.pinned"}}</span>{{end}}
       <h2 id="note-{{.ID}}-title">{{.Title}}</h2>
-      {{if $.Group.CanManage}}<div class="note-menu">{{template "rowMenu" (rowMenu (print $g "/notes/" .ID) (t "notes.confirm_delete") $.CSRFToken)}}</div>{{end}}
+      {{if $.Group.CanEdit}}<div class="note-menu">{{template "rowMenu" (rowMenu (print $g "/notes/" .ID) (t "notes.confirm_delete") $.CSRFToken)}}</div>{{end}}
     </div>
     <div class="meta">{{shortDate .CreatedAt}}</div>
     <div class="md">{{markdown .BodyMD}}</div>
@@ -28,7 +28,7 @@
       <span class="glyph">{{icon "megaphone"}}</span>
       <h3>{{t "notes.empty"}}</h3>
       <p>{{t "notes.empty_hint"}}</p>
-      {{if .Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/notes/new"{{boost}}>{{icon "plus"}}{{t "notes.new_title"}}</a>{{end}}
+      {{if .Group.CanEdit}}<a class="btn btn-secondary btn-sm" href="{{$g}}/notes/new"{{boost}}>{{icon "plus"}}{{t "notes.new_title"}}</a>{{end}}
     </div>
   </section>
   {{end}}

@@ -12,7 +12,7 @@
       {{with $s.ShortName}}<p class="subject-chip mono">{{.}}</p>{{end}}
       <h1>{{$s.Name}}</h1>
     </div>
-    {{if .Group.CanManage}}<a class="btn btn-ghost btn-sm" href="{{$base}}/edit"{{boost}}>{{icon "pencil"}}{{t "action.edit"}}</a>{{end}}
+    {{if .Group.CanEdit}}<a class="btn btn-ghost btn-sm" href="{{$base}}/edit"{{boost}}>{{icon "pencil"}}{{t "action.edit"}}</a>{{end}}
   </div>
   {{if or $s.Lecturer $s.Instructor}}
   <dl class="teachers">
@@ -27,7 +27,7 @@
     {{end}}
     {{with $s.DLURL}}<a class="btn btn-secondary" href="{{.}}" target="_blank" rel="noopener noreferrer">{{icon "circle-check"}}{{t "subject.dl"}}{{icon "external-link"}}</a>{{end}}
   </div>
-  {{else if .Group.CanManage}}
+  {{else if .Group.CanEdit}}
   <p class="small-text subject-hint">{{th "subject.no_links_hint" "Links" (print $g "/links") "Edit" (print $base "/edit")}}</p>
   {{end}}
 </section>
@@ -37,8 +37,8 @@
     <a href="{{$base}}"{{if eq .SubjectTab "homework"}} aria-current="page"{{end}}>{{icon "list-checks"}}{{t "nav.homework"}} <span class="count">{{len $p.Homework}}</span></a>
     <a href="{{$base}}?tab=recordings"{{if eq .SubjectTab "recordings"}} aria-current="page"{{end}}>{{icon "video"}}{{t "nav.resources"}} <span class="count">{{len $p.Resources}}</span></a>
   </nav>
-  {{if and .Group.CanManage (eq .SubjectTab "homework")}}<a class="btn btn-secondary btn-sm" href="{{$g}}/homework/new"{{boost}}>{{icon "plus"}}{{t "hw.new_title"}}</a>{{end}}
-  {{if and .Group.CanManage (eq .SubjectTab "recordings")}}<a class="btn btn-secondary btn-sm" href="{{$g}}/resources/new"{{boost}}>{{icon "plus"}}{{t "resources.new_title"}}</a>{{end}}
+  {{if and .Group.CanEdit (eq .SubjectTab "homework")}}<a class="btn btn-secondary btn-sm" href="{{$g}}/homework/new"{{boost}}>{{icon "plus"}}{{t "hw.new_title"}}</a>{{end}}
+  {{if and .Group.CanEdit (eq .SubjectTab "recordings")}}<a class="btn btn-secondary btn-sm" href="{{$g}}/resources/new"{{boost}}>{{icon "plus"}}{{t "resources.new_title"}}</a>{{end}}
 </div>
 
 {{if eq .SubjectTab "homework"}}
@@ -86,7 +86,7 @@
         </div>
       </div>
       <div class="row-end">
-        {{if $.Group.CanManage}}{{template "rowMenu" (rowMenu (print $g "/resources/" .ID) (t "resources.confirm_delete") $.CSRFToken)}}{{else}}<span class="text-tertiary">{{icon "external-link"}}</span>{{end}}
+        {{if $.Group.CanEdit}}{{template "rowMenu" (rowMenu (print $g "/resources/" .ID) (t "resources.confirm_delete") $.CSRFToken)}}{{else}}<span class="text-tertiary">{{icon "external-link"}}</span>{{end}}
       </div>
     </li>
     {{end}}

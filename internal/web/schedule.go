@@ -141,7 +141,7 @@ func (h *Handler) weekLabel(l *i18n.Localizer, start time.Time) string {
 		"To", end.Day(), "ToMonth", l.T("month.long."+monthKey(end)))
 }
 
-// syncSchedule fetches the schedule from CIST now (leaders only). A failed
+// syncSchedule fetches the schedule from CIST now (leader and editors only). A failed
 // fetch is recorded and shown by the page's sync status.
 func (h *Handler) syncSchedule(w http.ResponseWriter, r *http.Request) {
 	g := h.groupPage(w, r)

@@ -15,9 +15,10 @@ import (
 // belongs to at most one group. A group has at most one leader: while it has
 // none, any member may claim the role; the leader may give it up, and a
 // superadmin may hand it to another member or take it away. The leader and
-// superadmins see the link, replace it and remove members (which replaces the
-// link too). Every change is written to the group log, which only superadmins
-// read.
+// superadmins see the link, replace it, remove members (which replaces the
+// link too) and make students editors or students again. Editors change the
+// group's content like the leader. Every change is written to the group log,
+// which only superadmins read.
 
 // InviteTTL is how long an invite link works.
 const InviteTTL = 10 * 24 * time.Hour
@@ -178,8 +179,8 @@ func (s *Service) RegenerateInvite(ctx context.Context, groupID int64) (*store.I
 	return inv, err
 }
 
-// Members lists a group's members, the leader first. Members of the group and
-// superadmins only.
+// Members lists a group's members, the leader first, then the editors.
+// Members of the group and superadmins only.
 func (s *Service) Members(ctx context.Context, groupID int64) ([]*store.Member, error) {
 	if _, err := canView(ctx, groupID); err != nil {
 		return nil, err
@@ -304,8 +305,51 @@ func (s *Service) RemoveMember(ctx context.Context, groupID, userID int64) error
 	return err
 }
 
-// SetLeader makes a member the group's leader; the previous leader becomes a
-// student. Superadmins only.
+// GrantEditor makes a student of the group an editor. The group's leader and
+// superadmins only.
+func (s *Service) GrantEditor(ctx context.Context, groupID, userID int64) error {
+	return s.changeEditor(ctx, groupID, userID, store.RoleStudent, store.RoleEditor, store.LogEditorGranted)
+}
+
+// RevokeEditor makes an editor of the group a student again. The group's
+// leader and superadmins only.
+func (s *Service) RevokeEditor(ctx context.Context, groupID, userID int64) error {
+	return s.changeEditor(ctx, groupID, userID, store.RoleEditor, store.RoleStudent, store.LogEditorRevoked)
+}
+
+// changeEditor moves a member from role from to role to. Doing it again
+// does nothing; a member in another role is left alone.
+func (s *Service) changeEditor(ctx context.Context, groupID, userID int64, from, to store.Role, event store.LogEvent) error {
+	v, err := canManage(ctx, groupID)
+	if err != nil {
+		return err
+	}
+	changed := false
+	err = s.store.InTx(ctx, func(q *store.Queries) error {
+		m, err := q.Membership(ctx, userID, groupID)
+		if err != nil {
+			return notFound(err)
+		}
+		if m.Role == to {
+			return nil
+		}
+		if m.Role != from {
+			return ErrForbidden
+		}
+		if err := q.SetRole(ctx, userID, groupID, to); err != nil {
+			return err
+		}
+		changed = true
+		return s.logEvent(ctx, q, groupID, event, actorOf(v), ptr(userID))
+	})
+	if err == nil && changed {
+		slog.InfoContext(ctx, "role changed", "by", v.Username, "user_id", userID, "group_id", groupID, "role", to)
+	}
+	return err
+}
+
+// SetLeader makes a member, student or editor, the group's leader; the
+// previous leader becomes a student. Superadmins only.
 func (s *Service) SetLeader(ctx context.Context, groupID, userID int64) error {
 	v, err := requireSuperadmin(ctx)
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 )
 
 // registerMemberRoutes adds the invite pages, the members page with its
-// leader and member actions, and the superadmins' group panel.
+// leader, editor and member actions, and the superadmins' group panel.
 func (h *Handler) registerMemberRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /join/{token}", h.joinPage)
 	mux.HandleFunc("POST /join/{token}", h.join)
@@ -47,6 +47,20 @@ func (h *Handler) registerMemberRoutes(mux *http.ServeMux) {
 			return err
 		}
 		return h.svc.RemoveMember(ctx, g.ID, id)
+	}))
+	mux.HandleFunc("POST /g/{code}/members/{id}/editor", h.groupAction(func(ctx context.Context, h *Handler, g *service.GroupView, r *http.Request) error {
+		id, err := pathID(r)
+		if err != nil {
+			return err
+		}
+		return h.svc.GrantEditor(ctx, g.ID, id)
+	}))
+	mux.HandleFunc("POST /g/{code}/members/{id}/editor/revoke", h.groupAction(func(ctx context.Context, h *Handler, g *service.GroupView, r *http.Request) error {
+		id, err := pathID(r)
+		if err != nil {
+			return err
+		}
+		return h.svc.RevokeEditor(ctx, g.ID, id)
 	}))
 	mux.HandleFunc("POST /g/{code}/leave", h.leaveGroup)
 

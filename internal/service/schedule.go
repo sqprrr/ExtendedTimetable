@@ -211,10 +211,10 @@ func truncate(s string, n int) string {
 	return string([]rune(s)[:n])
 }
 
-// SyncScheduleNow syncs the group's schedule from CIST at a leader's
-// request, at most once per cooldown.
+// SyncScheduleNow syncs the group's schedule from CIST at the request of
+// someone who edits the group, at most once per cooldown.
 func (s *Service) SyncScheduleNow(ctx context.Context, groupID int64) (*store.ScheduleSync, error) {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
 	g, err := s.store.GroupByID(ctx, groupID)

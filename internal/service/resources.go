@@ -57,7 +57,7 @@ func (s *Service) ResourceLink(ctx context.Context, groupID, id int64) (*store.R
 
 // CreateResourceLink adds a recording or solution link.
 func (s *Service) CreateResourceLink(ctx context.Context, groupID int64, in ResourceLinkInput) (*store.ResourceLink, error) {
-	v, err := canManage(ctx, groupID)
+	v, err := canEdit(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (s *Service) CreateResourceLink(ctx context.Context, groupID int64, in Reso
 
 // UpdateResourceLink changes a recording or solution link.
 func (s *Service) UpdateResourceLink(ctx context.Context, groupID, id int64, in ResourceLinkInput) (*store.ResourceLink, error) {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
 	in, err := in.validate()
@@ -120,7 +120,7 @@ func (s *Service) UpdateResourceLink(ctx context.Context, groupID, id int64, in 
 
 // DeleteResourceLink removes a recording or solution link.
 func (s *Service) DeleteResourceLink(ctx context.Context, groupID, id int64) error {
-	if _, err := canManage(ctx, groupID); err != nil {
+	if _, err := canEdit(ctx, groupID); err != nil {
 		return err
 	}
 	return notFound(s.store.DeleteResourceLink(ctx, groupID, id))

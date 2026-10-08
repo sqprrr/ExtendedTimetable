@@ -11,7 +11,7 @@ notes, and a private homework tracker per student. See
   superadmin through the CLI.
 - **M2:** each group has a page at `/g/<code>` with homework, notes, class
   links, recordings & solutions and subjects. Members read everything; the
-  group's leaders and superadmins add, edit and delete it. Homework
+  group's leader, its editors and superadmins add, edit and delete it. Homework
   descriptions and notes are Markdown (sanitized). The same content is
   available as JSON under `/api/v1/groups/<code>/…`.
 - **M3:** every group member keeps a private homework tracker: a status
@@ -45,9 +45,11 @@ notes, and a private homework tracker per student. See
   group's Members page (`/g/<code>/members`), where they replace it, and
   where they remove members (which replaces the link too). Students may
   leave a group. While a group has no leader, any member can take the role;
-  the leader can give it up. Superadmins hand the role to another member or
+  the leader can give it up. The leader makes students editors, who change
+  the group's content but not its link or members. Superadmins hand the
+  leader role to another member or
   take it away there, create groups and see every group at `/admin/groups`,
-  and read each group's log (joins, departures, removals, leader changes,
+  and read each group's log (joins, departures, removals, leader and editor changes,
   new links) on its Members page or with `extt admin group-log`.
 - **Subject page:** each subject on the Subjects tab opens
   `/g/<code>/subjects/<id>`: its lecturer and practice/lab teacher and its
@@ -200,7 +202,7 @@ in effect.
 | `resources` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` (optional `lesson_type`) |
 | `homework/{id}/progress` | `PUT` — the viewer's own `{"status", "grade"}` |
 | `grades` | `GET` — the viewer's totals per subject and overall |
-| `schedule` | `GET ?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: the 7 days from today), `POST /sync` (leaders) |
+| `schedule` | `GET ?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: the 7 days from today), `POST /sync` (leader and editors) |
 
 Homework items carry the viewer's own `"progress": {"status", "grade"}`
 (absent for a superadmin who is not a member of the group).
