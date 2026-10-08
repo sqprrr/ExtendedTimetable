@@ -159,8 +159,8 @@ func TestAdminPanel(t *testing.T) {
 
 	root := e.rootBrowser(t)
 	_, body, _ := root.get("/")
-	if !strings.Contains(body, `<a href="/admin/groups">Groups</a>`) {
-		t.Fatal("top bar should link to the panel")
+	if !strings.Contains(body, `<a class="nav-item" href="/admin/groups">`) || !strings.Contains(body, "<span>Groups</span>") {
+		t.Fatal("the navigation should link to the panel")
 	}
 	code, body, _ := root.submit("/admin/groups", "/admin/groups", url.Values{"code": {"new-1"}, "name": {"New group"}, "cist_id": {"abc"}})
 	if code != http.StatusUnprocessableEntity || !strings.Contains(body, "CIST id must be a positive number") || !strings.Contains(body, `value="New group"`) {

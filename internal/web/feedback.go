@@ -43,6 +43,7 @@ func (h *Handler) showFeedback(w http.ResponseWriter, r *http.Request, status in
 	if d.Fields == nil {
 		d.Fields = map[string]string{}
 	}
+	d.Section = "feedback"
 	h.render(w, r, status, "feedback", d)
 }
 
@@ -85,7 +86,7 @@ func (h *Handler) feedbackInbox(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, r, err)
 		return
 	}
-	h.render(w, r, http.StatusOK, "feedback_inbox", pageData{Feedback: inbox.Items, FeedbackOpen: inbox.Open, ShowAll: all})
+	h.render(w, r, http.StatusOK, "feedback_inbox", pageData{Section: "inbox", Feedback: inbox.Items, FeedbackOpen: inbox.Open, ShowAll: all})
 }
 
 func (h *Handler) resolveFeedback(w http.ResponseWriter, r *http.Request) {

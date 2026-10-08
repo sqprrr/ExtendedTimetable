@@ -38,7 +38,7 @@ func (h *Handler) sections() []*section {
 				if err != nil {
 					return nil, err
 				}
-				return map[string]string{"name": s.Name, "short_name": s.ShortName}, nil
+				return map[string]string{"name": s.Name, "short_name": s.ShortName, "hue": s.Hue}, nil
 			},
 			create: func(ctx context.Context, h *Handler, groupID int64, r *http.Request) error {
 				_, err := h.svc.CreateSubject(ctx, groupID, subjectInput(r))
@@ -97,6 +97,7 @@ func (h *Handler) sections() []*section {
 				if d.HomeworkList, err = h.svc.HomeworkList(ctx, groupID, d.HomeworkFilter); err != nil {
 					return err
 				}
+				d.HomeworkGroups = h.groupHomework(h.svc.Now(), d.HomeworkList, d.HomeworkFilter)
 				return loadSubjects(ctx, h, groupID, d)
 			},
 			fields: func(ctx context.Context, h *Handler, groupID, id int64) (map[string]string, error) {
@@ -249,6 +250,7 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	for _, s := range h.sections() {
 		base := "/g/{code}/" + s.name
 		mux.HandleFunc("GET "+base, h.sectionList(s))
+		mux.HandleFunc("GET "+base+"/new", h.sectionNew(s))
 		mux.HandleFunc("POST "+base, h.sectionCreate(s))
 		mux.HandleFunc("GET "+base+"/{id}/edit", h.sectionEdit(s))
 		mux.HandleFunc("POST "+base+"/{id}", h.sectionUpdate(s))
@@ -299,6 +301,21 @@ func (h *Handler) sectionList(s *section) http.HandlerFunc {
 		if g := h.groupPage(w, r); g != nil {
 			h.showSection(w, r, s, g, http.StatusOK, pageData{})
 		}
+	}
+}
+
+// sectionNew shows the create form on its own page (leaders only).
+func (h *Handler) sectionNew(s *section) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		g := h.groupPage(w, r)
+		if g == nil {
+			return
+		}
+		if !g.CanManage {
+			h.renderError(w, r, service.ErrForbidden)
+			return
+		}
+		h.showSection(w, r, s, g, http.StatusOK, pageData{New: true})
 	}
 }
 
@@ -395,7 +412,7 @@ func (h *Handler) sectionFormError(w http.ResponseWriter, r *http.Request, s *se
 			fields[k] = v[0]
 		}
 	}
-	h.showSection(w, r, s, g, status, pageData{EditID: editID, Fields: fields, Error: msg})
+	h.showSection(w, r, s, g, status, pageData{EditID: editID, New: editID == 0, Fields: fields, Error: msg})
 }
 
 func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {
@@ -410,7 +427,7 @@ func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, http.StatusOK, "group", pageData{
 		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes, ClassLinks: ov.ClassLinks,
-		Schedule: ov.Today,
+		Schedule: ov.Today, NowCard: h.newNowCard(i18n.FromContext(r.Context()), h.svc.Now(), ov.Today),
 	})
 }
 
@@ -436,7 +453,7 @@ func (h *Handler) homeworkDetail(w http.ResponseWriter, r *http.Request) {
 // only values that need converting are checked here.
 
 func subjectInput(r *http.Request) service.SubjectInput {
-	return service.SubjectInput{Name: r.PostFormValue("name"), ShortName: r.PostFormValue("short_name")}
+	return service.SubjectInput{Name: r.PostFormValue("name"), ShortName: r.PostFormValue("short_name"), Hue: r.PostFormValue("hue")}
 }
 
 func formSubjectID(r *http.Request) (int64, error) {

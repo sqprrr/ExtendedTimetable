@@ -70,7 +70,7 @@ func (c Cookies) SessionToken(r *http.Request) string {
 // LangName is the language cookie name.
 func (c Cookies) LangName() string { return c.name("extt_lang") }
 
-// langTTL is how long the language choice is remembered.
+// langTTL is how long the language and theme choices are remembered.
 const langTTL = 365 * 24 * time.Hour
 
 // SetLang remembers the visitor's language.
@@ -81,6 +81,23 @@ func (c Cookies) SetLang(w http.ResponseWriter, lang string) {
 // Lang returns the language cookie's value, if any.
 func (c Cookies) Lang(r *http.Request) string {
 	ck, err := r.Cookie(c.LangName())
+	if err != nil {
+		return ""
+	}
+	return ck.Value
+}
+
+// ThemeName is the colour theme cookie name.
+func (c Cookies) ThemeName() string { return c.name("extt_theme") }
+
+// SetTheme remembers the visitor's colour theme.
+func (c Cookies) SetTheme(w http.ResponseWriter, theme string) {
+	http.SetCookie(w, c.cookie(c.ThemeName(), theme, time.Now().Add(langTTL)))
+}
+
+// Theme returns the colour theme cookie's value, if any.
+func (c Cookies) Theme(r *http.Request) string {
+	ck, err := r.Cookie(c.ThemeName())
 	if err != nil {
 		return ""
 	}

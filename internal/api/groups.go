@@ -119,15 +119,20 @@ type subjectJSON struct {
 	ID        int64  `json:"id"`
 	Name      string `json:"name"`
 	ShortName string `json:"short_name"`
+	// Hue is the colour the subject is shown in (the default one when none
+	// was chosen).
+	Hue string `json:"hue"`
 }
 
 type subjectRequest struct {
 	Name      string `json:"name"`
 	ShortName string `json:"short_name"`
+	// Hue is one of the eight hues, or "" for the default.
+	Hue string `json:"hue"`
 }
 
 func toSubject(s *store.Subject) subjectJSON {
-	return subjectJSON{ID: s.ID, Name: s.Name, ShortName: s.ShortName}
+	return subjectJSON{ID: s.ID, Name: s.Name, ShortName: s.ShortName, Hue: service.Hue(s.ID, s.Hue)}
 }
 
 func (h *Handler) listSubjects(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +160,7 @@ func (h *Handler) updateSubject(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	req := subjectRequest{Name: cur.Name, ShortName: cur.ShortName}
+	req := subjectRequest{Name: cur.Name, ShortName: cur.ShortName, Hue: cur.Hue}
 	if decode(w, r, &req) {
 		s, err := h.svc.UpdateSubject(r.Context(), gid, id, service.SubjectInput(req))
 		reply(h, w, r, http.StatusOK, s, err, toSubject)

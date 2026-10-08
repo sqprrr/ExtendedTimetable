@@ -1,184 +1,177 @@
 {{/* Shared pieces of the group pages. */}}
 
-{{define "groupnav"}}
-<header class="group-head">
-  <h1>{{.Group.Name}}{{if ne .Group.Name .Group.Code}} <span class="muted">({{.Group.Code}})</span>{{end}}</h1>
-  <nav class="tabs" aria-label="{{t "nav.sections"}}">
-    <a href="/g/{{.Group.Code}}"{{if eq .Section "overview"}} aria-current="page"{{end}}>{{t "nav.overview"}}</a>
-    <a href="/g/{{.Group.Code}}/schedule"{{if eq .Section "schedule"}} aria-current="page"{{end}}>{{t "nav.schedule"}}</a>
-    <a href="/g/{{.Group.Code}}/homework"{{if eq .Section "homework"}} aria-current="page"{{end}}>{{t "nav.homework"}}</a>
-    <a href="/g/{{.Group.Code}}/notes"{{if eq .Section "notes"}} aria-current="page"{{end}}>{{t "nav.notes"}}</a>
-    <a href="/g/{{.Group.Code}}/links"{{if eq .Section "links"}} aria-current="page"{{end}}>{{t "nav.links"}}</a>
-    <a href="/g/{{.Group.Code}}/resources"{{if eq .Section "resources"}} aria-current="page"{{end}}>{{t "nav.resources"}}</a>
-    <a href="/g/{{.Group.Code}}/subjects"{{if eq .Section "subjects"}} aria-current="page"{{end}}>{{t "nav.subjects"}}</a>
-    <a href="/g/{{.Group.Code}}/members"{{if eq .Section "members"}} aria-current="page"{{end}}>{{t "nav.members"}}</a>
-    {{if .Group.CanTrack}}<a href="/g/{{.Group.Code}}/grades"{{if eq .Section "grades"}} aria-current="page"{{end}}>{{t "nav.grades"}}</a>{{end}}
-  </nav>
-</header>
-{{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
-{{end}}
-
-{{/* classLinkTable lists .ClassLinks; on the links tab leaders also get
-   edit and delete buttons. */}}
-{{define "classLinkTable"}}
-{{$actions := and .Group.CanManage (eq .Section "links")}}
-{{with .ClassLinks}}
-<table class="list">
-  <thead><tr><th>{{t "field.subject"}}</th><th>{{t "field.lesson_type"}}</th><th>{{t "field.link"}}</th>{{if $actions}}<th></th>{{end}}</tr></thead>
-  <tbody>
-    {{range .}}
-    <tr>
-      <td>{{.SubjectName}}</td>
-      <td>{{lessonLabel .LessonType}}</td>
-      <td><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{t "action.join"}}</a>{{with .Note}} <span class="muted">· {{.}}</span>{{end}}</td>
-      {{if $actions}}
-      <td class="actions">
-        <a href="/g/{{$.Group.Code}}/links/{{.ID}}/edit">{{t "action.edit"}}</a>
-        <form method="post" action="/g/{{$.Group.Code}}/links/{{.ID}}/delete" class="inline" data-confirm="{{t "links.confirm_delete"}}">
-          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-          <button type="submit" class="link danger">{{t "action.delete"}}</button>
-        </form>
-      </td>
-      {{end}}
-    </tr>
-    {{end}}
-  </tbody>
-</table>
-{{else}}
-<p class="muted">{{t "links.empty"}}</p>
-{{end}}
-{{end}}
+{{/* icon inlines a Lucide icon from web/icons by name:
+   {{template "icon" "calendar-days"}}. */}}
+{{define "icon"}}{{icon .}}{{end}}
 
 {{/* subjectSelect is the subject picker of a section form. */}}
 {{define "subjectSelect"}}
-<label>{{t "field.subject"}}
-  <select name="subject_id" required>
+<label class="field">
+  <span class="field-label">{{t "field.subject"}}</span>
+  <select class="select" name="subject_id" required>
     <option value="">{{t "form.choose_subject"}}</option>
     {{range .Subjects}}
     <option value="{{.ID}}"{{if eq (idstr .ID) (index $.Fields "subject_id")}} selected{{end}}>{{.Name}}</option>
     {{end}}
   </select>
-  {{if not .Subjects}}<small class="muted">{{th "form.add_subject_first" "URL" (print "/g/" .Group.Code "/subjects")}}</small>{{end}}
+  {{if not .Subjects}}<span class="field-hint">{{th "form.add_subject_first" "URL" (print "/g/" .Group.Code "/subjects")}}</span>{{end}}
 </label>
 {{end}}
 
 {{/* formButtons ends a section form: Add, or Save and Cancel when editing. */}}
 {{define "formButtons"}}
-<div class="form-actions">
-  <button type="submit">{{if .EditID}}{{t "action.save"}}{{else}}{{t "action.add"}}{{end}}</button>
-  {{if .EditID}}<a href="/g/{{.Group.Code}}/{{.Section}}">{{t "action.cancel"}}</a>{{end}}
+<div class="btn-row">
+  <button type="submit" class="btn btn-primary">{{if .EditID}}{{t "action.save"}}{{else}}{{t "action.add"}}{{end}}</button>
+  <a class="btn btn-ghost" href="/g/{{.Group.Code}}/{{.Section}}"{{boost}}>{{t "action.cancel"}}</a>
 </div>
 {{end}}
 
+{{/* formHead is the head of a section's create or edit page: the way back,
+   the title and the error. */}}
+{{define "formHead"}}
+{{$p := .Section}}{{if eq $p "homework"}}{{$p = "hw"}}{{end}}
+<a class="back-link" href="/g/{{.Group.Code}}/{{.Section}}"{{boost}}>{{icon "chevron-left"}}{{t (print "nav." .Section)}}</a>
+<header class="page-head"><div><h1>{{if .EditID}}{{t (print $p ".edit_title")}}{{else}}{{t (print $p ".new_title")}}{{end}}</h1></div></header>
+{{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+{{end}}
+
 {{/* homeworkItem is one assignment in a homework list, with the viewer's
-   status toggle. Called with (hwItem $ . "<page>"); the progress endpoint
+   status check. Called with (hwItem $ . "<page>"); the progress endpoint
    renders it on its own to answer an htmx toggle. */}}
 {{define "homeworkItem"}}
-<li class="hw{{if .HW.Overdue}} overdue{{end}}{{if eq .HW.Status "done"}} done{{end}}">
+<li class="hw-row{{if not .HW.Tracked}} no-status{{end}}{{if eq .HW.Status "done"}} is-done{{end}}">
   {{if .HW.Tracked}}
-  <form class="status-toggle" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
+  <form class="status-form" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
         hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="closest li" hx-swap="outerHTML">
     <input type="hidden" name="csrf_token" value="{{.CSRF}}">
     <input type="hidden" name="view" value="item">
     <input type="hidden" name="from" value="{{.From}}">
     {{with .Filter}}<input type="hidden" name="filter" value="{{.}}">{{end}}
     <input type="hidden" name="status" value="{{nextStatus .HW.Status}}">
-    <button type="submit" class="status status-{{.HW.Status}}" title="{{t "hw.mark_as" "Status" (statusLabel (nextStatus .HW.Status))}}">{{statusLabel .HW.Status}}</button>
+    {{$mark := t "hw.mark_as" "Status" (statusLabel (nextStatus .HW.Status))}}
+    <button type="submit" class="status-check" data-status="{{.HW.Status}}" title="{{$mark}}">{{icon (statusIcon .HW.Status)}}<span class="sr-only">{{statusLabel .HW.Status}}. {{$mark}}</span></button>
   </form>
   {{end}}
-  <div class="hw-main">
-    <a href="/g/{{.Code}}/homework/{{.HW.ID}}"><strong>{{.HW.Title}}</strong></a>
-    <span class="muted">· {{.HW.SubjectName}}</span>
-    <div class="small">
-      {{with .HW.DueAt}}<span class="due">{{t "hw.due" "When" (datetime .)}}</span>{{else}}<span class="muted">{{t "hw.no_deadline"}}</span>{{end}}
-      {{if .HW.Overdue}}<span class="badge warn">{{t "hw.overdue"}}</span>{{end}}
-      {{with .HW.MaxPoints}}<span class="muted">· {{t "hw.max_points" "Points" (points .)}}</span>{{end}}
-      {{with .HW.Grade}}<span class="muted">· {{t "hw.your_grade" "Points" (points .)}}</span>{{end}}
+  <div class="main">
+    <a class="row-title" href="/g/{{.Code}}/homework/{{.HW.ID}}"{{boost}}>{{.HW.Title}}</a>
+    <div class="meta">
+      <span class="subject" data-hue="{{hue .HW.SubjectID .HW.SubjectHue}}">{{.HW.SubjectName}}</span>
+      <span class="meta-item{{if .HW.Overdue}} due-overdue{{end}}">{{if .HW.Overdue}}{{icon "triangle-alert"}}{{else}}{{icon "clock"}}{{end}}{{due .HW}}</span>
     </div>
   </div>
+  <div class="row-end">
+    {{with .HW.MaxPoints}}<span class="points">{{with $.HW.Grade}}{{points .}}{{else}}—{{end}} / {{points .}}</span>{{end}}
+    {{if .Manage}}{{template "rowMenu" (rowMenu (print "/g/" .Code "/homework/" .HW.ID) (t "hw.confirm_delete") .CSRF)}}{{end}}
+  </div>
 </li>
+{{end}}
+
+{{/* rowMenu is a leader's Edit and Delete for one item, behind an ellipsis
+   button. A <details>, so it works without JavaScript. */}}
+{{define "rowMenu"}}
+<details class="menu">
+  <summary class="btn btn-ghost btn-icon btn-sm" aria-label="{{t "action.more_actions"}}" title="{{t "action.more_actions"}}">{{icon "ellipsis"}}</summary>
+  <div class="menu-list">
+    <a class="menu-item" href="{{.Base}}/edit"{{boost}}>{{icon "pencil"}}{{t "action.edit"}}</a>
+    <div class="menu-sep"></div>
+    <form method="post" action="{{.Base}}/delete" data-confirm="{{.Confirm}}">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <button type="submit" class="menu-item danger">{{icon "trash-2"}}{{t "action.delete"}}</button>
+    </form>
+  </div>
+</details>
 {{end}}
 
 {{/* progressPanel is the viewer's status and grade on the homework page.
    Both forms work without JavaScript; with htmx they replace the panel. */}}
 {{define "progressPanel"}}
 {{if .HW.Tracked}}
-<section class="card" id="progress">
-  <div class="card-head">
-    <h3>{{t "progress.title"}}</h3>
-    <span class="muted small">{{t "progress.private"}}</span>
-  </div>
-  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
-  {{if .HW.GradeOverMax}}
-  <p class="warn-text small" role="note">{{t "progress.grade_over_max" "Max" (points .HW.MaxPoints)}}</p>
-  {{end}}
-  <form class="segmented" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
-        hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
-    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-    <input type="hidden" name="view" value="panel">
-    {{range statuses}}
-    <button type="submit" name="status" value="{{.}}" class="status status-{{.}}" aria-pressed="{{eq . $.HW.Status}}">{{statusLabel .}}</button>
+<section class="card" id="progress" aria-labelledby="progress-title">
+  <div class="card-head"><h2 id="progress-title">{{t "progress.title"}}</h2></div>
+  <div class="stack">
+    <div class="alert alert-info" role="note">{{icon "info"}}<div>{{t "progress.private"}}</div></div>
+    {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+    {{if .HW.GradeOverMax}}
+    <div class="alert alert-warning" role="note">{{icon "triangle-alert"}}<div>{{t "progress.grade_over_max" "Max" (points .HW.MaxPoints)}}</div></div>
     {{end}}
-  </form>
-  <form class="grade-form" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
-        hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
-    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-    <input type="hidden" name="view" value="panel">
-    <label>{{t "progress.my_grade"}}
-      <span class="grade-input">
-        <input name="grade" inputmode="decimal" value="{{or .GradeInput (points .HW.Grade)}}" placeholder="—">
-        {{with .HW.MaxPoints}}<span class="muted">/ {{points .}}</span>{{end}}
-      </span>
-    </label>
-    <button type="submit" class="secondary">{{t "progress.save_grade"}}</button>
-  </form>
+    <form method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
+          hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <input type="hidden" name="view" value="panel">
+      <div class="segmented status-segmented" role="group" aria-label="{{t "hw.status"}}">
+        {{range statuses}}
+        <button type="submit" name="status" value="{{.}}" data-status="{{.}}" aria-pressed="{{eq . $.HW.Status}}">{{icon (statusIcon .)}}{{statusLabel .}}</button>
+        {{end}}
+      </div>
+    </form>
+    <form class="grade-form" method="post" action="/g/{{.Code}}/homework/{{.HW.ID}}/progress"
+          hx-post="/g/{{.Code}}/homework/{{.HW.ID}}/progress" hx-target="#progress" hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <input type="hidden" name="view" value="panel">
+      <label class="field">
+        <span class="field-label">{{t "progress.my_grade"}}</span>
+        <span class="grade-input">
+          <input class="input" name="grade" inputmode="decimal" value="{{or .GradeInput (points .HW.Grade)}}" placeholder="—"{{if .Error}} aria-invalid="true"{{end}}>
+          {{with .HW.MaxPoints}}<span class="mono text-secondary">/ {{points .}}</span>{{end}}
+        </span>
+      </label>
+      <button type="submit" class="btn btn-secondary">{{t "progress.save_grade"}}</button>
+    </form>
+  </div>
 </section>
-{{if .UpdateBadge}}<span id="overdue-badge" hx-swap-oob="true">{{if .HW.Overdue}}<span class="badge warn">{{t "hw.overdue"}}</span>{{end}}</span>{{end}}
+{{if .UpdateBadge}}<span id="overdue-badge" hx-swap-oob="true">{{if .HW.Overdue}}<span class="badge badge-warning">{{icon "triangle-alert"}}{{t "hw.overdue"}}</span>{{end}}</span>{{end}}
 {{end}}
 {{end}}
 
-{{/* scheduleEvent is one class. Called with (classItem <schedule> <event>). */}}
-{{define "scheduleEvent"}}
-<li class="class{{if .E.Now}} now{{else if .Next}} next{{end}}">
-  <span class="class-time">{{clock .E.StartsAt}}–{{clock .E.EndsAt}}</span>
-  <div class="class-main">
-    <strong>{{.E.Title}}</strong>
-    <span class="muted">· {{classType .E}}{{with .E.Room}} · {{.}}{{end}}</span>
-    {{if .E.Now}}<span class="badge">{{t "schedule.now"}}</span>{{else if .Next}}<span class="badge">{{t "schedule.next"}}</span>{{end}}
-    {{with .E.ClassLinks}}
-    <div class="small">
-      {{range .}}<a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{t "action.join"}}{{with .Note}} ({{.}}){{end}}</a> {{end}}
+{{/* classRow is one class in a day's list. Called with
+   (classItem <schedule> <event>). */}}
+{{define "classRow"}}
+<li class="class-row{{if .E.Now}} is-now{{else if .Past}} is-past{{end}}">
+  <div class="time">{{clock .E.StartsAt}}<span>{{clock .E.EndsAt}}</span></div>
+  <div class="main">
+    <div class="row-head">
+      <span class="row-title">{{.E.Title}}</span>
+      {{if .E.Now}}<span class="badge badge-accent">{{t "schedule.now"}}</span>{{else if .Next}}<span class="badge">{{t "schedule.next"}}</span>{{end}}
     </div>
-    {{end}}
+    <div class="meta">
+      {{with classType .E}}<span class="subject" data-hue="{{hue $.E.SubjectID $.E.SubjectHue}}">{{.}}</span>{{end}}
+      {{with .E.Room}}<span class="meta-item mono">{{icon "map-pin"}}{{.}}</span>{{end}}
+    </div>
+  </div>
+  <div class="row-actions">
+    {{range .E.ClassLinks}}<a class="btn btn-secondary btn-sm" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{icon "video"}}{{t "action.join"}}{{with .Note}} · {{.}}{{end}}</a>{{end}}
   </div>
 </li>
 {{end}}
 
-{{/* scheduleStatus says where the schedule comes from and how fresh it is. */}}
+{{/* scheduleStatus is an alert when the schedule cannot be trusted: no
+   CIST source, never loaded, or the last sync failed. */}}
 {{define "scheduleStatus"}}
 {{with .Schedule}}
 {{if not .HasSource}}
-<p class="muted small">{{th "schedule.no_source"}}</p>
+<div class="alert alert-info" role="note">{{icon "info"}}<div>{{th "schedule.no_source"}}</div></div>
 {{else if not .Sync}}
-<p class="muted small">{{t "schedule.not_loaded"}}</p>
+<div class="alert alert-info" role="note">{{icon "info"}}<div>{{t "schedule.not_loaded"}}</div></div>
 {{else}}
-<p class="muted small">{{with .Sync.LastSuccessAt}}{{t "schedule.synced_at" "When" (datetime .)}}{{else}}{{t "schedule.never_synced"}}{{end}}</p>
 {{with .Sync.LastError}}
-<p class="warn-text small" role="note">{{t "schedule.sync_failed" "When" (when $.Schedule.Sync.LastAttemptAt) "Error" .}}
-  {{if $.Schedule.Sync.LastSuccessAt}}{{t "schedule.showing_last_good"}}{{end}}</p>
+<div class="alert alert-warning" role="note">{{icon "triangle-alert"}}<div><strong>{{t "schedule.sync_failed" "When" (when $.Schedule.Sync.LastAttemptAt) "Error" .}}</strong>
+  {{if $.Schedule.Sync.LastSuccessAt}}{{t "schedule.showing_last_good"}}{{end}}</div></div>
 {{end}}
 {{end}}
 {{end}}
 {{end}}
 
+{{/* syncLine says when the schedule was last synced with CIST. */}}
+{{define "syncLine"}}{{with .Sync}}{{with .LastSuccessAt}}{{t "schedule.synced_at" "When" (relWhen .)}}{{else}}{{t "schedule.never_synced"}}{{end}}{{end}}{{end}}
+
 {{/* feedbackBody is one piece of feedback: its kind, rating, date, whether
    it is resolved, and the message. */}}
 {{define "feedbackBody"}}
-<div class="feedback-head small">
-  <span class="badge">{{feedbackKind .Kind}}</span>
-  {{with .Rating}}<span class="stars" title="{{t "feedback.rated" "N" .}}">{{stars .}}</span>{{end}}
-  <span class="muted">{{when .CreatedAt}}</span>
-  {{if .ResolvedAt}}<span class="badge ok">{{t "feedback.resolved"}}</span>{{end}}
+<div class="meta feedback-head">
+  <span class="badge{{if eq (print .Kind) "bug"}} badge-danger{{end}}">{{feedbackKind .Kind}}</span>
+  {{with .Rating}}<span class="stars" title="{{t "feedback.rated" "N" .}}"><span aria-hidden="true">{{stars .}}</span><span class="sr-only">{{t "feedback.rated" "N" .}}</span></span>{{end}}
+  <span>{{relWhen .CreatedAt}}</span>
+  {{if .ResolvedAt}}<span class="badge badge-success">{{icon "circle-check"}}{{t "feedback.resolved"}}</span>{{end}}
 </div>
 <p class="feedback-message">{{.Message}}</p>
 {{end}}

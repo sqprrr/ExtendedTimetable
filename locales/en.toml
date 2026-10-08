@@ -5,7 +5,6 @@
 login = "Log in"
 logout = "Log out"
 sections = "Group sections"
-overview = "Overview"
 schedule = "Schedule"
 homework = "Homework"
 notes = "Notes"
@@ -14,6 +13,13 @@ resources = "Recordings & solutions"
 subjects = "Subjects"
 grades = "My grades"
 feedback = "Feedback"
+skip = "Skip to content"
+today = "Today"
+more = "More"
+grades_short = "Grades"
+group = "Group"
+my_groups = "My groups"
+homework_short = "Homework"
 members = "Members"
 admin_groups = "Groups"
 
@@ -29,6 +35,7 @@ cancel = "Cancel"
 edit = "Edit"
 delete = "Delete"
 join = "Join"
+more_actions = "More actions"
 
 [field]
 username = "Username"
@@ -51,12 +58,13 @@ date = "Date"
 due = "Due"
 max_points = "Max points"
 message = "Message"
+colour = "Colour"
 
 [form]
 choose_subject = "Choose a subject…"
 add_subject_first = 'Add a subject first on the <a href="{{.URL}}">Subjects</a> tab.'
-optional = "Optional."
 markdown_hint = "Markdown: <code>**bold**</code>, <code>- list</code>, <code>[text](https://…)</code>."
+optional_label = "Optional"
 
 [status]
 not_started = "Not started"
@@ -91,10 +99,9 @@ sat = "Saturday"
 sun = "Sunday"
 
 [home]
-title = "Home"
 hi = "Hi, {{.Name}}"
 your_role = "Your role:"
-open_group = "Homework, notes and class links →"
+open = "Open"
 no_groups = "You are not in a group. Ask your group leader for the invite link and open it to join."
 no_groups_admin = 'No groups yet. Create one in the <a href="/admin/groups">groups panel</a>.'
 
@@ -126,7 +133,6 @@ week_schedule = "Week schedule"
 no_classes_today = "No classes today."
 all_homework = "All homework"
 nothing_due = "Nothing due."
-all_notes = "All notes"
 manage = "Manage"
 all_links = "All links"
 
@@ -138,19 +144,20 @@ due = "due {{.When}}"
 no_deadline = "no deadline"
 overdue = "Overdue"
 max_points = "max {{.Points}} pts"
-your_grade = "your grade {{.Points}}"
 mark_as = "Mark as {{.Status}}"
 due_hint = "Leave empty for no deadline."
 links_placeholder = "Lab manual — https://…"
 links_hint = "One per line: an optional title, then the address, e.g. <code>Lab manual — https://…</code>"
 confirm_delete = "Delete this assignment?"
-back_to_list = "← All homework"
 status = "Status"
 all_subjects = "All subjects"
 all_statuses = "Any status"
 filter = "Filter"
 reset_filters = "Reset"
 no_matches = "No homework matches these filters."
+filters = "Filters"
+statuses_private = "only you see your statuses"
+empty_hint = "When the leader adds an assignment, it shows up here with its due date."
 
 [progress]
 title = "My progress"
@@ -160,11 +167,15 @@ my_grade = "My grade"
 save_grade = "Save grade"
 
 [grades]
-graded = "Graded"
-points = "Points"
 overall = "Overall"
 explain = "Only assignments with max points are counted. Points are the sum of your grades out of the sum of max points of those assignments, graded or not. Enter grades on each assignment's page."
 empty = "No assignments with max points yet."
+by_subject = "By subject"
+legend = "points · share of max"
+not_graded = "not graded yet"
+graded_of = "{{.Graded}} of {{.Assignments}} graded"
+total_meta = "{{.Earned}} of {{.Max}} points · {{.Graded}} of {{.Assignments}} graded"
+empty_hint = "Grades count once an assignment has max points and you enter your grade on its page."
 
 [notes]
 new_title = "New note"
@@ -174,35 +185,38 @@ pinned = "Pinned"
 pin = "Pin to the top"
 markdown_hint = "Markdown is supported."
 confirm_delete = "Delete this note?"
+empty_hint = "Announcements from the group leader show up here."
 
 [links]
 new_title = "Add a class link"
 edit_title = "Edit class link"
 empty = "No class links yet."
-note_hint = "Optional, e.g. “subgroup 1” or the meeting password."
+note_hint = "For example “subgroup 1” or the meeting password."
 confirm_delete = "Delete this class link?"
+empty_hint = "Meeting links for lectures, practices and labs; the schedule offers them as Join."
 
 [resources]
 new_title = "Add a recording or solution"
 edit_title = "Edit link"
 empty = "No recordings or solutions yet."
 link_hint = "YouTube, Google Drive, Teams, GitHub… Files are not uploaded here."
-date_hint = "Optional: the date of the class."
+date_hint = "The date of the class."
 confirm_delete = "Delete this link?"
+empty_hint = "Links to class recordings and solutions show up here."
 
 [subjects]
 new_title = "Add a subject"
 edit_title = "Edit subject"
 empty = "No subjects yet."
-short_name_hint = "Optional, e.g. “ОП” or “ВМ”."
+short_name_hint = "For example “ОП” or “ВМ”."
 confirm_delete = "Delete subject “{{.Name}}”?"
+empty_hint = "Subjects come from CIST with the schedule, or the leader adds them."
+hue_auto = "Automatic"
+hue_hint = "The colour marks the subject in the schedule, homework and grades."
 
 [schedule]
-week_of = "Week of {{.Date}}"
 weeks = "Weeks"
-prev = "← Previous"
 this_week = "This week"
-next_week = "Next →"
 sync_now = "Sync with CIST now"
 no_classes = "No classes."
 now = "Now"
@@ -215,6 +229,15 @@ never_synced = "Never synced with CIST successfully."
 sync_failed = "The last sync ({{.When}}) failed: {{.Error}}."
 showing_last_good = "Showing the last good copy."
 subjects_note = "Subjects that appear in the timetable for the first time are added to <a href=\"{{.URL}}\">Subjects</a> under CIST's short name. Leaders can rename them freely, and deleted ones are not added back."
+no_link = "No meeting link"
+view = "View"
+view_day = "Day"
+view_week = "Week"
+days = "Days"
+prev_week = "Previous week"
+next_week_label = "Next week"
+week_range = "{{.From}}–{{.To}} {{.Month}}"
+week_range_months = "{{.From}} {{.FromMonth}} – {{.To}} {{.ToMonth}}"
 
 [feedback]
 title = "Feedback"
@@ -278,7 +301,6 @@ invite_link = "Link"
 invite_expires = "Works until {{.When}}. A new link replaces this one at once; members who joined stay."
 regenerate = "Create a new link"
 confirm_regenerate = "Create a new link? This one will stop working at once."
-role = "Role"
 joined = "Joined"
 you = "you"
 remove = "Remove"
@@ -292,7 +314,6 @@ leave_submit = "Leave the group"
 confirm_leave = "Leave {{.Group}}? You will need an invite link to come back."
 log = "Group log"
 log_empty = "Nothing has happened yet."
-event = "Event"
 by = "By"
 whom = "Member"
 cli = "server CLI"
@@ -315,9 +336,9 @@ no_groups = "No groups yet."
 new_group = "New group"
 group_code = "Code"
 group_code_hint = "Latin letters, digits, '-' and '_', e.g. KIUKI-25-3."
-group_name_hint = "Optional: defaults to the code."
+group_name_hint = "Defaults to the code."
 cist_id = "CIST timetable id"
-cist_id_hint = "Optional. Find it on the server with <code>extt admin find-cist-group КІУКІ-25-3</code>."
+cist_id_hint = "Find it on the server with <code>extt admin find-cist-group КІУКІ-25-3</code>."
 create_group = "Create group"
 
 # Errors. {{.Field}} is a translated field name from [field].
@@ -356,6 +377,8 @@ sync_disabled = "Schedule sync is turned off on this server."
 sync_running = "The schedule is being synced right now, try again in a minute."
 feedback_kind = "Choose bug report, suggestion or review."
 rating = "Rating must be 1 to 5 stars."
+theme = "Choose light, dark or system."
+hue = "Choose one of the eight colours."
 invite_invalid = "This invite link is invalid or has expired. Ask your group leader for a new one."
 in_other_group = "You are already in the group {{.Group}}. Leave it on its Members page before joining another."
 leader_taken = "The group already has a leader."
@@ -382,3 +405,103 @@ other = "The range must be positive and at most {{.Count}} days."
 [err.sync_too_soon]
 one = "The schedule was synced less than {{.Count}} minute ago, try again later."
 other = "The schedule was synced less than {{.Count}} minutes ago, try again later."
+
+[theme]
+label = "Theme"
+light = "Light"
+dark = "Dark"
+system = "As on device"
+
+[more]
+settings = "Settings"
+language = "Language"
+
+[today]
+classes = "Classes today"
+due_soon = "Due soon"
+read_more = "Read more"
+current_class = "Current class"
+next_class = "Next class"
+next_at = "Next · {{.When}}"
+after = "Next: {{.Title}} · {{.Time}}"
+no_upcoming = "No upcoming classes"
+no_upcoming_hint = "Classes show up here as soon as CIST lists them."
+
+[when]
+today = "today, {{.Time}}"
+tomorrow = "tomorrow, {{.Time}}"
+yesterday = "yesterday, {{.Time}}"
+weekday = "{{.Day}}, {{.Time}}"
+date = "{{.Day}} {{.Month}}"
+date_year = "{{.Day}} {{.Month}} {{.Year}}"
+date_time = "{{.Date}}, {{.Time}}"
+long_date = "{{.Weekday}}, {{.Day}} {{.Month}}"
+
+[month.short]
+jan = "Jan"
+feb = "Feb"
+mar = "Mar"
+apr = "Apr"
+may = "May"
+jun = "Jun"
+jul = "Jul"
+aug = "Aug"
+sep = "Sep"
+oct = "Oct"
+nov = "Nov"
+dec = "Dec"
+
+[month.long]
+jan = "January"
+feb = "February"
+mar = "March"
+apr = "April"
+may = "May"
+jun = "June"
+jul = "July"
+aug = "August"
+sep = "September"
+oct = "October"
+nov = "November"
+dec = "December"
+
+[today.now_left]
+one = "Now · {{.Count}} min left"
+other = "Now · {{.Count}} min left"
+
+[today.next_in]
+one = "Next · in {{.Count}} min"
+other = "Next · in {{.Count}} min"
+
+[hw.overdue_days]
+one = "{{.Count}} day overdue"
+other = "{{.Count}} days overdue"
+
+[schedule.count]
+one = "{{.Count}} class"
+other = "{{.Count}} classes"
+
+[hw.group]
+overdue = "Overdue"
+week = "This week"
+later = "Later"
+none = "No deadline"
+done = "Done"
+
+[hw.summary_overdue]
+one = "{{.Count}} overdue"
+other = "{{.Count}} overdue"
+
+[hw.summary_week]
+one = "{{.Count}} due this week"
+other = "{{.Count}} due this week"
+
+[hue]
+blue = "Blue"
+teal = "Teal"
+green = "Green"
+amber = "Amber"
+orange = "Orange"
+rose = "Rose"
+violet = "Violet"
+slate = "Slate"

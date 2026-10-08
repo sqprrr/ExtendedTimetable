@@ -291,3 +291,28 @@ func TestSecurityHeadersAndCookies(t *testing.T) {
 		t.Errorf("static asset: %d", code)
 	}
 }
+
+// Pages link to static files by content hash, and those URLs may be cached
+// for good; the CSP stays 'self' only.
+func TestVersionedStaticAssets(t *testing.T) {
+	e := newEnv(t)
+	b := e.browser(t)
+	_, body, hdr := b.get("/login")
+	if csp := hdr.Get("Content-Security-Policy"); !strings.HasPrefix(csp, "default-src 'self';") || strings.Contains(csp, "unsafe-inline") {
+		t.Errorf("CSP = %q", csp)
+	}
+	for _, name := range []string{"style.css", "app.js", "htmx.min.js"} {
+		m := regexp.MustCompile(`"(/static/` + regexp.QuoteMeta(name) + `\?v=[0-9a-f]{12})"`).FindStringSubmatch(body)
+		if m == nil {
+			t.Errorf("%s is not linked by a versioned URL", name)
+			continue
+		}
+		code, _, h := b.get(m[1])
+		if code != http.StatusOK || h.Get("Cache-Control") != "public, max-age=31536000, immutable" {
+			t.Errorf("%s: %d, Cache-Control = %q", m[1], code, h.Get("Cache-Control"))
+		}
+	}
+	if strings.Contains(body, `"/static/style.css"`) {
+		t.Error("an unversioned static URL is still on the page")
+	}
+}

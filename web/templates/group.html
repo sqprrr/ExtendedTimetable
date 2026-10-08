@@ -1,72 +1,130 @@
-{{define "title"}}{{.Group.Code}}{{end}}
+{{define "title"}}{{t "nav.today"}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-today{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
+{{$g := print "/g/" .Group.Code}}
+<header class="page-head">
+  <div>
+    <h1>{{t "nav.today"}}</h1>
+    <p class="subtitle">{{longDate now}}</p>
+  </div>
+  <a class="btn btn-secondary hide-sm" href="{{$g}}/schedule"{{boost}}>{{icon "calendar-days"}}{{t "overview.week_schedule"}}</a>
+</header>
+{{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 
 {{if and (not .Group.Leader) (eq .Group.Role "student")}}
-<section class="card">
-  <p>{{t "members.no_leader"}}</p>
-  <form method="post" action="/g/{{.Group.Code}}/leader/claim" class="inline" data-confirm="{{t "members.confirm_claim"}}">
+<div class="alert alert-info claim" role="note">{{icon "info"}}
+  <div>{{t "members.no_leader"}}</div>
+  <form method="post" action="{{$g}}/leader/claim" data-confirm="{{t "members.confirm_claim"}}">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <button type="submit">{{t "members.claim"}}</button>
+    <button type="submit" class="btn btn-secondary btn-sm">{{t "members.claim"}}</button>
   </form>
-</section>
+</div>
 {{end}}
+<div class="today-grid">
+  <div class="stack">
+    {{with .Schedule}}{{if or (not .HasSource) (not .Sync) .Sync.LastError}}{{template "scheduleStatus" $}}{{end}}{{end}}
 
-{{with .Schedule}}
-<section class="card">
-  <div class="card-head">
-    <h2>{{t "overview.today"}}</h2>
-    <a href="/g/{{$.Group.Code}}/schedule">{{t "overview.week_schedule"}}</a>
-  </div>
-  {{if .Events}}
-  <ul class="classes">
-    {{range .Events}}{{template "scheduleEvent" (classItem $.Schedule .)}}{{end}}
-  </ul>
-  {{else if .HasSource}}
-  <p class="muted">{{t "overview.no_classes_today"}}</p>
-  {{end}}
-  {{with nextLater .}}
-  <p>{{t "schedule.next_class"}} <strong>{{.Title}}</strong> <span class="muted">· {{classType .}} · {{dayName .StartsAt}}, {{clock .StartsAt}}</span></p>
-  {{end}}
-  {{if or (not .HasSource) (not .Sync) .Sync.LastError}}{{template "scheduleStatus" $}}{{end}}
-</section>
-{{end}}
+    {{with .NowCard}}
+    <section class="now-card{{if .Live}} is-now{{end}}" aria-label="{{if .Live}}{{t "today.current_class"}}{{else}}{{t "today.next_class"}}{{end}}">
+      <div class="now-state">{{.State}}</div>
+      <div class="now-body">
+        <h2 class="now-title">{{.E.Title}}</h2>
+        <div class="meta">
+          {{with classType .E}}<span class="subject-chip" data-hue="{{hue $.NowCard.E.SubjectID $.NowCard.E.SubjectHue}}">{{.}}</span>{{end}}
+          {{with .E.Room}}<span class="meta-item mono">{{icon "map-pin"}}{{.}}</span>{{end}}
+        </div>
+      </div>
+      <div class="now-time">
+        {{if .Live}}<progress class="bar bar-thin" value="{{.Elapsed}}" max="{{.Total}}"></progress>{{end}}
+        <div class="ends"><span>{{clock .E.StartsAt}}</span><span>{{clock .E.EndsAt}}</span></div>
+      </div>
+      <div class="now-foot">
+        <span class="meta">{{with .After}}{{t "today.after" "Title" .Title "Time" (clock .StartsAt)}}{{end}}</span>
+        <div class="btn-row">
+          {{range $i, $l := .E.ClassLinks}}
+          <a class="btn {{if eq $i 0}}btn-primary{{else}}btn-secondary{{end}}" href="{{$l.URL}}" target="_blank" rel="noopener noreferrer">{{icon "video"}}{{t "action.join"}}{{with $l.Note}} · {{.}}{{end}}</a>
+          {{else}}
+          <span class="text-tertiary">{{t "schedule.no_link"}}</span>
+          {{end}}
+        </div>
+      </div>
+    </section>
+    {{else}}{{if and .Schedule .Schedule.HasSource}}
+    <section class="card">
+      <div class="empty">
+        <span class="glyph">{{icon "calendar-days"}}</span>
+        <h3>{{t "today.no_upcoming"}}</h3>
+        <p>{{t "today.no_upcoming_hint"}}</p>
+      </div>
+    </section>
+    {{end}}{{end}}
 
-<section class="card">
-  <div class="card-head">
-    <h2>{{t "nav.homework"}}</h2>
-    <a href="/g/{{.Group.Code}}/homework">{{t "overview.all_homework"}}</a>
+    {{with .Schedule}}{{if .HasSource}}
+    <section class="card">
+      <div class="card-head">
+        <h2>{{t "today.classes"}}</h2>
+        <a class="action" href="{{$g}}/schedule"{{boost}}>{{t "overview.week_schedule"}}{{icon "chevron-right"}}</a>
+      </div>
+      {{with .Events}}
+      <ul class="rows">
+        {{range .}}{{template "classRow" (classItem $.Schedule .)}}{{end}}
+      </ul>
+      {{else}}
+      <p class="text-tertiary">{{t "overview.no_classes_today"}}</p>
+      {{end}}
+    </section>
+    {{end}}{{end}}
   </div>
-  {{with .HomeworkList}}
-  <ul class="items">
-    {{range .}}{{template "homeworkItem" (hwItem $ . "overview")}}{{end}}
-  </ul>
-  {{else}}
-  <p class="muted">{{t "overview.nothing_due"}}</p>
-  {{end}}
-</section>
 
-<section class="card">
-  <div class="card-head">
-    <h2>{{t "nav.notes"}}</h2>
-    <a href="/g/{{.Group.Code}}/notes">{{t "overview.all_notes"}}</a>
-  </div>
-  {{range .Notes}}
-  <article class="note{{if .Pinned}} pinned{{end}}">
-    <h3>{{if .Pinned}}<span class="badge">{{t "notes.pinned"}}</span> {{end}}{{.Title}}</h3>
-    <p class="muted small">{{date .CreatedAt}}</p>
-    <div class="md">{{markdown .BodyMD}}</div>
-  </article>
-  {{else}}
-  <p class="muted">{{t "notes.empty"}}</p>
-  {{end}}
-</section>
+  <div class="stack">
+    <section class="card">
+      <div class="card-head">
+        <h2>{{t "today.due_soon"}}</h2>
+        <a class="action" href="{{$g}}/homework"{{boost}}>{{t "overview.all_homework"}}{{icon "chevron-right"}}</a>
+      </div>
+      {{with .HomeworkList}}
+      <ul class="rows">
+        {{range .}}{{template "homeworkItem" (hwItem $ . "overview")}}{{end}}
+      </ul>
+      {{else}}
+      <p class="text-tertiary">{{t "overview.nothing_due"}}</p>
+      {{end}}
+    </section>
 
-<section class="card">
-  <div class="card-head">
-    <h2>{{t "nav.links"}}</h2>
-    <a href="/g/{{.Group.Code}}/links">{{if .Group.CanManage}}{{t "overview.manage"}}{{else}}{{t "overview.all_links"}}{{end}}</a>
+    {{with .Notes}}{{with index . 0}}
+    <article class="card note">
+      <div class="note-head">
+        {{if .Pinned}}<span class="badge badge-accent">{{icon "pin"}}{{t "notes.pinned"}}</span>{{end}}
+        <h2>{{.Title}}</h2>
+      </div>
+      <div class="meta">{{shortDate .CreatedAt}}</div>
+      <div class="md clamp-3">{{markdown .BodyMD}}</div>
+      <a class="read-more" href="{{$g}}/notes#note-{{.ID}}"{{boost}}>{{t "today.read_more"}}</a>
+    </article>
+    {{end}}{{end}}
+
+    {{with .ClassLinks}}
+    <section class="card">
+      <div class="card-head">
+        <h2>{{t "nav.links"}}</h2>
+        <a class="action" href="{{$g}}/links"{{boost}}>{{if $.Group.CanManage}}{{t "overview.manage"}}{{else}}{{t "overview.all_links"}}{{end}}{{icon "chevron-right"}}</a>
+      </div>
+      <ul class="rows">
+        {{range .}}
+        <li class="link-row">
+          <div class="main">
+            <span class="row-title">{{.SubjectName}}</span>
+            <div class="meta">
+              <span class="subject" data-hue="{{hue .SubjectID .SubjectHue}}">{{lessonLabel .LessonType}}</span>
+              {{with .Note}}<span class="meta-item">{{.}}</span>{{end}}
+            </div>
+          </div>
+          <a class="btn btn-secondary btn-sm" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{icon "video"}}{{t "action.join"}}</a>
+        </li>
+        {{end}}
+      </ul>
+    </section>
+    {{end}}
   </div>
-  {{template "classLinkTable" .}}
-</section>
+</div>
 {{end}}

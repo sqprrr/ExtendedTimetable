@@ -365,3 +365,38 @@ func TestGroupOverview(t *testing.T) {
 		t.Fatalf("overview notes = %v", notes)
 	}
 }
+
+func TestSubjectHue(t *testing.T) {
+	if got := service.Hue(1, ""); got != "teal" {
+		t.Errorf("default hue of subject 1 = %q, want teal", got)
+	}
+	if got := service.Hue(9, "rose"); got != "rose" {
+		t.Errorf("chosen hue = %q, want rose", got)
+	}
+	if got := service.Hue(8, "pink"); got != "blue" {
+		t.Errorf("unknown stored hue = %q, want the default blue", got)
+	}
+
+	f := setup(t)
+	lead := f.leader(t, "lead")
+	gid := f.group.ID
+	sub, err := f.svc.CreateSubject(lead, gid, service.SubjectInput{Name: "Physics", Hue: "violet"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hw, err := f.svc.CreateHomework(lead, gid, service.HomeworkInput{SubjectID: sub.ID, Title: "Lab 1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.svc.Homework(lead, gid, hw.ID); got.SubjectHue != "violet" {
+		t.Errorf("homework carries hue %q, want violet", got.SubjectHue)
+	}
+	_, err = f.svc.UpdateSubject(lead, gid, sub.ID, service.SubjectInput{Name: "Physics", Hue: "pink"})
+	wantInputError(t, err, "hue")
+	if _, err := f.svc.UpdateSubject(lead, gid, sub.ID, service.SubjectInput{Name: "Physics"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.svc.Subject(lead, gid, sub.ID); got.Hue != "" {
+		t.Errorf("an empty hue should go back to the default, got %q", got.Hue)
+	}
+}

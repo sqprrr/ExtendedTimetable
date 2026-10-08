@@ -1,42 +1,71 @@
 {{define "title"}}{{t "nav.links"}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-links{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
-{{if .EditID}}
-<section class="card">
-  <h2>{{t "links.edit_title"}}</h2>
-  {{template "form" .}}
+{{if or .EditID .New}}
+{{template "formHead" .}}
+<section class="card">{{template "form" .}}</section>
+{{else}}
+{{$g := print "/g/" .Group.Code}}
+<header class="page-head">
+  <div><h1>{{t "nav.links"}}</h1></div>
+  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/links/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+</header>
+{{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+{{with .ClassLinks}}
+<section class="card card-flush" aria-label="{{t "nav.links"}}">
+  <ul class="rows">
+    {{range .}}
+    <li class="link-row">
+      <div class="main">
+        <span class="row-title">{{.SubjectName}}</span>
+        <div class="meta">
+          <span class="subject" data-hue="{{hue .SubjectID .SubjectHue}}">{{lessonLabel .LessonType}}</span>
+          {{with .Note}}<span class="meta-item">{{.}}</span>{{end}}
+        </div>
+      </div>
+      <div class="row-end">
+        <a class="btn btn-secondary btn-sm" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{icon "video"}}{{t "action.join"}}</a>
+        {{if $.Group.CanManage}}{{template "rowMenu" (rowMenu (print $g "/links/" .ID) (t "links.confirm_delete") $.CSRFToken)}}{{end}}
+      </div>
+    </li>
+    {{end}}
+  </ul>
 </section>
 {{else}}
 <section class="card">
-  <h2>{{t "nav.links"}}</h2>
-  {{template "classLinkTable" .}}
-</section>
-{{if .Group.CanManage}}
-<section class="card">
-  <h2>{{t "links.new_title"}}</h2>
-  {{template "form" .}}
+  <div class="empty">
+    <span class="glyph">{{icon "link"}}</span>
+    <h3>{{t "links.empty"}}</h3>
+    <p>{{t "links.empty_hint"}}</p>
+    {{if $.Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/links/new"{{boost}}>{{icon "plus"}}{{t "links.new_title"}}</a>{{end}}
+  </div>
 </section>
 {{end}}
 {{end}}
 {{end}}
 
 {{define "form"}}
-<form method="post" action="/g/{{.Group.Code}}/links{{if .EditID}}/{{.EditID}}{{end}}">
+<form class="form" method="post" action="/g/{{.Group.Code}}/links{{if .EditID}}/{{.EditID}}{{end}}">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-  {{template "subjectSelect" .}}
-  <label>{{t "field.lesson_type"}}
-    <select name="lesson_type" required>
-      {{range lessonTypes}}
-      <option value="{{.}}"{{if eq (print .) (index $.Fields "lesson_type")}} selected{{end}}>{{lessonLabel .}}</option>
-      {{end}}
-    </select>
+  <div class="form-row">
+    {{template "subjectSelect" .}}
+    <label class="field">
+      <span class="field-label">{{t "field.lesson_type"}}</span>
+      <select class="select" name="lesson_type" required>
+        {{range lessonTypes}}
+        <option value="{{.}}"{{if eq (print .) (index $.Fields "lesson_type")}} selected{{end}}>{{lessonLabel .}}</option>
+        {{end}}
+      </select>
+    </label>
+  </div>
+  <label class="field">
+    <span class="field-label">{{t "field.meeting_link"}}</span>
+    <input class="input" name="url" type="url" value="{{index .Fields "url"}}" placeholder="https://meet.google.com/…" required>
   </label>
-  <label>{{t "field.meeting_link"}}
-    <input name="url" type="url" value="{{index .Fields "url"}}" placeholder="https://meet.google.com/…" required>
-  </label>
-  <label>{{t "field.note"}}
-    <input name="note" value="{{index .Fields "note"}}" maxlength="200">
-    <small class="muted">{{t "links.note_hint"}}</small>
+  <label class="field">
+    <span class="field-label">{{t "field.note"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+    <input class="input" name="note" value="{{index .Fields "note"}}" maxlength="200">
+    <span class="field-hint">{{t "links.note_hint"}}</span>
   </label>
   {{template "formButtons" .}}
 </form>

@@ -1,15 +1,31 @@
-{{define "title"}}{{t "home.title"}}{{end}}
+{{define "title"}}{{t "nav.my_groups"}}{{end}}
+{{define "mainClass"}}page-home{{end}}
 {{define "content"}}
-<h1>{{t "home.hi" "Name" .Viewer.Username}}</h1>
+<header class="page-head">
+  <div>
+    <h1>{{t "home.hi" "Name" .Viewer.Username}}</h1>
+    <p class="subtitle">{{t "nav.my_groups"}}</p>
+  </div>
+</header>
 {{with .Groups}}
+<div class="group-cards"{{boost}}>
   {{range .}}
-  <section class="card">
-    <h2><a href="/g/{{.Code}}">{{.Name}}</a>{{if ne .Name .Code}} <span class="muted">({{.Code}})</span>{{end}}</h2>
-    {{with .Role}}<p>{{t "home.your_role"}} <strong>{{roleLabel .}}</strong></p>{{end}}
-    <p><a href="/g/{{.Code}}">{{t "home.open_group"}}</a></p>
+  <section class="card group-card" aria-labelledby="group-{{.Code}}">
+    <div class="card-head">
+      <h2 id="group-{{.Code}}"><a class="link-quiet" href="/g/{{.Code}}">{{.Name}}</a></h2>
+      <span class="group-code">{{.Code}}</span>
+    </div>
+    {{with .Role}}<p class="small-text">{{t "home.your_role"}} <strong>{{roleLabel .}}</strong></p>{{end}}
+    <a class="btn btn-secondary btn-sm" href="/g/{{.Code}}">{{icon "house"}}{{t "home.open"}}</a>
   </section>
   {{end}}
+</div>
 {{else}}
-  <p class="muted">{{if .Viewer.IsSuperadmin}}{{th "home.no_groups_admin"}}{{else}}{{t "home.no_groups"}}{{end}}</p>
+<section class="card">
+  <div class="empty">
+    <span class="glyph">{{icon "graduation-cap"}}</span>
+    <h3>{{if .Viewer.IsSuperadmin}}{{th "home.no_groups_admin"}}{{else}}{{t "home.no_groups"}}{{end}}</h3>
+  </div>
+</section>
 {{end}}
 {{end}}

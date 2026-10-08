@@ -1,47 +1,52 @@
 {{define "title"}}{{t "feedback.title"}}{{end}}
+{{define "mainClass"}}page-feedback{{end}}
 {{define "content"}}
-<h1>{{t "feedback.title"}}</h1>
-{{with .Notice}}<p class="ok" role="status">{{.}}</p>{{end}}
-{{if .Viewer.IsSuperadmin}}
-<p><a href="/admin/feedback">{{t "feedback.inbox_link" "N" .FeedbackOpen}}</a></p>
-{{end}}
-<section class="card">
-  <p class="muted">{{t "feedback.intro"}}</p>
-  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
-  <form method="post" action="/feedback">
-    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <div class="row">
-      <label>{{t "feedback.kind_label"}}
-        <select name="kind" required>
-          {{range feedbackKinds}}
-          <option value="{{.}}"{{if eq (print .) (index $.Fields "kind")}} selected{{end}}>{{feedbackKind .}}</option>
-          {{end}}
-        </select>
+<header class="page-head">
+  <div>
+    <h1>{{t "feedback.title"}}</h1>
+    <p class="subtitle">{{t "feedback.intro"}}</p>
+  </div>
+  {{if .Viewer.IsSuperadmin}}<a class="btn btn-secondary" href="/admin/feedback">{{icon "list-checks"}}{{t "feedback.inbox_link" "N" .FeedbackOpen}}</a>{{end}}
+</header>
+<div class="section-gap">
+  {{with .Notice}}<div class="alert alert-success" role="status">{{icon "circle-check"}}<div>{{.}}</div></div>{{end}}
+  <section class="card" aria-label="{{t "feedback.title"}}">
+    {{with .Error}}<div class="alert alert-danger form-alert" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+    <form class="form" method="post" action="/feedback">
+      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      <div class="form-row">
+        <label class="field">
+          <span class="field-label">{{t "feedback.kind_label"}}</span>
+          <select class="select" name="kind" required>
+            {{range feedbackKinds}}
+            <option value="{{.}}"{{if eq (print .) (index $.Fields "kind")}} selected{{end}}>{{feedbackKind .}}</option>
+            {{end}}
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">{{t "feedback.rating"}} <span class="optional">· {{t "feedback.rating_hint"}}</span></span>
+          <select class="select" name="rating">
+            <option value="">—</option>
+            {{range $n := ratings}}
+            <option value="{{$n}}"{{if eq (print $n) (index $.Fields "rating")}} selected{{end}}>{{stars $n}}</option>
+            {{end}}
+          </select>
+        </label>
+      </div>
+      <label class="field">
+        <span class="field-label">{{t "field.message"}}</span>
+        <textarea class="textarea" name="message" rows="6" maxlength="4000" required>{{index .Fields "message"}}</textarea>
       </label>
-      <label>{{t "feedback.rating"}}
-        <select name="rating">
-          <option value="">—</option>
-          {{range $n := ratings}}
-          <option value="{{$n}}"{{if eq (print $n) (index $.Fields "rating")}} selected{{end}}>{{stars $n}}</option>
-          {{end}}
-        </select>
-        <small class="muted">{{t "feedback.rating_hint"}}</small>
-      </label>
-    </div>
-    <label>{{t "field.message"}}
-      <textarea name="message" rows="6" maxlength="4000" required>{{index .Fields "message"}}</textarea>
-    </label>
-    <div class="form-actions">
-      <button type="submit">{{t "feedback.send"}}</button>
-    </div>
-  </form>
-</section>
-{{with .Feedback}}
-<section class="card">
-  <h2>{{t "feedback.mine"}}</h2>
-  <ul class="items">
-    {{range .}}<li class="feedback{{if .ResolvedAt}} resolved{{end}}">{{template "feedbackBody" .}}</li>{{end}}
-  </ul>
-</section>
-{{end}}
+      <div class="btn-row"><button type="submit" class="btn btn-primary">{{t "feedback.send"}}</button></div>
+    </form>
+  </section>
+  {{with .Feedback}}
+  <section class="card" aria-labelledby="feedback-mine">
+    <div class="card-head"><h2 id="feedback-mine">{{t "feedback.mine"}}</h2></div>
+    <ul class="rows">
+      {{range .}}<li class="feedback{{if .ResolvedAt}} resolved{{end}}">{{template "feedbackBody" .}}</li>{{end}}
+    </ul>
+  </section>
+  {{end}}
+</div>
 {{end}}

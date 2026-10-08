@@ -1,18 +1,21 @@
 {{define "title"}}{{t "login.title"}}{{end}}
+{{define "mainClass"}}page-login{{end}}
 {{define "content"}}
-<section class="card narrow">
+<section class="card auth-card">
   <h1>{{t "login.title"}}</h1>
-  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
-  <form method="post" action="/login">
+  {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+  <form class="form" method="post" action="/login">
     <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <label>{{t "field.username"}}
-      <input name="username" value="{{.Form.Username}}" autocomplete="username" required autofocus>
+    <label class="field">
+      <span class="field-label">{{t "field.username"}}</span>
+      <input class="input" name="username" value="{{.Form.Username}}" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
     </label>
-    <label>{{t "field.password"}}
-      <input name="password" type="password" autocomplete="current-password" required>
+    <label class="field">
+      <span class="field-label">{{t "field.password"}}</span>
+      <input class="input" name="password" type="password" autocomplete="current-password" required>
     </label>
-    <button type="submit">{{t "login.submit"}}</button>
+    <button type="submit" class="btn btn-primary btn-block">{{t "login.submit"}}</button>
   </form>
-  <p class="muted">{{th "login.no_account"}}</p>
+  <p class="small-text">{{th "login.no_account"}}</p>
 </section>
 {{end}}

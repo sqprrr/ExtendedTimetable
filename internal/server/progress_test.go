@@ -35,7 +35,7 @@ func setupHomework(t *testing.T, e *env, lead *browser) string {
 	t.Helper()
 	const g = "/g/KIUKI-25-3"
 	lead.submit(g+"/subjects", g+"/subjects", url.Values{"name": {"Physics"}})
-	_, body, _ := lead.get(g + "/homework")
+	_, body, _ := lead.get(g + "/homework/new")
 	m := subjectOptionRe.FindStringSubmatch(body)
 	if m == nil {
 		t.Fatal("no subject option")
@@ -46,7 +46,7 @@ func setupHomework(t *testing.T, e *env, lead *browser) string {
 		t.Fatalf("create homework: %d", code)
 	}
 	_, body, _ = lead.get(g + "/homework")
-	hm := regexp.MustCompile(`href="(` + g + `/homework/\d+)"><strong>Lab 1`).FindStringSubmatch(body)
+	hm := regexp.MustCompile(`<a class="row-title" href="(` + g + `/homework/\d+)"[^>]*>Lab 1<`).FindStringSubmatch(body)
 	if hm == nil {
 		t.Fatalf("homework link missing:\n%s", body)
 	}
@@ -60,20 +60,20 @@ func TestStatusToggleWithHtmx(t *testing.T) {
 	hwURL := setupHomework(t, e, lead)
 
 	_, body, _ := stud.get("/g/KIUKI-25-3/homework")
-	if !strings.Contains(body, `class="status status-not_started"`) || !strings.Contains(body, `name="status" value="in_progress"`) {
+	if !strings.Contains(body, `class="status-check" data-status="not_started"`) || !strings.Contains(body, `name="status" value="in_progress"`) {
 		t.Fatalf("list should offer the toggle:\n%s", body)
 	}
-	if !strings.Contains(body, `<script src="/static/htmx.min.js"`) {
+	if !strings.Contains(body, `<script src="/static/htmx.min.js?v=`) {
 		t.Fatal("htmx is not loaded")
 	}
 	tok := stud.csrf()
 
 	// htmx gets just the list item back, already showing the new status.
 	code, frag := stud.htmx(hwURL+"/progress", tok, url.Values{"view": {"item"}, "from": {"list"}, "status": {"in_progress"}})
-	if code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(frag), `<li class="hw`) || strings.Contains(frag, "<html") {
+	if code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(frag), `<li class="hw-row`) || strings.Contains(frag, "<html") {
 		t.Fatalf("htmx toggle: %d\n%s", code, frag)
 	}
-	if !strings.Contains(frag, "status-in_progress") || !strings.Contains(frag, `name="status" value="done"`) {
+	if !strings.Contains(frag, `data-status="in_progress"`) || !strings.Contains(frag, "In progress. Mark as Done") || !strings.Contains(frag, `name="status" value="done"`) {
 		t.Fatalf("fragment should show in progress and offer done:\n%s", frag)
 	}
 
@@ -82,7 +82,7 @@ func TestStatusToggleWithHtmx(t *testing.T) {
 	if code != http.StatusSeeOther || h.Get("Location") != "/g/KIUKI-25-3" {
 		t.Fatalf("plain toggle: %d %s", code, h.Get("Location"))
 	}
-	if _, body, _ := stud.get(hwURL); !strings.Contains(body, `class="status status-done" aria-pressed="true"`) {
+	if _, body, _ := stud.get(hwURL); !strings.Contains(body, `data-status="done" aria-pressed="true"`) {
 		t.Fatalf("detail page should show done:\n%s", body)
 	}
 
@@ -109,7 +109,7 @@ func TestStatusToggleWithHtmx(t *testing.T) {
 	}
 
 	// The leader's own tracker is untouched.
-	if _, body, _ := lead.get(hwURL); !strings.Contains(body, `class="status status-not_started" aria-pressed="true"`) {
+	if _, body, _ := lead.get(hwURL); !strings.Contains(body, `data-status="not_started" aria-pressed="true"`) {
 		t.Fatal("the leader must not see the student's status")
 	}
 }
@@ -127,7 +127,7 @@ func TestGradeFormAndMyGrades(t *testing.T) {
 		t.Fatalf("too high grade: %d\n%s", code, frag)
 	}
 	code, frag = stud.htmx(hwURL+"/progress", tok, url.Values{"view": {"panel"}, "grade": {"7,5"}})
-	if code != http.StatusOK || !strings.Contains(frag, `value="7.5"`) || strings.Contains(frag, `class="error"`) {
+	if code != http.StatusOK || !strings.Contains(frag, `value="7.5"`) || strings.Contains(frag, "alert-danger") {
 		t.Fatalf("save grade: %d\n%s", code, frag)
 	}
 
@@ -139,10 +139,11 @@ func TestGradeFormAndMyGrades(t *testing.T) {
 	}
 
 	_, body, _ = stud.get("/g/KIUKI-25-3/grades")
-	if !strings.Contains(body, "My grades") || !strings.Contains(body, "7.5 / 10") || !strings.Contains(body, "75%") {
+	if !strings.Contains(body, "My grades") || !strings.Contains(body, "<strong>7.5</strong> / 10") || !strings.Contains(body, "75%") {
 		t.Fatalf("my grades:\n%s", body)
 	}
-	if _, body, _ := lead.get("/g/KIUKI-25-3/grades"); strings.Contains(body, "7.5") {
+	// (Not just "7.5": icon paths hold numbers like that.)
+	if _, body, _ := lead.get("/g/KIUKI-25-3/grades"); strings.Contains(body, "<strong>7.5</strong>") || strings.Contains(body, "75%") {
 		t.Fatal("the leader must not see the student's grades")
 	}
 	if _, body, _ := lead.get(hwURL); strings.Contains(body, `value="7.5"`) {
@@ -246,7 +247,7 @@ func TestHomeworkFilters(t *testing.T) {
 	const list = "/g/KIUKI-25-3/homework"
 
 	_, body, _ := stud.get(list)
-	if !strings.Contains(body, `<form class="filters" method="get"`) || !strings.Contains(body, `<select name="status">`) {
+	if !strings.Contains(body, `<form class="filters" method="get"`) || !strings.Contains(body, `<input type="radio" name="status" value="done">`) {
 		t.Fatalf("list should have the filters:\n%s", body)
 	}
 	if _, body, _ = stud.get(list + "?status=done"); strings.Contains(body, "Lab 1") || !strings.Contains(body, "No homework matches") {

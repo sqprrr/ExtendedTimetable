@@ -20,17 +20,18 @@ type ClassLink struct {
 	LessonType LessonType
 	URL        string
 	Note       string
-	// SubjectName is read from subjects; writes ignore it.
+	// SubjectName and SubjectHue are read from subjects; writes ignore them.
 	SubjectName string
+	SubjectHue  string
 }
 
 // classLinkSelect reads class links with their subject's name; add a WHERE on l.
-const classLinkSelect = `SELECT l.id, l.group_id, l.subject_id, l.lesson_type, l.url, l.note, s.name
+const classLinkSelect = `SELECT l.id, l.group_id, l.subject_id, l.lesson_type, l.url, l.note, s.name, s.hue
 	FROM class_links l JOIN subjects s ON s.id = l.subject_id `
 
 func scanClassLink(row interface{ Scan(...any) error }) (*ClassLink, error) {
 	var l ClassLink
-	if err := row.Scan(&l.ID, &l.GroupID, &l.SubjectID, &l.LessonType, &l.URL, &l.Note, &l.SubjectName); err != nil {
+	if err := row.Scan(&l.ID, &l.GroupID, &l.SubjectID, &l.LessonType, &l.URL, &l.Note, &l.SubjectName, &l.SubjectHue); err != nil {
 		return nil, mapErr(err)
 	}
 	return &l, nil

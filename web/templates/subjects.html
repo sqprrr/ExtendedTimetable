@@ -1,58 +1,72 @@
 {{define "title"}}{{t "nav.subjects"}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-subjects{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
-{{if .EditID}}
-<section class="card">
-  <h2>{{t "subjects.edit_title"}}</h2>
-  {{template "form" .}}
-</section>
+{{if or .EditID .New}}
+{{template "formHead" .}}
+<section class="card">{{template "form" .}}</section>
 {{else}}
-<section class="card">
-  <h2>{{t "nav.subjects"}}</h2>
+{{$g := print "/g/" .Group.Code}}
+<header class="page-head">
+  <div><h1>{{t "nav.subjects"}}</h1></div>
+  {{if .Group.CanManage}}<a class="btn btn-secondary" href="{{$g}}/subjects/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
+</header>
+{{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+<div class="section-gap">
   {{with .Subjects}}
-  <table class="list">
-    <thead><tr><th>{{t "field.name"}}</th><th>{{t "field.short_name"}}</th>{{if $.Group.CanManage}}<th></th>{{end}}</tr></thead>
-    <tbody>
+  <section class="card card-flush" aria-label="{{t "nav.subjects"}}">
+    <ul class="rows">
       {{range .}}
-      <tr>
-        <td>{{.Name}}</td>
-        <td>{{.ShortName}}</td>
-        {{if $.Group.CanManage}}
-        <td class="actions">
-          <a href="/g/{{$.Group.Code}}/subjects/{{.ID}}/edit">{{t "action.edit"}}</a>
-          <form method="post" action="/g/{{$.Group.Code}}/subjects/{{.ID}}/delete" class="inline" data-confirm="{{t "subjects.confirm_delete" "Name" .Name}}">
-            <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-            <button type="submit" class="link danger">{{t "action.delete"}}</button>
-          </form>
-        </td>
-        {{end}}
-      </tr>
+      <li class="link-row">
+        <div class="main">
+          <span class="row-title subject-name"><span class="subject" data-hue="{{hue .ID .Hue}}"><span class="sr-only">{{t (print "hue." (hue .ID .Hue))}}</span></span>{{.Name}}</span>
+          {{with .ShortName}}<div class="meta"><span class="meta-item mono">{{.}}</span></div>{{end}}
+        </div>
+        <div class="row-end">
+          {{if $.Group.CanManage}}{{template "rowMenu" (rowMenu (print $g "/subjects/" .ID) (t "subjects.confirm_delete" "Name" .Name) $.CSRFToken)}}{{end}}
+        </div>
+      </li>
       {{end}}
-    </tbody>
-  </table>
+    </ul>
+  </section>
   {{else}}
-  <p class="muted">{{t "subjects.empty"}}</p>
+  <section class="card">
+    <div class="empty">
+      <span class="glyph">{{icon "book-open"}}</span>
+      <h3>{{t "subjects.empty"}}</h3>
+      <p>{{t "subjects.empty_hint"}}</p>
+      {{if $.Group.CanManage}}<a class="btn btn-secondary btn-sm" href="{{$g}}/subjects/new"{{boost}}>{{icon "plus"}}{{t "subjects.new_title"}}</a>{{end}}
+    </div>
+  </section>
   {{end}}
-</section>
-{{if .Group.CanManage}}
-<section class="card">
-  <h2>{{t "subjects.new_title"}}</h2>
-  {{template "form" .}}
-</section>
-{{end}}
+  <p class="small-text">{{th "schedule.subjects_note" "URL" (print $g "/subjects")}}</p>
+</div>
 {{end}}
 {{end}}
 
 {{define "form"}}
-<form method="post" action="/g/{{.Group.Code}}/subjects{{if .EditID}}/{{.EditID}}{{end}}">
+<form class="form" method="post" action="/g/{{.Group.Code}}/subjects{{if .EditID}}/{{.EditID}}{{end}}">
   <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-  <label>{{t "field.name"}}
-    <input name="name" value="{{index .Fields "name"}}" maxlength="100" required>
-  </label>
-  <label>{{t "field.short_name"}}
-    <input name="short_name" value="{{index .Fields "short_name"}}" maxlength="20">
-    <small class="muted">{{t "subjects.short_name_hint"}}</small>
-  </label>
+  <div class="form-row">
+    <label class="field">
+      <span class="field-label">{{t "field.name"}}</span>
+      <input class="input" name="name" value="{{index .Fields "name"}}" maxlength="100" required>
+    </label>
+    <label class="field">
+      <span class="field-label">{{t "field.short_name"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+      <input class="input" name="short_name" value="{{index .Fields "short_name"}}" maxlength="20">
+      <span class="field-hint">{{t "subjects.short_name_hint"}}</span>
+    </label>
+  </div>
+  <fieldset class="field">
+    <legend class="field-label">{{t "field.colour"}}</legend>
+    <div class="chips hue-chips">
+      <label class="chip"><input type="radio" name="hue" value=""{{if not (index .Fields "hue")}} checked{{end}}>{{t "subjects.hue_auto"}}</label>
+      {{range hues}}
+      <label class="chip"><input type="radio" name="hue" value="{{.}}"{{if eq . (index $.Fields "hue")}} checked{{end}}><span class="subject" data-hue="{{.}}">{{t (print "hue." .)}}</span></label>
+      {{end}}
+    </div>
+    <span class="field-hint">{{t "subjects.hue_hint"}}</span>
+  </fieldset>
   {{template "formButtons" .}}
 </form>
 {{end}}

@@ -206,7 +206,7 @@ func TestBackup(t *testing.T) {
 	}
 }
 
-// The 0008 migration gives existing groups an invite link and keeps only the
+// The 0010 migration gives existing groups an invite link and keeps only the
 // first leader of a group that has several.
 func TestInvitesMigration(t *testing.T) {
 	ctx := context.Background()
@@ -216,7 +216,7 @@ func TestInvitesMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range names {
-		if name >= "0008" {
+		if name >= "0010" {
 			continue
 		}
 		data, err := fs.ReadFile(migrations.FS, name)

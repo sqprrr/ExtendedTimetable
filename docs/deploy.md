@@ -121,6 +121,22 @@ Settings added in a new version are therefore missing from an existing
 `exttctl admin invite-link` prints full links; the site itself falls back to
 the address each request came to.
 
+### Static files and caches (Cloudflare)
+
+No cache purge is needed after a deploy, in Cloudflare or anywhere else.
+Pages link to every stylesheet, script and font by a hash of its content
+(`/static/style.css?v=3f9a1c0b2e4d`; fonts are versioned inside
+`style.css`), so a deploy that changes a file also changes its URL. The app
+sends `Cache-Control: public, max-age=31536000, immutable` for a URL with the
+current hash, and `no-cache` (with an `ETag`, so the check is a cheap 304)
+for an unversioned URL or one with an old hash. A page cached before the
+deploy therefore never pins a new file for long.
+
+This relies on the query string being part of the cache key, which is
+Cloudflare's default ("Standard" caching level). Keep it that way, and don't
+add a Cache Rule that ignores the query string or overrides the origin's
+`Cache-Control` for `/static/`.
+
 ## Day to day
 
 ```sh

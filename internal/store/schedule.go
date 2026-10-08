@@ -22,8 +22,10 @@ type ScheduleEvent struct {
 	// LessonType is CISTType as a class link lesson type, or empty.
 	LessonType LessonType
 	SyncedAt   time.Time
-	// SubjectName is read from subjects (empty when unlinked); writes ignore it.
+	// SubjectName and SubjectHue are read from subjects (empty when
+	// unlinked); writes ignore them.
 	SubjectName string
+	SubjectHue  string
 }
 
 // ScheduleSync is a row of the schedule_syncs table: how the last sync of a
@@ -40,7 +42,7 @@ type ScheduleSync struct {
 
 // scheduleEventSelect reads events with their subject's name; add a WHERE on e.
 const scheduleEventSelect = `SELECT e.id, e.group_id, e.starts_at, e.ends_at, e.subject_id, e.subject_brief,
-	e.cist_type, e.room, e.groups_text, e.lesson_type, e.synced_at, COALESCE(s.name, '')
+	e.cist_type, e.room, e.groups_text, e.lesson_type, e.synced_at, COALESCE(s.name, ''), COALESCE(s.hue, '')
 	FROM schedule_events e LEFT JOIN subjects s ON s.id = e.subject_id `
 
 func scanScheduleEvent(row interface{ Scan(...any) error }) (*ScheduleEvent, error) {
@@ -49,7 +51,7 @@ func scanScheduleEvent(row interface{ Scan(...any) error }) (*ScheduleEvent, err
 	var subjectID sql.NullInt64
 	var lessonType sql.NullString
 	if err := row.Scan(&e.ID, &e.GroupID, &starts, &ends, &subjectID, &e.SubjectBrief,
-		&e.CISTType, &e.Room, &e.Groups, &lessonType, &synced, &e.SubjectName); err != nil {
+		&e.CISTType, &e.Room, &e.Groups, &lessonType, &synced, &e.SubjectName, &e.SubjectHue); err != nil {
 		return nil, mapErr(err)
 	}
 	e.StartsAt = time.Unix(starts, 0).UTC()

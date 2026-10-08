@@ -1,35 +1,34 @@
 {{define "title"}}{{.Homework.Title}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-homework-detail{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
+{{$g := print "/g/" .Group.Code}}
 {{with .Homework}}
-<article class="card">
-  <div class="card-head">
-    <h2>{{.Title}}</h2>
-    {{if $.Group.CanManage}}
-    <div class="actions">
-      <a href="/g/{{$.Group.Code}}/homework/{{.ID}}/edit">{{t "action.edit"}}</a>
-      <form method="post" action="/g/{{$.Group.Code}}/homework/{{.ID}}/delete" class="inline" data-confirm="{{t "hw.confirm_delete"}}">
-        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <button type="submit" class="link danger">{{t "action.delete"}}</button>
-      </form>
+<a class="back-link" href="{{$g}}/homework"{{boost}}>{{icon "chevron-left"}}{{t "overview.all_homework"}}</a>
+<header class="page-head">
+  <div>
+    <h1>{{.Title}}</h1>
+    <div class="meta subtitle">
+      <span class="subject" data-hue="{{hue .SubjectID .SubjectHue}}">{{.SubjectName}}</span>
+      <span class="meta-item">{{icon "clock"}}{{with .DueAt}}{{t "hw.due" "When" (relWhen .)}}{{else}}{{t "hw.no_deadline"}}{{end}}</span>
+      {{with .MaxPoints}}<span class="meta-item mono">{{t "hw.max_points" "Points" (points .)}}</span>{{end}}
+      <span id="overdue-badge">{{if .Overdue}}<span class="badge badge-warning">{{icon "triangle-alert"}}{{t "hw.overdue"}}</span>{{end}}</span>
     </div>
-    {{end}}
   </div>
-  <p class="muted">
-    {{.SubjectName}}
-    · {{with .DueAt}}{{t "hw.due" "When" (datetime .)}}{{else}}{{t "hw.no_deadline"}}{{end}}
-    <span id="overdue-badge">{{if .Overdue}}<span class="badge warn">{{t "hw.overdue"}}</span>{{end}}</span>
-    {{with .MaxPoints}}· {{t "hw.max_points" "Points" (points .)}}{{end}}
-  </p>
-  {{with .DescriptionMD}}<div class="md">{{markdown .}}</div>{{end}}
-  {{with .Links}}
-  <h3>{{t "field.links"}}</h3>
-  <ul>
-    {{range .}}<li><a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{or .Title .URL}}</a></li>{{end}}
-  </ul>
+  {{if $.Group.CanManage}}{{template "rowMenu" (rowMenu (print $g "/homework/" .ID) (t "hw.confirm_delete") $.CSRFToken)}}{{end}}
+</header>
+<div class="section-gap">
+  {{if or .DescriptionMD .Links}}
+  <article class="card">
+    {{with .DescriptionMD}}<div class="md">{{markdown .}}</div>{{end}}
+    {{with .Links}}
+    <h2 class="group-title">{{t "field.links"}}</h2>
+    <ul class="rows">
+      {{range .}}<li><a class="row-link" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{icon "external-link"}}{{or .Title .URL}}</a></li>{{end}}
+    </ul>
+    {{end}}
+  </article>
   {{end}}
-</article>
-{{template "progressPanel" (or $.ProgressPanel (hwItem $ . "detail"))}}
+  {{template "progressPanel" (or $.ProgressPanel (hwItem $ . "detail"))}}
+</div>
 {{end}}
-<p><a href="/g/{{.Group.Code}}/homework">{{t "hw.back_to_list"}}</a></p>
 {{end}}

@@ -152,6 +152,7 @@ func (t *Totals) add(hw *Homework) {
 type SubjectTotals struct {
 	SubjectID   int64
 	SubjectName string
+	SubjectHue  string
 	Totals
 }
 
@@ -184,7 +185,7 @@ func (s *Service) MyGrades(ctx context.Context, groupID int64) (*Grades, error) 
 		}
 		st := bySubject[hw.SubjectID]
 		if st == nil {
-			st = &SubjectTotals{SubjectID: hw.SubjectID, SubjectName: hw.SubjectName}
+			st = &SubjectTotals{SubjectID: hw.SubjectID, SubjectName: hw.SubjectName, SubjectHue: hw.SubjectHue}
 			bySubject[hw.SubjectID] = st
 			g.Subjects = append(g.Subjects, st)
 		}

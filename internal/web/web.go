@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -29,6 +29,8 @@ type Handler struct {
 	cookies    auth.Cookies
 	trustProxy bool
 	loc        *time.Location
+	icons      iconSet
+	static     *staticAssets
 	// base is the configured site address for shared links; "" uses the request's.
 	base string
 	// pages holds the parsed templates per language, then per page.
@@ -52,7 +54,7 @@ type Config struct {
 var pages = []string{
 	"home", "login", "join", "error",
 	"group", "subjects", "links", "homework", "homework_detail", "notes", "resources", "grades", "schedule",
-	"members", "feedback", "feedback_inbox", "admin_groups",
+	"members", "feedback", "feedback_inbox", "admin_groups", "more",
 }
 
 // New parses the templates and returns a Handler.
@@ -61,6 +63,14 @@ func New(svc *service.Service, cfg Config) (*Handler, error) {
 		base: strings.TrimRight(cfg.BaseURL, "/"), pages: map[string]map[string]*template.Template{}}
 	if h.loc == nil {
 		h.loc = time.UTC
+	}
+	icons, err := loadIcons(assets.Icons)
+	if err != nil {
+		return nil, fmt.Errorf("load icons: %w", err)
+	}
+	h.icons = icons
+	if h.static, err = loadStatic(assets.Static); err != nil {
+		return nil, fmt.Errorf("load static files: %w", err)
 	}
 	// Each language gets its own template set, so the translation functions
 	// are bound once at startup instead of per request.
@@ -81,14 +91,16 @@ func New(svc *service.Service, cfg Config) (*Handler, error) {
 
 // Register adds the HTML routes to mux.
 func (h *Handler) Register(mux *http.ServeMux) {
-	static, _ := fs.Sub(assets.Static, "static")
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
+	mux.Handle("GET /static/", h.static)
 
 	mux.HandleFunc("GET /{$}", h.home)
 	mux.HandleFunc("GET /login", h.loginForm)
 	mux.HandleFunc("POST /login", h.login)
 	mux.HandleFunc("POST /logout", h.logout)
 	mux.HandleFunc("POST /lang", h.setLang)
+	mux.HandleFunc("POST /theme", h.setTheme)
+	mux.HandleFunc("GET /more", h.morePage)
+	mux.HandleFunc("GET /g/{code}/more", h.groupMorePage)
 	h.registerGroupRoutes(mux)
 	h.registerMemberRoutes(mux)
 	h.registerFeedbackRoutes(mux)
@@ -98,12 +110,17 @@ func (h *Handler) Register(mux *http.ServeMux) {
 type pageData struct {
 	Viewer    *service.Viewer
 	CSRFToken string
-	// Back is the page the language switch returns to.
-	Back   string
-	Error  string
-	Status string
-	Form   formValues
-	Groups []service.GroupSummary
+	// Back is the page the language and theme switches return to.
+	Back string
+	// Theme is the colour theme: "light", "dark" or "system".
+	Theme string
+	// NavGroup is the group the navigation leads to: the page's group, else
+	// the viewer's first group. It is nil for visitors and users in no group.
+	NavGroup *service.GroupView
+	Error    string
+	Status   string
+	Form     formValues
+	Groups   []service.GroupSummary
 
 	// JoinInvite is the invite page's link; nil when the link is dead.
 	JoinInvite *service.InviteView
@@ -120,17 +137,22 @@ type pageData struct {
 
 	// Group pages.
 	Group *service.GroupView
-	// Section is the active group tab.
+	// Section is the current page in the navigation: a group section
+	// ("overview", "homework", …), or "home", "feedback", "inbox", "more".
 	Section string
 	// Fields fills the create or edit form of a group section.
 	Fields map[string]string
-	// EditID is the item being edited; 0 shows the list and the create form.
+	// EditID is the item being edited; with New, the page shows the create
+	// form; otherwise the list.
 	EditID       int64
+	New          bool
 	Subjects     []*store.Subject
 	ClassLinks   []*store.ClassLink
 	HomeworkList []*service.Homework
 	// HomeworkFilter is the homework list's subject and status filter.
 	HomeworkFilter service.HomeworkFilter
+	// HomeworkGroups is HomeworkList grouped by when things are due.
+	HomeworkGroups hwList
 	// Query is the page's query string.
 	Query     url.Values
 	Homework  *service.Homework
@@ -151,6 +173,8 @@ type pageData struct {
 	// Schedule is the schedule page's week, or the overview's today.
 	Schedule *service.Schedule
 	Week     *weekView
+	// NowCard is Today's current or next class.
+	NowCard *nowCard
 }
 
 // hwItem is what the homeworkItem and progressPanel templates render: one
@@ -170,12 +194,25 @@ type hwItem struct {
 	// UpdateBadge also updates the Overdue badge on the homework page when
 	// the panel is swapped in by htmx.
 	UpdateBadge bool
+	// Manage adds the leader's row menu (edit, delete).
+	Manage bool
+}
+
+// rowMenu is what the rowMenu template renders: a leader's Edit and Delete
+// for the item at Base (/g/<code>/<section>/<id>).
+type rowMenu struct {
+	Base    string
+	Confirm string
+	CSRF    string
 }
 
 func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 	return template.FuncMap{
 		"lang": l.Lang,
 		"t":    l.T,
+		"icon": h.icons.html,
+		// asset is a static file's cache-busting URL: /static/style.css?v=….
+		"asset": func(name string) (string, error) { return h.static.url(name) },
 		// th is for translations that hold markup (links, <code>). The
 		// messages are ours; the values put into them are escaped.
 		"th": func(id string, kv ...any) template.HTML {
@@ -201,17 +238,57 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		},
 		"lessonTypes": func() []store.LessonType { return service.LessonTypes },
 		"hwItem": func(d pageData, hw *service.Homework, from string) hwItem {
-			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from, Filter: homeworkFilterQuery(d.HomeworkFilter)}
+			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from, Filter: homeworkFilterQuery(d.HomeworkFilter),
+				Manage: d.Group.CanManage && from == "list"}
 		},
+		"rowMenu":    func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
 		"statuses":   func() []store.ProgressStatus { return service.Statuses },
 		"nextStatus": service.NextStatus,
 		"statusLabel": func(st store.ProgressStatus) string {
 			return label(l, "status.", string(st))
 		},
 		"roleLabel": func(r store.Role) string { return label(l, "role.", string(r)) },
-		"num":       formatPoints,
-		"clock":     func(t time.Time) string { return t.In(h.loc).Format("15:04") },
-		"when":      func(t time.Time) string { return h.when(l, t) },
+		// viewerRole is the viewer's role in g, for the user line.
+		"viewerRole": func(v *service.Viewer, g *service.GroupView) string {
+			if g != nil {
+				if r, ok := v.RoleIn(g.ID); ok {
+					return label(l, "role.", string(r))
+				}
+			}
+			if v.IsSuperadmin {
+				return l.T("role.superadmin")
+			}
+			return ""
+		},
+		// current marks the navigation link of the current section.
+		"current": func(section string, of ...string) template.HTMLAttr {
+			if slices.Contains(of, section) {
+				return ` aria-current="page"`
+			}
+			return ""
+		},
+		"themes": func() []string { return service.Themes },
+		// boost makes the links inside an element load the next page in
+		// place with htmx, showing the skeleton while it loads. Only for
+		// navigation: forms stay plain posts.
+		"boost": func() template.HTMLAttr { return ` hx-boost="true" hx-indicator="#main"` },
+		// hue is a subject's colour for data-hue: hue <id> <stored hue>. The
+		// id may be a *int64 (a class not linked to a subject): no colour.
+		"hue": func(id any, stored string) string {
+			switch id := id.(type) {
+			case int64:
+				return service.Hue(id, stored)
+			case *int64:
+				if id != nil {
+					return service.Hue(*id, stored)
+				}
+			}
+			return ""
+		},
+		"hues":  func() []string { return service.Hues },
+		"num":   formatPoints,
+		"clock": func(t time.Time) string { return t.In(h.loc).Format("15:04") },
+		"when":  func(t time.Time) string { return h.when(l, t) },
 		"dayName": func(t time.Time) string {
 			t = t.In(h.loc)
 			return l.T("weekday.long."+weekdayKey(t)) + ", " + t.Format("02.01")
@@ -223,7 +300,23 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return label(l, "lesson.", string(e.LessonType))
 		},
 		"classItem": func(s *service.Schedule, e *service.ScheduleEvent) classItem {
-			return classItem{E: e, Next: !e.Now && s.IsUpcoming(e)}
+			return classItem{E: e, Next: !e.Now && s.IsUpcoming(e), Past: !e.EndsAt.After(h.svc.Now())}
+		},
+		// Relative dates (dates.go); "now" is the service's clock.
+		"now":       h.svc.Now,
+		"due":       func(hw *service.Homework) string { return h.due(l, h.svc.Now(), hw) },
+		"relWhen":   func(t time.Time) string { return h.relWhen(l, h.svc.Now(), t) },
+		"shortDate": func(t time.Time) string { return h.shortDate(l, h.svc.Now(), t) },
+		"longDate":  func(t time.Time) string { return h.longDate(l, t) },
+		"weekday":   func(t time.Time) string { return weekdayKey(t.In(h.loc)) },
+		"statusIcon": func(st store.ProgressStatus) string {
+			switch st {
+			case store.StatusInProgress:
+				return "circle-dot-dashed"
+			case store.StatusDone:
+				return "circle-check"
+			}
+			return "circle"
 		},
 		// nextLater is the next class when it is not among s.Events (after
 		// today on the overview, after this week on the schedule page).
@@ -289,6 +382,18 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 	data.Viewer = service.ViewerFrom(r.Context())
 	data.CSRFToken = auth.CSRFToken(r.Context())
 	data.Back = backPath(r)
+	data.Theme = h.theme(r)
+	if data.Viewer != nil {
+		data.NavGroup = data.Group
+		if data.NavGroup == nil {
+			// The navigation is a convenience: a page still renders without it.
+			g, err := h.svc.HomeGroup(r.Context())
+			if err != nil {
+				slog.WarnContext(r.Context(), "navigation group", "err", err)
+			}
+			data.NavGroup = g
+		}
+	}
 	l := i18n.FromContext(r.Context())
 	var buf bytes.Buffer
 	if err := h.pages[l.Lang()][page].ExecuteTemplate(&buf, "layout", data); err != nil {

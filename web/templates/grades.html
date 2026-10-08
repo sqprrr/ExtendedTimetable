@@ -1,44 +1,53 @@
 {{define "title"}}{{t "nav.grades"}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-grades{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
-<section class="card">
-  <div class="card-head">
-    <h2>{{t "nav.grades"}}</h2>
-    <span class="muted small">{{t "progress.private"}}</span>
+<header class="page-head">
+  <div>
+    <h1>{{t "nav.grades"}}</h1>
+    <p class="subtitle">{{t "progress.private"}}</p>
   </div>
-  {{with .Grades}}
-  {{if .Subjects}}
-  <table class="list grades">
-    <thead>
-      <tr><th>{{t "field.subject"}}</th><th class="num">{{t "grades.graded"}}</th><th class="num">{{t "grades.points"}}</th><th class="num">%</th></tr>
-    </thead>
-    <tbody>
-      {{range .Subjects}}{{template "gradesRow" .}}{{end}}
-    </tbody>
-    <tfoot>
-      {{with .Overall}}
-      <tr>
-        <th>{{t "grades.overall"}}</th>
-        <th class="num">{{.Graded}} / {{.Assignments}}</th>
-        <th class="num">{{num .Earned}}{{if .Max}} / {{num .Max}}{{end}}</th>
-        <th class="num">{{percent .Earned .Max}}</th>
-      </tr>
+</header>
+{{with .Grades}}
+{{if .Subjects}}
+<div class="today-grid">
+  <section class="card card-flush" aria-labelledby="grades-by-subject">
+    <div class="card-head"><h2 id="grades-by-subject">{{t "grades.by_subject"}}</h2><span class="meta">{{t "grades.legend"}}</span></div>
+    <ul class="rows">
+      {{range .Subjects}}
+      {{$hue := hue .SubjectID .SubjectHue}}
+      <li class="grade-row" data-hue="{{$hue}}">
+        <div class="top">
+          <span class="subject" data-hue="{{$hue}}">{{.SubjectName}}</span>
+          <span class="nums">{{if .Graded}}<strong>{{num .Earned}}</strong> / {{num .Max}} · {{percent .Earned .Max}}{{else}}<span class="none">{{t "grades.not_graded"}}</span>{{end}}</span>
+        </div>
+        <progress class="bar" value="{{.Earned}}" max="{{.Max}}" aria-label="{{.SubjectName}}: {{percent .Earned .Max}}"></progress>
+        <span class="meta">{{t "grades.graded_of" "Graded" .Graded "Assignments" .Assignments}}</span>
+      </li>
       {{end}}
-    </tfoot>
-  </table>
-  <p class="muted small">{{t "grades.explain"}}</p>
-  {{else}}
-  <p class="muted">{{t "grades.empty"}}</p>
-  {{end}}
-  {{end}}
+    </ul>
+  </section>
+  <div class="stack">
+    {{with .Overall}}
+    <section class="card" aria-labelledby="grades-overall">
+      <div class="grade-total">
+        <span class="t-overline text-tertiary" id="grades-overall">{{t "grades.overall"}}</span>
+        <span class="figure">{{percent .Earned .Max}}</span>
+        <progress class="bar" value="{{.Earned}}" max="{{.Max}}" aria-labelledby="grades-overall"></progress>
+        <span class="meta">{{t "grades.total_meta" "Earned" (num .Earned) "Max" (num .Max) "Graded" .Graded "Assignments" .Assignments}}</span>
+      </div>
+    </section>
+    {{end}}
+    <div class="alert alert-info" role="note">{{icon "info"}}<div>{{t "grades.explain"}}</div></div>
+  </div>
+</div>
+{{else}}
+<section class="card">
+  <div class="empty">
+    <span class="glyph">{{icon "graduation-cap"}}</span>
+    <h3>{{t "grades.empty"}}</h3>
+    <p>{{t "grades.empty_hint"}}</p>
+  </div>
 </section>
 {{end}}
-
-{{define "gradesRow"}}
-<tr>
-  <td>{{.SubjectName}}</td>
-  <td class="num">{{.Graded}} / {{.Assignments}}</td>
-  <td class="num">{{num .Earned}}{{if .Max}} / {{num .Max}}{{end}}</td>
-  <td class="num">{{percent .Earned .Max}}</td>
-</tr>
+{{end}}
 {{end}}

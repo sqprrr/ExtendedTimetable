@@ -1,129 +1,148 @@
 {{define "title"}}{{t "nav.members"}} · {{.Group.Code}}{{end}}
+{{define "mainClass"}}page-members{{end}}
 {{define "content"}}
-{{template "groupnav" .}}
-
-<section class="card">
-  <h2>{{t "members.leader"}}</h2>
-  {{with .Group.Leader}}
-  <p><strong>{{.}}</strong></p>
-  {{else}}
-  <p class="muted">{{t "members.no_leader"}}</p>
-  {{end}}
-  <div class="actions">
-    {{if and (not .Group.Leader) (eq .Group.Role "student")}}
-    <form method="post" action="/g/{{.Group.Code}}/leader/claim" class="inline" data-confirm="{{t "members.confirm_claim"}}">
-      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-      <button type="submit">{{t "members.claim"}}</button>
-    </form>
-    {{end}}
-    {{if eq .Group.Role "leader"}}
-    <form method="post" action="/g/{{.Group.Code}}/leader/resign" class="inline" data-confirm="{{t "members.confirm_resign"}}">
-      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-      <button type="submit" class="secondary">{{t "members.resign"}}</button>
-    </form>
-    {{end}}
-    {{if and .Group.IsSuperadmin .Group.Leader}}
-    <form method="post" action="/g/{{.Group.Code}}/leader/remove" class="inline" data-confirm="{{t "members.confirm_remove_leader" "Name" .Group.Leader}}">
-      <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-      <button type="submit" class="secondary">{{t "members.remove_leader"}}</button>
-    </form>
-    {{end}}
+{{$g := print "/g/" .Group.Code}}
+<header class="page-head">
+  <div>
+    <h1>{{t "nav.members"}}</h1>
+    <p class="subtitle">{{.Group.Name}} · {{len .Members}}</p>
   </div>
-  {{if and .Group.IsSuperadmin .Members}}
-  <form method="post" action="/g/{{.Group.Code}}/leader" class="filters">
-    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <label>{{t "members.assign"}}
-      <select name="user_id" required>
-        <option value="">{{t "members.choose_member"}}</option>
-        {{range .Members}}{{if ne .Role "leader"}}<option value="{{.UserID}}">{{.Username}}</option>{{end}}{{end}}
-      </select>
-    </label>
-    <div class="form-actions"><button type="submit">{{t "members.assign_submit"}}</button></div>
-  </form>
+</header>
+<div class="section-gap">
+  {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+
+  <section class="card" aria-labelledby="members-leader">
+    <div class="card-head"><h2 id="members-leader">{{t "members.leader"}}</h2></div>
+    <div class="stack">
+      {{with .Group.Leader}}
+      <p class="leader-name">{{icon "graduation-cap"}}<strong>{{.}}</strong></p>
+      {{else}}
+      <p class="text-secondary">{{t "members.no_leader"}}</p>
+      {{end}}
+      <div class="btn-row">
+        {{if and (not .Group.Leader) (eq .Group.Role "student")}}
+        <form method="post" action="{{$g}}/leader/claim" class="inline" data-confirm="{{t "members.confirm_claim"}}">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <button type="submit" class="btn btn-primary">{{t "members.claim"}}</button>
+        </form>
+        {{end}}
+        {{if eq .Group.Role "leader"}}
+        <form method="post" action="{{$g}}/leader/resign" class="inline" data-confirm="{{t "members.confirm_resign"}}">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <button type="submit" class="btn btn-secondary">{{t "members.resign"}}</button>
+        </form>
+        {{end}}
+        {{if and .Group.IsSuperadmin .Group.Leader}}
+        <form method="post" action="{{$g}}/leader/remove" class="inline" data-confirm="{{t "members.confirm_remove_leader" "Name" .Group.Leader}}">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <button type="submit" class="btn btn-danger">{{t "members.remove_leader"}}</button>
+        </form>
+        {{end}}
+      </div>
+      {{if and .Group.IsSuperadmin .Members}}
+      <form class="inline-form" method="post" action="{{$g}}/leader">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <label class="field">
+          <span class="field-label">{{t "members.assign"}}</span>
+          <select class="select" name="user_id" required>
+            <option value="">{{t "members.choose_member"}}</option>
+            {{range .Members}}{{if ne .Role "leader"}}<option value="{{.UserID}}">{{.Username}}</option>{{end}}{{end}}
+          </select>
+        </label>
+        <button type="submit" class="btn btn-secondary">{{t "members.assign_submit"}}</button>
+      </form>
+      {{end}}
+    </div>
+  </section>
+
+  {{with .Invite}}
+  <section class="card" aria-labelledby="members-invite">
+    <div class="card-head"><h2 id="members-invite">{{t "members.invite"}}</h2></div>
+    <div class="stack">
+      <p class="text-secondary">{{t "members.invite_hint"}}</p>
+      <label class="field">
+        <span class="field-label">{{t "members.invite_link"}}</span>
+        <input class="input mono invite-link" value="{{$.BaseURL}}/join/{{.Token}}" readonly>
+        <span class="field-hint">{{t "members.invite_expires" "When" (relWhen .ExpiresAt)}}</span>
+      </label>
+      <form method="post" action="{{$g}}/invite" data-confirm="{{t "members.confirm_regenerate"}}">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="btn btn-secondary">{{t "members.regenerate"}}</button>
+      </form>
+    </div>
+  </section>
   {{end}}
-</section>
 
-{{with .Invite}}
-<section class="card">
-  <h2>{{t "members.invite"}}</h2>
-  <p class="muted">{{t "members.invite_hint"}}</p>
-  <label>{{t "members.invite_link"}}
-    <input value="{{$.BaseURL}}/join/{{.Token}}" readonly>
-    <small class="muted">{{t "members.invite_expires" "When" (when .ExpiresAt)}}</small>
-  </label>
-  <form method="post" action="/g/{{$.Group.Code}}/invite" class="inline" data-confirm="{{t "members.confirm_regenerate"}}">
-    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-    <button type="submit" class="secondary">{{t "members.regenerate"}}</button>
-  </form>
-</section>
-{{end}}
-
-<section class="card">
-  <h2>{{t "nav.members"}} <span class="muted">({{len .Members}})</span></h2>
-  {{with .Members}}
-  <table class="list">
-    <thead><tr><th>{{t "field.username"}}</th><th>{{t "members.role"}}</th><th>{{t "members.joined"}}</th>{{if $.Group.CanManage}}<th></th>{{end}}</tr></thead>
-    <tbody>
+  <section class="card card-flush" aria-labelledby="members-list">
+    <div class="card-head"><h2 id="members-list">{{t "nav.members"}}</h2><span class="meta mono">{{len .Members}}</span></div>
+    {{with .Members}}
+    <ul class="rows">
       {{range .}}
-      <tr>
-        <td>{{.Username}}{{if eq .Username $.Viewer.Username}} <span class="muted">({{t "members.you"}})</span>{{end}}</td>
-        <td>{{roleLabel .Role}}</td>
-        <td class="nowrap">{{date .JoinedAt}}</td>
-        {{if $.Group.CanManage}}
-        <td class="actions">
-          {{if and (ne .Username $.Viewer.Username) (or (ne .Role "leader") $.Group.IsSuperadmin)}}
-          <form method="post" action="/g/{{$.Group.Code}}/members/{{.UserID}}/remove" class="inline" data-confirm="{{t "members.confirm_remove" "Name" .Username}}">
+      <li class="link-row">
+        <div class="main">
+          <div class="row-head">
+            <span class="row-title">{{.Username}}</span>
+            {{if eq .Username $.Viewer.Username}}<span class="badge">{{t "members.you"}}</span>{{end}}
+            {{if eq .Role "leader"}}<span class="badge badge-accent">{{roleLabel .Role}}</span>{{end}}
+          </div>
+          <div class="meta"><span>{{if ne .Role "leader"}}{{roleLabel .Role}} · {{end}}{{t "members.joined"}} {{shortDate .JoinedAt}}</span></div>
+        </div>
+        <div class="row-end">
+          {{if and $.Group.CanManage (ne .Username $.Viewer.Username) (or (ne .Role "leader") $.Group.IsSuperadmin)}}
+          <form method="post" action="{{$g}}/members/{{.UserID}}/remove" class="inline" data-confirm="{{t "members.confirm_remove" "Name" .Username}}">
             <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-            <button type="submit" class="link danger">{{t "members.remove"}}</button>
+            <button type="submit" class="btn btn-danger btn-sm">{{icon "trash-2"}}{{t "members.remove"}}</button>
           </form>
           {{end}}
-        </td>
-        {{end}}
-      </tr>
+        </div>
+      </li>
       {{end}}
-    </tbody>
-  </table>
-  {{if $.Group.CanManage}}<p class="muted small">{{t "members.remove_hint"}}</p>{{end}}
-  {{else}}
-  <p class="muted">{{t "members.empty"}}</p>
-  {{end}}
-</section>
+    </ul>
+    {{else}}
+    <div class="empty"><span class="glyph">{{icon "users"}}</span><h3>{{t "members.empty"}}</h3></div>
+    {{end}}
+  </section>
+  {{if and .Group.CanManage .Members}}<p class="small-text">{{t "members.remove_hint"}}</p>{{end}}
 
-{{if .Group.Role}}
-<section class="card">
-  <h2>{{t "members.leave"}}</h2>
-  {{if eq .Group.Role "leader"}}
-  <p class="muted">{{t "members.leave_leader"}}</p>
-  {{else}}
-  <p class="muted">{{t "members.leave_hint"}}</p>
-  <form method="post" action="/g/{{.Group.Code}}/leave" class="inline" data-confirm="{{t "members.confirm_leave" "Group" .Group.Name}}">
-    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-    <button type="submit" class="secondary">{{t "members.leave_submit"}}</button>
-  </form>
+  {{if .Group.Role}}
+  <section class="card" aria-labelledby="members-leave">
+    <div class="card-head"><h2 id="members-leave">{{t "members.leave"}}</h2></div>
+    <div class="stack">
+      {{if eq .Group.Role "leader"}}
+      <p class="text-secondary">{{t "members.leave_leader"}}</p>
+      {{else}}
+      <p class="text-secondary">{{t "members.leave_hint"}}</p>
+      <form method="post" action="{{$g}}/leave" data-confirm="{{t "members.confirm_leave" "Group" .Group.Name}}">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <button type="submit" class="btn btn-danger">{{icon "log-out"}}{{t "members.leave_submit"}}</button>
+      </form>
+      {{end}}
+    </div>
+  </section>
   {{end}}
-</section>
-{{end}}
 
-{{if .Group.IsSuperadmin}}
-<section class="card">
-  <h2>{{t "members.log"}}</h2>
-  {{with .GroupLog}}
-  <table class="list">
-    <thead><tr><th>{{t "field.date"}}</th><th>{{t "members.event"}}</th><th>{{t "members.by"}}</th><th>{{t "members.whom"}}</th></tr></thead>
-    <tbody>
+  {{if .Group.IsSuperadmin}}
+  <section class="card card-flush" aria-labelledby="members-log">
+    <div class="card-head"><h2 id="members-log">{{t "members.log"}}</h2></div>
+    {{with .GroupLog}}
+    <ul class="rows">
       {{range .}}
-      <tr>
-        <td class="nowrap">{{when .CreatedAt}}</td>
-        <td>{{logEvent .Event}}</td>
-        <td>{{if .ActorID}}{{or .ActorName (t "feedback.deleted_user")}}{{else}}<span class="muted">{{t "members.cli"}}</span>{{end}}</td>
-        <td>{{if .UserID}}{{or .UserName (t "feedback.deleted_user")}}{{end}}</td>
-      </tr>
+      <li class="link-row">
+        <div class="main">
+          <span class="row-title">{{logEvent .Event}}</span>
+          <div class="meta">
+            <span class="mono">{{relWhen .CreatedAt}}</span>
+            <span>{{t "members.by"}}: {{if .ActorID}}{{or .ActorName (t "feedback.deleted_user")}}{{else}}{{t "members.cli"}}{{end}}</span>
+            {{if .UserID}}<span>{{t "members.whom"}}: {{or .UserName (t "feedback.deleted_user")}}</span>{{end}}
+          </div>
+        </div>
+      </li>
       {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <p class="muted">{{t "members.log_empty"}}</p>
+    </ul>
+    {{else}}
+    <p class="text-tertiary log-empty">{{t "members.log_empty"}}</p>
+    {{end}}
+  </section>
   {{end}}
-</section>
-{{end}}
+</div>
 {{end}}
