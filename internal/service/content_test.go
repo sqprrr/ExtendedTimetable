@@ -15,7 +15,7 @@ import (
 func (f *fixture) leader(t *testing.T, username string) context.Context {
 	t.Helper()
 	sess := f.register(t, username)
-	if err := f.svc.AdminSetRole(context.Background(), username, f.group.Code, store.RoleLeader); err != nil {
+	if err := f.svc.AdminSetLeader(context.Background(), username, f.group.Code); err != nil {
 		t.Fatal(err)
 	}
 	return f.as(t, sess)
@@ -124,11 +124,8 @@ func TestGroupsAreIsolated(t *testing.T) {
 	}
 
 	// A leader of another group can neither read nor write this group.
-	sess, err := f.svc.Register(ctx, service.RegisterInput{Username: "olead", Password: "correct horse", GroupCode: "OTHER-1", ClientIP: "o"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := f.svc.AdminSetRole(ctx, "olead", "OTHER-1", store.RoleLeader); err != nil {
+	sess := f.registerInto(t, "OTHER-1", "olead")
+	if err := f.svc.AdminSetLeader(ctx, "olead", "OTHER-1"); err != nil {
 		t.Fatal(err)
 	}
 	olead := f.as(t, sess)

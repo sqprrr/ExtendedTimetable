@@ -1,0 +1,59 @@
+{{define "title"}}{{t "join.title"}}{{end}}
+{{define "content"}}
+{{with .JoinInvite}}
+<section class="card narrow">
+  <h1>{{t "join.heading" "Group" .Group.Name}}</h1>
+  {{with $.Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+  {{if $.Viewer}}
+    {{if .OtherGroup}}
+    <p>{{t "join.in_other_group" "Group" .OtherGroup.Name}}</p>
+    <p><a href="/g/{{.OtherGroup.Code}}/members">{{t "join.to_my_group"}}</a></p>
+    {{else}}
+    <form method="post" action="/join/{{$.Token}}">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <button type="submit">{{t "join.submit"}}</button>
+    </form>
+    {{end}}
+  {{else}}
+  <p class="muted">{{t "join.intro"}}</p>
+  <form method="post" action="/join/{{$.Token}}/register">
+    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+    <label>{{t "field.username"}}
+      <input name="username" value="{{$.Form.Username}}" autocomplete="username" minlength="3" maxlength="32" required autofocus>
+      <small class="muted">{{th "register.username_hint"}}</small>
+    </label>
+    <label>{{t "field.password"}}
+      <input name="password" type="password" autocomplete="new-password" minlength="8" required>
+      <small class="muted">{{t "register.password_hint"}}</small>
+    </label>
+    <label>{{t "register.repeat_password"}}
+      <input name="password_confirm" type="password" autocomplete="new-password" minlength="8" required>
+    </label>
+    <button type="submit">{{t "register.submit"}}</button>
+  </form>
+  {{end}}
+  <p class="muted small">{{t "join.expires" "When" (when .ExpiresAt)}}</p>
+</section>
+{{if not $.Viewer}}
+<section class="card narrow">
+  <h2>{{t "join.have_account"}}</h2>
+  <form method="post" action="/join/{{$.Token}}/login">
+    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+    <label>{{t "field.username"}}
+      <input name="login_username" value="{{$.Form.Username}}" autocomplete="username" required>
+    </label>
+    <label>{{t "field.password"}}
+      <input name="login_password" type="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit">{{t "join.login_submit"}}</button>
+  </form>
+</section>
+{{end}}
+{{else}}
+<section class="card narrow">
+  <h1>{{t "join.invalid_title"}}</h1>
+  <p>{{t "join.invalid"}}</p>
+  <p><a href="/">{{t "error.back_home"}}</a></p>
+</section>
+{{end}}
+{{end}}

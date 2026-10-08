@@ -88,14 +88,59 @@ func (q *Queries) ListGroups(ctx context.Context) ([]*Group, error) {
 	return gs, rows.Err()
 }
 
-// UpsertMembership adds a user to a group, or updates the role if they are
-// already a member.
-func (q *Queries) UpsertMembership(ctx context.Context, m *Membership) error {
+// AddMembership adds a user to a group. Returns ErrConflict if they are
+// already a member, or if m makes a second leader of the group.
+func (q *Queries) AddMembership(ctx context.Context, m *Membership) error {
 	_, err := q.db.ExecContext(ctx,
-		`INSERT INTO memberships (user_id, group_id, role, joined_at) VALUES (?, ?, ?, ?)
-		 ON CONFLICT (user_id, group_id) DO UPDATE SET role = excluded.role`,
+		`INSERT INTO memberships (user_id, group_id, role, joined_at) VALUES (?, ?, ?, ?)`,
 		m.UserID, m.GroupID, m.Role, m.JoinedAt.Unix())
 	return mapErr(err)
+}
+
+// SetRole changes a member's role. Returns ErrNotFound if the user is not a
+// member, or ErrConflict if it would make a second leader of the group.
+func (q *Queries) SetRole(ctx context.Context, userID, groupID int64, role Role) error {
+	return expectOne(q.db.ExecContext(ctx,
+		`UPDATE memberships SET role = ? WHERE user_id = ? AND group_id = ?`, role, userID, groupID))
+}
+
+// DeleteMembership takes a user out of a group. Their homework progress is
+// kept: it belongs to the user, and comes back if they rejoin.
+func (q *Queries) DeleteMembership(ctx context.Context, userID, groupID int64) error {
+	return expectOne(q.db.ExecContext(ctx,
+		`DELETE FROM memberships WHERE user_id = ? AND group_id = ?`, userID, groupID))
+}
+
+// Member is a group member as listed on the members page.
+type Member struct {
+	UserID   int64
+	Username string
+	Role     Role
+	JoinedAt time.Time
+}
+
+const memberSelect = `SELECT m.user_id, u.username, m.role, m.joined_at
+	FROM memberships m JOIN users u ON u.id = m.user_id `
+
+func scanMember(row interface{ Scan(...any) error }) (*Member, error) {
+	var m Member
+	var joined int64
+	if err := row.Scan(&m.UserID, &m.Username, &m.Role, &joined); err != nil {
+		return nil, mapErr(err)
+	}
+	m.JoinedAt = time.Unix(joined, 0).UTC()
+	return &m, nil
+}
+
+// ListMembers returns a group's members, the leader first, then by username.
+func (q *Queries) ListMembers(ctx context.Context, groupID int64) ([]*Member, error) {
+	return queryAll(ctx, q, scanMember,
+		memberSelect+`WHERE m.group_id = ? ORDER BY m.role = 'leader' DESC, u.username`, groupID)
+}
+
+// LeaderOf returns a group's leader, or ErrNotFound if it has none.
+func (q *Queries) LeaderOf(ctx context.Context, groupID int64) (*Member, error) {
+	return scanMember(q.db.QueryRowContext(ctx, memberSelect+`WHERE m.group_id = ? AND m.role = 'leader'`, groupID))
 }
 
 // Membership returns a user's membership in a group.

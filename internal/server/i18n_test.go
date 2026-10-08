@@ -26,14 +26,15 @@ func TestUkrainianByDefault(t *testing.T) {
 	}
 
 	// Errors from the service are translated too.
-	code, body, _ = b.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {"ab"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
+	join := e.joinPath(t, "KIUKI-25-3")
+	code, body, _ = b.submit(join, join+"/register", url.Values{
+		"username": {"ab"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
 	})
 	if code != http.StatusUnprocessableEntity || !strings.Contains(body, "Ім’я користувача має містити 3–32 символи.") {
 		t.Fatalf("Ukrainian validation error: %d\n%s", code, body)
 	}
-	code, body, _ = b.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {"bob"}, "password": {"short"}, "password_confirm": {"short"},
+	code, body, _ = b.submit(join, join+"/register", url.Values{
+		"username": {"bob"}, "password": {"short"}, "password_confirm": {"short"},
 	})
 	if code != http.StatusUnprocessableEntity || !strings.Contains(body, "щонайменше 8 символів") {
 		t.Fatalf("Ukrainian plural form: %d\n%s", code, body)
@@ -44,8 +45,8 @@ func TestLanguageSwitchForVisitors(t *testing.T) {
 	e := newEnv(t)
 	b := e.browserIn(t, "")
 
-	code, _, h := b.submit("/register?group=KIUKI-25-3", "/lang", url.Values{"lang": {"en"}, "back": {"/register?group=KIUKI-25-3"}})
-	if code != http.StatusSeeOther || h.Get("Location") != "/register?group=KIUKI-25-3" {
+	code, _, h := b.submit("/login", "/lang", url.Values{"lang": {"en"}, "back": {"/login?x=1"}})
+	if code != http.StatusSeeOther || h.Get("Location") != "/login?x=1" {
 		t.Fatalf("switch: %d %s", code, h.Get("Location"))
 	}
 	if _, body, _ := b.get("/login"); !strings.Contains(body, `<html lang="en">`) || !strings.Contains(body, "<h1>Log in</h1>") {
@@ -72,9 +73,7 @@ func TestLanguageIsKeptInTheAccount(t *testing.T) {
 
 	// Registering with English chosen keeps it in the account.
 	b := e.browser(t)
-	b.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {"alice"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
-	})
+	b.register("KIUKI-25-3", "alice")
 	other := e.browserIn(t, "")
 	other.submit("/login", "/login", url.Values{"username": {"alice"}, "password": {"correct horse"}})
 	if _, body, _ := other.get("/"); !strings.Contains(body, "Hi, alice") {
@@ -96,9 +95,7 @@ func TestLanguageIsKeptInTheAccount(t *testing.T) {
 
 	// A user who never chose follows the browser.
 	d := e.browserIn(t, "")
-	d.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {"dana"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
-	})
+	d.register("KIUKI-25-3", "dana")
 	en := e.browser(t)
 	en.submit("/login", "/login", url.Values{"username": {"dana"}, "password": {"correct horse"}})
 	if _, body, _ := en.get("/"); !strings.Contains(body, "Hi, dana") {
@@ -109,9 +106,7 @@ func TestLanguageIsKeptInTheAccount(t *testing.T) {
 func TestAPILocale(t *testing.T) {
 	e := newEnv(t)
 	b := e.browserIn(t, "")
-	b.submit("/register", "/register", url.Values{
-		"group": {"KIUKI-25-3"}, "username": {"api"}, "password": {"correct horse"}, "password_confirm": {"correct horse"},
-	})
+	b.register("KIUKI-25-3", "api")
 	me := func(method, body string) (int, map[string]any) {
 		t.Helper()
 		_, page, _ := b.get("/")
