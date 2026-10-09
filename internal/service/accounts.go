@@ -249,6 +249,15 @@ func (s *Service) Authenticate(ctx context.Context, token string) (context.Conte
 	if err != nil {
 		return nil, err
 	}
+	// An active session is extended once half of its time is gone, so it
+	// lasts SessionTTL from the last activity, give or take half of that.
+	if now := s.now(); sess.ExpiresAt.Sub(now) < s.cfg.SessionTTL/2 {
+		expires := now.Add(s.cfg.SessionTTL)
+		if err := s.store.SetSessionExpiry(ctx, sess.ID, expires); err != nil {
+			return nil, err
+		}
+		ctx = auth.WithRenewedSession(ctx, expires)
+	}
 	return WithViewer(ctx, &Viewer{
 		UserID:       u.ID,
 		Username:     u.Username,

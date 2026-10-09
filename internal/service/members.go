@@ -428,24 +428,13 @@ func (s *Service) AdminGroups(ctx context.Context) ([]AdminGroup, error) {
 	if _, err := requireSuperadmin(ctx); err != nil {
 		return nil, err
 	}
-	groups, err := s.store.ListGroups(ctx)
+	groups, err := s.store.ListGroupSummaries(ctx)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]AdminGroup, 0, len(groups))
 	for _, g := range groups {
-		members, err := s.store.ListMembers(ctx, g.ID)
-		if err != nil {
-			return nil, err
-		}
-		ag := AdminGroup{Group: g, Members: len(members)}
-		if len(members) > 0 && members[0].Role == store.RoleLeader {
-			ag.Leader = members[0].Username
-		}
-		if ag.Invite, err = s.store.InviteByGroup(ctx, g.ID); err != nil {
-			return nil, err
-		}
-		out = append(out, ag)
+		out = append(out, AdminGroup{Group: g.Group, Members: g.Members, Leader: g.Leader, Invite: g.Invite})
 	}
 	return out, nil
 }

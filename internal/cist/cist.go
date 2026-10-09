@@ -118,7 +118,7 @@ func (c *Client) getFrom(ctx context.Context, u string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
 	slog.DebugContext(ctx, "CIST request", "host", req.URL.Host, "path", req.URL.Path, "status", resp.StatusCode,
 		"bytes", len(body), "duration_ms", time.Since(start).Milliseconds())
 	if err != nil {
@@ -126,6 +126,10 @@ func (c *Client) getFrom(ctx context.Context, u string) ([]byte, error) {
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: HTTP %d", req.URL.Host, resp.StatusCode)
+	}
+	// A cut-off export would parse and replace the window with part of it.
+	if len(body) > maxBody {
+		return nil, fmt.Errorf("%s: response larger than %d bytes", req.URL.Host, maxBody)
 	}
 	// CIST reports its own errors with status 200 and an Oracle message.
 	if msg := bytes.TrimSpace(body); bytes.HasPrefix(msg, []byte("ORA-")) {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"slices"
@@ -376,14 +377,31 @@ func (h *Handler) updateHomework(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, err)
 		return
 	}
-	req := homeworkRequest{
+	var body struct {
+		homeworkRequest
+		// Links is raw so that the links sent replace the current ones:
+		// decoded over them, a field left out would keep the old link's value.
+		Links json.RawMessage `json:"links"`
+	}
+	body.homeworkRequest = homeworkRequest{
 		SubjectID: cur.SubjectID, Title: cur.Title, DescriptionMD: cur.DescriptionMD,
 		DueAt: cur.DueAt, MaxPoints: cur.MaxPoints, Links: toLinks(cur.Links),
 	}
-	if decode(w, r, &req) {
-		hw, err := h.svc.UpdateHomework(r.Context(), gid, id, req.input())
-		reply(h, w, r, http.StatusOK, hw, err, toHomework)
+	if !decode(w, r, &body) {
+		return
 	}
+	req := body.homeworkRequest
+	if len(body.Links) > 0 {
+		dec := json.NewDecoder(bytes.NewReader(body.Links))
+		dec.DisallowUnknownFields()
+		req.Links = nil
+		if err := dec.Decode(&req.Links); err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid JSON body: links: "+err.Error())
+			return
+		}
+	}
+	hw, err := h.svc.UpdateHomework(r.Context(), gid, id, req.input())
+	reply(h, w, r, http.StatusOK, hw, err, toHomework)
 }
 
 func (h *Handler) deleteHomework(w http.ResponseWriter, r *http.Request) {

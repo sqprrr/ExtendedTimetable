@@ -90,6 +90,44 @@ func (q *Queries) ListGroups(ctx context.Context) ([]*Group, error) {
 	return gs, rows.Err()
 }
 
+// GroupSummary is a group with its size, leader and invite, as the
+// superadmins' panel lists it.
+type GroupSummary struct {
+	*Group
+	Members int
+	// Leader is the leader's username, or "" if the group has none.
+	Leader string
+	Invite *Invite
+}
+
+// ListGroupSummaries returns every group with its size, leader and invite,
+// ordered by code.
+func (q *Queries) ListGroupSummaries(ctx context.Context) ([]*GroupSummary, error) {
+	return queryAll(ctx, q, func(row interface{ Scan(...any) error }) (*GroupSummary, error) {
+		var gs GroupSummary
+		var g Group
+		var inv Invite
+		var cist sql.NullInt64
+		var created, expires, invCreated int64
+		if err := row.Scan(&g.ID, &g.Code, &g.Name, &cist, &created, &gs.Members, &gs.Leader,
+			&inv.GroupID, &inv.Token, &expires, &invCreated); err != nil {
+			return nil, mapErr(err)
+		}
+		g.CISTGroupID = int64Ptr(cist)
+		g.CreatedAt = time.Unix(created, 0).UTC()
+		inv.ExpiresAt = time.Unix(expires, 0).UTC()
+		inv.CreatedAt = time.Unix(invCreated, 0).UTC()
+		gs.Group, gs.Invite = &g, &inv
+		return &gs, nil
+	}, `SELECT g.id, g.code, g.name, g.cist_group_id, g.created_at,
+		(SELECT COUNT(*) FROM memberships m WHERE m.group_id = g.id),
+		COALESCE((SELECT u.username FROM memberships m JOIN users u ON u.id = m.user_id
+		          WHERE m.group_id = g.id AND m.role = 'leader'), ''),
+		i.group_id, i.token, i.expires_at, i.created_at
+		FROM groups g JOIN group_invites i ON i.group_id = g.id
+		ORDER BY g.code`)
+}
+
 // AddMembership adds a user to a group. Returns ErrConflict if they are
 // already a member, or if m makes a second leader of the group.
 func (q *Queries) AddMembership(ctx context.Context, m *Membership) error {

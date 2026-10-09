@@ -37,6 +37,11 @@ func (q *Queries) SessionByID(ctx context.Context, id string) (*Session, error) 
 	return &s, nil
 }
 
+// SetSessionExpiry moves a session's expiry to expires.
+func (q *Queries) SetSessionExpiry(ctx context.Context, id string, expires time.Time) error {
+	return expectOne(q.db.ExecContext(ctx, `UPDATE sessions SET expires_at = ? WHERE id = ?`, expires.Unix(), id))
+}
+
 // DeleteSession removes a session. Deleting a missing session is not an error.
 func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, `DELETE FROM sessions WHERE id = ?`, id)
