@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -29,11 +30,7 @@ type FeedbackInput struct {
 }
 
 func (in FeedbackInput) validate() (FeedbackInput, error) {
-	known := false
-	for _, k := range FeedbackKinds {
-		known = known || in.Kind == k
-	}
-	if !known {
+	if !slices.Contains(FeedbackKinds, in.Kind) {
 		return in, inputError("kind", "err.feedback_kind")
 	}
 	if in.Kind != store.FeedbackReview {
@@ -145,12 +142,5 @@ func (s *Service) AdminFeedback(ctx context.Context, openOnly bool) (*FeedbackIn
 
 // requireSuperadmin checks that the viewer is a superadmin.
 func requireSuperadmin(ctx context.Context) (*Viewer, error) {
-	v, err := requireViewer(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !v.IsSuperadmin {
-		return nil, ErrForbidden
-	}
-	return v, nil
+	return viewerWho(ctx, func(v *Viewer) bool { return v.IsSuperadmin })
 }

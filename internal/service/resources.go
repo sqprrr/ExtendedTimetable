@@ -7,6 +7,9 @@ import (
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
+// ResourceKinds are the kinds of resource links.
+var ResourceKinds = []store.ResourceKind{store.ResourceRecording, store.ResourceSolution}
+
 // ResourceLinkInput is the recording / solution form.
 type ResourceLinkInput struct {
 	SubjectID int64
@@ -20,7 +23,7 @@ type ResourceLinkInput struct {
 
 func (in ResourceLinkInput) validate() (ResourceLinkInput, error) {
 	var err error
-	if in.Kind != store.ResourceRecording && in.Kind != store.ResourceSolution {
+	if !slices.Contains(ResourceKinds, in.Kind) {
 		return in, inputError("kind", "err.resource_kind")
 	}
 	if in.Title, err = text("title", "field.title", in.Title, true, maxTitleLen); err != nil {

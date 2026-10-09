@@ -232,10 +232,8 @@ func (s *Service) SyncScheduleNow(ctx context.Context, groupID int64) (*store.Sc
 // AdminSyncSchedule syncs a group's schedule from the admin CLI: no
 // permission check and no cooldown.
 func (s *Service) AdminSyncSchedule(ctx context.Context, groupCode string) (*store.ScheduleSync, error) {
-	g, err := s.store.GroupByCode(ctx, strings.TrimSpace(groupCode))
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("group %q not found", groupCode)
-	} else if err != nil {
+	g, err := s.adminGroup(ctx, groupCode)
+	if err != nil {
 		return nil, err
 	}
 	return s.syncGroup(ctx, g)
@@ -243,10 +241,8 @@ func (s *Service) AdminSyncSchedule(ctx context.Context, groupCode string) (*sto
 
 // AdminSetCISTID sets (or with nil clears) the CIST timetable id of a group.
 func (s *Service) AdminSetCISTID(ctx context.Context, groupCode string, cistID *int64) error {
-	g, err := s.store.GroupByCode(ctx, strings.TrimSpace(groupCode))
-	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("group %q not found", groupCode)
-	} else if err != nil {
+	g, err := s.adminGroup(ctx, groupCode)
+	if err != nil {
 		return err
 	}
 	return s.store.SetGroupCISTID(ctx, g.ID, cistID)

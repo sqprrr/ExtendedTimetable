@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/url"
+	"slices"
 	"strconv"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
@@ -26,15 +27,11 @@ func parseListFilter(q url.Values) listFilter {
 	if id, err := strconv.ParseInt(q.Get("subject_id"), 10, 64); err == nil && id > 0 {
 		f.SubjectID = id
 	}
-	for _, lt := range service.LessonTypes {
-		if q.Get("lesson_type") == string(lt) {
-			f.LessonType = lt
-		}
+	if lt := store.LessonType(q.Get("lesson_type")); slices.Contains(service.LessonTypes, lt) {
+		f.LessonType = lt
 	}
-	for _, k := range []store.ResourceKind{store.ResourceRecording, store.ResourceSolution} {
-		if q.Get("kind") == string(k) {
-			f.Kind = k
-		}
+	if k := store.ResourceKind(q.Get("kind")); slices.Contains(service.ResourceKinds, k) {
+		f.Kind = k
 	}
 	return f
 }

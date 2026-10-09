@@ -138,9 +138,5 @@ func (h *Handler) setTimeZone(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.cookies.SetTimeZone(w, tz)
-	back := r.PostFormValue("back")
-	if !isLocalPath(back) {
-		back = "/"
-	}
-	http.Redirect(w, r, back, http.StatusSeeOther)
+	redirectBack(w, r)
 }

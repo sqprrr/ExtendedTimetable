@@ -90,11 +90,7 @@ func (h *Handler) setLang(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.cookies.SetLang(w, lang)
-	back := r.PostFormValue("back")
-	if !isLocalPath(back) {
-		back = "/"
-	}
-	http.Redirect(w, r, back, http.StatusSeeOther)
+	redirectBack(w, r)
 }
 
 // setTheme switches the colour theme, like setLang: in a cookie for this
@@ -111,6 +107,12 @@ func (h *Handler) setTheme(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.cookies.SetTheme(w, theme)
+	redirectBack(w, r)
+}
+
+// redirectBack returns a settings switch to the page it was on (the form's
+// "back" field), or to the home page.
+func redirectBack(w http.ResponseWriter, r *http.Request) {
 	back := r.PostFormValue("back")
 	if !isLocalPath(back) {
 		back = "/"

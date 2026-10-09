@@ -13,6 +13,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/cist"
+	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
@@ -26,29 +27,36 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 	dbPath := dbFlag(fs)
 	baseURL := baseURLFlag(fs)
 
-	// open parses flags and opens the database; call it after defining
-	// subcommand-specific flags.
-	open := func(positional int) ([]string, *store.Store, error) {
+	// open parses flags and opens the database, which is closed when the
+	// command returns; call it after defining subcommand-specific flags.
+	var st *store.Store
+	defer func() {
+		if st != nil {
+			st.Close()
+		}
+	}()
+	open := func(positional int) ([]string, *service.Service, error) {
 		pos, err := parseArgs(fs, args, positional)
 		if err != nil {
 			return nil, nil, err
 		}
-		st, err := openStore(ctx, *dbPath)
-		return pos, st, err
+		if st, err = openStore(ctx, *dbPath); err != nil {
+			return nil, nil, err
+		}
+		return pos, newService(st, nil), nil
 	}
 
 	switch sub {
 	case "create-superadmin":
-		pos, st, err := open(1)
+		pos, svc, err := open(1)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
 		password, err := readNewPassword(stdin, stdout)
 		if err != nil {
 			return err
 		}
-		if err := newService(st, nil).AdminCreateSuperadmin(ctx, pos[0], password); err != nil {
+		if err := svc.AdminCreateSuperadmin(ctx, pos[0], password); err != nil {
 			return err
 		}
 		fmt.Fprintf(stdout, "superadmin %s created\n", strings.ToLower(pos[0]))
@@ -56,16 +64,14 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 	case "create-group":
 		cistID := fs.Int64("cist-id", 0, "CIST group id")
 		name := fs.String("name", "", "display name (defaults to the code)")
-		pos, st, err := open(1)
+		pos, svc, err := open(1)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
 		var cistGroup *int64
 		if *cistID != 0 {
 			cistGroup = cistID
 		}
-		svc := newService(st, nil)
 		g, err := svc.AdminCreateGroup(ctx, pos[0], *name, cistGroup)
 		if err != nil {
 			return err
@@ -79,12 +85,11 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 
 	case "invite-link":
 		regenerate := fs.Bool("regenerate", false, "replace the link first; the old one stops working")
-		pos, st, err := open(1)
+		pos, svc, err := open(1)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
-		inv, err := newService(st, nil).AdminInvite(ctx, pos[0], *regenerate)
+		inv, err := svc.AdminInvite(ctx, pos[0], *regenerate)
 		if err != nil {
 			return err
 		}
@@ -92,12 +97,11 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 
 	case "group-log":
 		limit := fs.Int("limit", 50, "how many entries to print")
-		pos, st, err := open(1)
+		pos, svc, err := open(1)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
-		entries, err := newService(st, nil).AdminGroupLog(ctx, pos[0], *limit)
+		entries, err := svc.AdminGroupLog(ctx, pos[0], *limit)
 		if err != nil {
 			return err
 		}
@@ -106,7 +110,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			if e.ActorID == nil {
 				actor = "(server CLI)"
 			}
-			fmt.Fprintf(stdout, "%s  %-18s  by %s", e.CreatedAt.Local().Format("2006-01-02 15:04"), e.Event, actor)
+			fmt.Fprintf(stdout, "%s  %-18s  by %s", e.CreatedAt.Local().Format(cliTime), e.Event, actor)
 			if e.UserID != nil {
 				fmt.Fprintf(stdout, "  user %s", e.UserName)
 			}
@@ -115,15 +119,13 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 
 	case "promote", "demote":
 		group := fs.String("group", "", "group code")
-		pos, st, err := open(1)
+		pos, svc, err := open(1)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
 		if *group == "" {
 			return fmt.Errorf("admin %s: --group is required", sub)
 		}
-		svc := newService(st, nil)
 		if sub == "promote" {
 			if err := svc.AdminSetLeader(ctx, pos[0], *group); err != nil {
 				return err
@@ -137,16 +139,15 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		}
 
 	case "reset-password":
-		pos, st, err := open(1)
+		pos, svc, err := open(1)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
 		password, err := readNewPassword(stdin, stdout)
 		if err != nil {
 			return err
 		}
-		if err := newService(st, nil).AdminResetPassword(ctx, pos[0], password); err != nil {
+		if err := svc.AdminResetPassword(ctx, pos[0], password); err != nil {
 			return err
 		}
 		fmt.Fprintf(stdout, "password for %s updated; existing sessions revoked\n", pos[0])
@@ -168,11 +169,10 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		}
 
 	case "set-cist-id":
-		pos, st, err := open(2)
+		pos, svc, err := open(2)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
 		var id *int64
 		if pos[1] != "none" {
 			n, err := strconv.ParseInt(pos[1], 10, 64)
@@ -181,7 +181,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			}
 			id = &n
 		}
-		if err := newService(st, nil).AdminSetCISTID(ctx, pos[0], id); err != nil {
+		if err := svc.AdminSetCISTID(ctx, pos[0], id); err != nil {
 			return err
 		}
 		if id == nil {
@@ -192,12 +192,11 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		}
 
 	case "sync-schedule":
-		pos, st, err := open(1)
+		pos, svc, err := open(1)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
-		rec, err := newService(st, nil).AdminSyncSchedule(ctx, pos[0])
+		rec, err := svc.AdminSyncSchedule(ctx, pos[0])
 		if err != nil {
 			return err
 		}
@@ -205,12 +204,11 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 
 	case "feedback":
 		all := fs.Bool("all", false, "include resolved feedback")
-		_, st, err := open(0)
+		_, svc, err := open(0)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
-		inbox, err := newService(st, nil).AdminFeedback(ctx, !*all)
+		inbox, err := svc.AdminFeedback(ctx, !*all)
 		if err != nil {
 			return err
 		}
@@ -219,7 +217,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			if author == "" {
 				author = "(deleted account)"
 			}
-			fmt.Fprintf(stdout, "#%d  %s  %s  %s", f.ID, f.CreatedAt.Local().Format("2006-01-02 15:04"), author, f.Kind)
+			fmt.Fprintf(stdout, "#%d  %s  %s  %s", f.ID, f.CreatedAt.Local().Format(cliTime), author, f.Kind)
 			if f.Rating != nil {
 				fmt.Fprintf(stdout, " %d/5", *f.Rating)
 			}
@@ -237,10 +235,13 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 	return nil
 }
 
+// cliTime is how the CLI prints a moment, in the server's local time.
+const cliTime = "2006-01-02 15:04"
+
 // printInvite prints an invite link, in full when the site's address is known.
 func printInvite(w io.Writer, baseURL string, inv *store.Invite) {
 	fmt.Fprintf(w, "%s/join/%s\n", strings.TrimRight(baseURL, "/"), inv.Token)
-	fmt.Fprintf(w, "valid until %s\n", inv.ExpiresAt.Local().Format("2006-01-02 15:04"))
+	fmt.Fprintf(w, "valid until %s\n", inv.ExpiresAt.Local().Format(cliTime))
 	if baseURL == "" {
 		fmt.Fprintln(w, "(set EXTT_BASE_URL or --base-url to print the full address)")
 	}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"slices"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
@@ -19,11 +20,7 @@ type ClassLinkInput struct {
 
 func (in ClassLinkInput) validate() (ClassLinkInput, error) {
 	var err error
-	valid := false
-	for _, t := range LessonTypes {
-		valid = valid || in.LessonType == t
-	}
-	if !valid {
+	if !slices.Contains(LessonTypes, in.LessonType) {
 		return in, inputError("lesson_type", "err.lesson_type")
 	}
 	if in.URL, err = link("url", in.URL); err != nil {

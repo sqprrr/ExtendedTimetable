@@ -170,10 +170,8 @@ func (s *Service) AdminResetPassword(ctx context.Context, username, password str
 	if err := validatePassword(password); err != nil {
 		return err
 	}
-	u, err := s.store.UserByUsername(ctx, strings.TrimSpace(username))
-	if errors.Is(err, store.ErrNotFound) {
-		return fmt.Errorf("user %q not found", username)
-	} else if err != nil {
+	u, err := s.adminUser(ctx, username)
+	if err != nil {
 		return err
 	}
 	hash, err := auth.HashPassword(password)
@@ -189,10 +187,8 @@ func (s *Service) AdminResetPassword(ctx context.Context, username, password str
 }
 
 func (s *Service) adminLookup(ctx context.Context, username, groupCode string) (*store.User, *store.Group, error) {
-	u, err := s.store.UserByUsername(ctx, strings.TrimSpace(username))
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, nil, fmt.Errorf("user %q not found", username)
-	} else if err != nil {
+	u, err := s.adminUser(ctx, username)
+	if err != nil {
 		return nil, nil, err
 	}
 	g, err := s.adminGroup(ctx, groupCode)
@@ -200,6 +196,14 @@ func (s *Service) adminLookup(ctx context.Context, username, groupCode string) (
 		return nil, nil, err
 	}
 	return u, g, nil
+}
+
+func (s *Service) adminUser(ctx context.Context, username string) (*store.User, error) {
+	u, err := s.store.UserByUsername(ctx, strings.TrimSpace(username))
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("user %q not found", username)
+	}
+	return u, err
 }
 
 func (s *Service) adminGroup(ctx context.Context, groupCode string) (*store.Group, error) {
