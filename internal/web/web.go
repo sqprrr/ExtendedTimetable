@@ -429,7 +429,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 	data.Back = backPath(r)
 	data.Theme = h.theme(r)
 	l := i18n.FromContext(r.Context())
-	loc := h.svc.Location(r.Context())
+	loc := h.pageLocation(r)
 	data.Zone = h.zoneView(r, l, loc)
 	if data.Viewer != nil {
 		data.NavGroup = data.Group
@@ -463,7 +463,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 func (h *Handler) renderFragment(w http.ResponseWriter, r *http.Request, name string, data any) {
 	var buf bytes.Buffer
 	// Every page set holds partials.html; any of them will do.
-	t, err := h.templates(i18n.FromContext(r.Context()), "homework", h.svc.Location(r.Context()))
+	t, err := h.templates(i18n.FromContext(r.Context()), "homework", h.pageLocation(r))
 	if err == nil {
 		err = t.ExecuteTemplate(&buf, name, data)
 	}

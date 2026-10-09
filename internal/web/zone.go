@@ -43,6 +43,17 @@ type zoneOption struct {
 	Selected    bool
 }
 
+// pageLocation is the time zone a page is drawn in: the request's for a
+// signed-in user, the site's for visitors. Signed-out pages show no dates,
+// and another zone would cost a copy of the templates (Handler.templates),
+// which anyone could otherwise make the server do with a device cookie.
+func (h *Handler) pageLocation(r *http.Request) *time.Location {
+	if service.ViewerFrom(r.Context()) == nil {
+		return h.svc.SiteLocation()
+	}
+	return h.svc.Location(r.Context())
+}
+
 func (h *Handler) zoneView(r *http.Request, l *i18n.Localizer, loc *time.Location) zoneView {
 	now := h.svc.Now()
 	z := zoneView{

@@ -206,3 +206,23 @@ func TestAPITimeZone(t *testing.T) {
 		t.Fatalf("PUT bad zone: %d %v", code, out)
 	}
 }
+
+// Signed-out pages show no dates: they are drawn in the site's zone whatever
+// the device says, so a device cookie cannot make the server copy templates.
+func TestSignedOutPagesUseTheSiteZone(t *testing.T) {
+	e := newEnv(t) // the site in UTC
+	b := e.browser(t)
+	b.setDeviceZone("Asia/Tokyo")
+	for _, path := range []string{"/login", e.joinPath(t, "KIUKI-25-3"), "/join/no-such-token"} {
+		_, body, _ := b.get(path)
+		tag := bodyTag(body)
+		if !strings.Contains(tag, `data-tz-offset="0"`) || !strings.Contains(tag, `data-tz-device="Asia/Tokyo"`) || strings.Contains(tag, "data-tz-reload") {
+			t.Errorf("%s: %s", path, tag)
+		}
+	}
+	// Once signed in, the same browser gets its device's zone.
+	b.register("KIUKI-25-3", "alice")
+	if _, body, _ := b.get("/"); !strings.Contains(bodyTag(body), `data-tz-offset="540"`) {
+		t.Errorf("signed in: %s", bodyTag(body))
+	}
+}
