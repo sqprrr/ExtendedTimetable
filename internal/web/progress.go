@@ -111,16 +111,3 @@ func progressInput(r *http.Request) (service.ProgressInput, string, error) {
 	in.Grade = &g
 	return in, raw, nil
 }
-
-func (h *Handler) myGrades(w http.ResponseWriter, r *http.Request) {
-	g := h.groupPage(w, r)
-	if g == nil {
-		return
-	}
-	grades, err := h.svc.MyGrades(r.Context(), g.ID)
-	if err != nil {
-		h.renderError(w, r, err)
-		return
-	}
-	h.render(w, r, http.StatusOK, "grades", pageData{Group: g, Section: "grades", Grades: grades})
-}

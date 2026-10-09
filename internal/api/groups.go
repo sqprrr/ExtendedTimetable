@@ -37,7 +37,6 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT "+g+"/homework/{id}", h.updateHomework)
 	mux.HandleFunc("DELETE "+g+"/homework/{id}", h.deleteHomework)
 	mux.HandleFunc("PUT "+g+"/homework/{id}/progress", h.updateProgress)
-	mux.HandleFunc("GET "+g+"/grades", h.myGrades)
 	mux.HandleFunc("GET "+g+"/schedule", h.schedule)
 	mux.HandleFunc("POST "+g+"/schedule/sync", h.syncSchedule)
 
@@ -422,40 +421,6 @@ func (h *Handler) updateProgress(w http.ResponseWriter, r *http.Request) {
 	}
 	hw, err := h.svc.UpdateProgress(r.Context(), gid, id, in)
 	reply(h, w, r, http.StatusOK, hw, err, toHomework)
-}
-
-type totalsJSON struct {
-	Assignments int     `json:"assignments"`
-	Graded      int     `json:"graded"`
-	Earned      float64 `json:"earned"`
-	Max         float64 `json:"max"`
-}
-
-type subjectTotalsJSON struct {
-	SubjectID   int64  `json:"subject_id"`
-	SubjectName string `json:"subject_name"`
-	totalsJSON
-}
-
-type gradesJSON struct {
-	Subjects []subjectTotalsJSON `json:"subjects"`
-	Overall  totalsJSON          `json:"overall"`
-}
-
-func toGrades(g *service.Grades) gradesJSON {
-	return gradesJSON{
-		Subjects: list(g.Subjects, func(st *service.SubjectTotals) subjectTotalsJSON {
-			return subjectTotalsJSON{SubjectID: st.SubjectID, SubjectName: st.SubjectName, totalsJSON: totalsJSON(st.Totals)}
-		}),
-		Overall: totalsJSON(g.Overall),
-	}
-}
-
-func (h *Handler) myGrades(w http.ResponseWriter, r *http.Request) {
-	if gid := h.group(w, r); gid != 0 {
-		g, err := h.svc.MyGrades(r.Context(), gid)
-		reply(h, w, r, http.StatusOK, g, err, toGrades)
-	}
 }
 
 // Notes

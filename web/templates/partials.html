@@ -175,3 +175,25 @@
 </div>
 <p class="feedback-message">{{.Message}}</p>
 {{end}}
+
+{{/* filterSubjects is the subject row of the class links and recordings
+   filters: the subjects that have something on the page. */}}
+{{define "filterSubjects"}}
+{{$f := .ListFilter}}
+<fieldset class="chips">
+  <legend class="sr-only">{{t "field.subject"}}</legend>
+  <label class="chip"><input type="radio" name="subject_id" value=""{{if not $f.SubjectID}} checked{{end}}>{{t "hw.all_subjects"}}</label>
+  {{range $f.Subjects}}
+  <label class="chip"><input type="radio" name="subject_id" value="{{.ID}}"{{if eq .ID $f.SubjectID}} checked{{end}}><span class="subject" data-hue="{{hue .ID .Hue}}">{{.Name}}</span></label>
+  {{end}}
+</fieldset>
+{{end}}
+
+{{/* filterButtons applies a list filter without JavaScript and resets it;
+   called with the list's URL. */}}
+{{define "filterButtons"}}
+<div class="btn-row">
+  <button type="submit" class="btn btn-secondary btn-sm">{{t "hw.filter"}}</button>
+  {{if .Active}}<a class="btn btn-ghost btn-sm" href="{{.URL}}">{{t "hw.reset_filters"}}</a>{{end}}
+</div>
+{{end}}

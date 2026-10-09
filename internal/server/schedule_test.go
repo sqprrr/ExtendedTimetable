@@ -124,7 +124,7 @@ func TestSchedulePages(t *testing.T) {
 	// one; the Week view lists them all.
 	day := src.events[0].Start.In(time.UTC).Format(time.DateOnly)
 	_, body, _ = stud.get(g + "/schedule?week=" + week + "&day=" + day + "&view=day")
-	for _, want := range []string{`class="section-gap view-day"`, `class="card day-card is-selected`, `day=` + day + `&amp;view=day" aria-current="date"`, `aria-current="page">Day</a>`} {
+	for _, want := range []string{`class="section-gap view-day"`, `class="card day-card is-selected`, `day=` + day + `&amp;view=day" data-day="` + day + `" aria-current="date"`, `aria-current="page">Day</a>`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("day view missing %q", want)
 		}

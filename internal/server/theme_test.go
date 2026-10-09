@@ -151,7 +151,6 @@ func TestShellNavigation(t *testing.T) {
 	for _, want := range []string{
 		`<a class="nav-item" href="/g/KIUKI-25-3/schedule" aria-current="page">`,
 		`<a class="nav-item" href="/g/KIUKI-25-3/homework">`,
-		`<a class="nav-item" href="/g/KIUKI-25-3/grades">`,
 		`<a href="/g/KIUKI-25-3/schedule" aria-current="page">`, // bottom bar
 		`<a href="/g/KIUKI-25-3/more">`,
 		`action="/logout"`,

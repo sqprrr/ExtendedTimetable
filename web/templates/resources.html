@@ -11,6 +11,21 @@
   {{if .Group.CanEdit}}<a class="btn btn-secondary" href="{{$g}}/resources/new"{{boost}}>{{icon "plus"}}{{t "action.add"}}</a>{{end}}
 </header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+<div class="section-gap">
+{{if .ResourcesTotal}}
+{{$f := .ListFilter}}
+<form class="filters" method="get" action="{{$g}}/resources" data-autosubmit aria-label="{{t "hw.filters"}}">
+  {{template "filterSubjects" .}}
+  <fieldset class="chips">
+    <legend class="sr-only">{{t "field.kind"}}</legend>
+    <label class="chip"><input type="radio" name="kind" value=""{{if not $f.Kind}} checked{{end}}>{{t "resources.all_kinds"}}</label>
+    {{range resourceKinds}}
+    <label class="chip"><input type="radio" name="kind" value="{{.}}"{{if eq . $f.Kind}} checked{{end}}>{{kindLabel .}}</label>
+    {{end}}
+  </fieldset>
+  {{template "filterButtons" (filterButtons $f.Active (print $g "/resources"))}}
+</form>
+{{end}}
 {{with .Resources}}
 <section class="card card-flush" aria-label="{{t "nav.resources"}}">
   <ul class="rows">
@@ -36,12 +51,18 @@
 <section class="card">
   <div class="empty">
     <span class="glyph">{{icon "video"}}</span>
+    {{if $.ListFilter.Active}}
+    <h3>{{t "resources.no_matches"}}</h3>
+    <a class="btn btn-ghost btn-sm" href="{{$g}}/resources">{{t "hw.reset_filters"}}</a>
+    {{else}}
     <h3>{{t "resources.empty"}}</h3>
     <p>{{t "resources.empty_hint"}}</p>
     {{if $.Group.CanEdit}}<a class="btn btn-secondary btn-sm" href="{{$g}}/resources/new"{{boost}}>{{icon "plus"}}{{t "resources.new_title"}}</a>{{end}}
+    {{end}}
   </div>
 </section>
 {{end}}
+</div>
 {{end}}
 {{end}}
 

@@ -87,7 +87,6 @@ extt admin create-group KIUKI-25-3 --cist-id <id>   # prints the invite link
 - Each student can set their **own**:
   - status: `Not started` (default) → `In progress` → `Done` (htmx toggle, no reload),
   - **grade** received (number, optional; capped at max points if set).
-- "My grades" view: total points per subject (sum of grades / sum of max points) and overall.
 
 ### 4.4 Notes / announcements
 - The leader posts notes (Markdown), optionally pinned to the top. This is the "blog" part.

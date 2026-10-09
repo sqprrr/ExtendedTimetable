@@ -99,11 +99,14 @@ func (q *Queries) ListHomework(ctx context.Context, groupID int64) ([]*Homework,
 }
 
 // UpcomingHomework returns up to limit of the group's assignments due at or
-// after since, or without a deadline, in the order of ListHomework.
-func (q *Queries) UpcomingHomework(ctx context.Context, groupID int64, since time.Time, limit int) ([]*Homework, error) {
+// after since, or without a deadline, in the order of ListHomework. Those the
+// user has marked done are left out; userID 0 leaves out none.
+func (q *Queries) UpcomingHomework(ctx context.Context, groupID, userID int64, since time.Time, limit int) ([]*Homework, error) {
 	return queryAll(ctx, q, scanHomework,
 		homeworkSelect+`WHERE h.group_id = ? AND (h.due_at IS NULL OR h.due_at >= ?)
-		 ORDER BY h.due_at IS NULL, h.due_at, h.id LIMIT ?`, groupID, since.Unix(), limit)
+		 AND NOT EXISTS (SELECT 1 FROM homework_progress p
+		                 WHERE p.homework_id = h.id AND p.user_id = ? AND p.status = 'done')
+		 ORDER BY h.due_at IS NULL, h.due_at, h.id LIMIT ?`, groupID, since.Unix(), userID, limit)
 }
 
 // HomeworkLinks returns an assignment's links in the order they were added.

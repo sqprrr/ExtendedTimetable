@@ -60,7 +60,6 @@
     <a class="nav-item" href="{{$g}}"{{current $.Section "overview"}}>{{icon "house"}}<span>{{t "nav.today"}}</span></a>
     <a class="nav-item" href="{{$g}}/schedule"{{current $.Section "schedule"}}>{{icon "calendar-days"}}<span>{{t "nav.schedule"}}</span></a>
     <a class="nav-item" href="{{$g}}/homework"{{current $.Section "homework"}}>{{icon "list-checks"}}<span>{{t "nav.homework"}}</span></a>
-    {{if .CanTrack}}<a class="nav-item" href="{{$g}}/grades"{{current $.Section "grades"}}>{{icon "graduation-cap"}}<span>{{t "nav.grades"}}</span></a>{{end}}
     <div class="nav-label">{{t "nav.group"}}</div>
     <a class="nav-item" href="{{$g}}/notes"{{current $.Section "notes"}}>{{icon "megaphone"}}<span>{{t "nav.notes"}}</span></a>
     <a class="nav-item" href="{{$g}}/links"{{current $.Section "links"}}>{{icon "link"}}<span>{{t "nav.links"}}</span></a>
@@ -109,7 +108,6 @@
   <a href="{{$g}}"{{current $.Section "overview"}}>{{icon "house"}}<span>{{t "nav.today"}}</span></a>
   <a href="{{$g}}/schedule"{{current $.Section "schedule"}}>{{icon "calendar-days"}}<span>{{t "nav.schedule"}}</span></a>
   <a href="{{$g}}/homework"{{current $.Section "homework"}}>{{icon "list-checks"}}<span>{{t "nav.homework_short"}}</span></a>
-  {{if .CanTrack}}<a href="{{$g}}/grades"{{current $.Section "grades"}}>{{icon "graduation-cap"}}<span>{{t "nav.grades_short"}}</span></a>{{end}}
   <a href="{{$g}}/more"{{current $.Section "more" "notes" "links" "resources" "subjects" "members" "feedback" "inbox" "admin_groups" "home"}}>{{icon "menu"}}<span>{{t "nav.more"}}</span></a>
   {{else}}
   <a href="/"{{current $.Section "home"}}>{{icon "house"}}<span>{{t "nav.my_groups"}}</span></a>

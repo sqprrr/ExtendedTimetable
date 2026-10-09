@@ -16,9 +16,8 @@ notes, and a private homework tracker per student. See
   available as JSON under `/api/v1/groups/<code>/…`.
 - **M3:** every group member keeps a private homework tracker: a status
   (not started → in progress → done, toggled with htmx without a reload)
-  and the grade they got, capped at the assignment's max points. "My grades"
-  (`/g/<code>/grades`) sums grades per subject and overall. Nobody else,
-  leaders and superadmins included, can see someone's status or grades.
+  and the grade they got, capped at the assignment's max points. Nobody
+  else, leaders and superadmins included, can see someone's status or grades.
 - **M4:** the class schedule is synced from CIST every 6 hours (leaders can
   also press "Sync with CIST now"). `/g/<code>/schedule` shows the week with
   the class in progress or next and its meeting link; the overview shows
@@ -201,7 +200,6 @@ in effect.
 | `notes` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` |
 | `resources` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}` (optional `lesson_type`) |
 | `homework/{id}/progress` | `PUT` — the viewer's own `{"status", "grade"}` |
-| `grades` | `GET` — the viewer's totals per subject and overall |
 | `schedule` | `GET ?from=YYYY-MM-DD&to=YYYY-MM-DD` (default: the 7 days from today), `POST /sync` (leader and editors) |
 
 Homework items carry the viewer's own `"progress": {"status", "grade"}`

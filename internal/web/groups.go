@@ -62,7 +62,13 @@ func (h *Handler) sections() []*section {
 				if d.ClassLinks, err = h.svc.ClassLinks(ctx, groupID); err != nil {
 					return err
 				}
-				return loadSubjects(ctx, h, groupID, d)
+				if err := loadSubjects(ctx, h, groupID, d); err != nil {
+					return err
+				}
+				d.ListFilter = parseListFilter(d.Query)
+				d.ClassLinksTotal = len(d.ClassLinks)
+				d.ClassLinks = filterClassLinks(&d.ListFilter, d.Subjects, d.ClassLinks)
+				return nil
 			},
 			fields: func(ctx context.Context, h *Handler, groupID, id int64) (map[string]string, error) {
 				l, err := h.svc.ClassLink(ctx, groupID, id)
@@ -175,7 +181,13 @@ func (h *Handler) sections() []*section {
 				if d.Resources, err = h.svc.ResourceLinks(ctx, groupID); err != nil {
 					return err
 				}
-				return loadSubjects(ctx, h, groupID, d)
+				if err := loadSubjects(ctx, h, groupID, d); err != nil {
+					return err
+				}
+				d.ListFilter = parseListFilter(d.Query)
+				d.ResourcesTotal = len(d.Resources)
+				d.Resources = filterResources(&d.ListFilter, d.Subjects, d.Resources)
+				return nil
 			},
 			fields: func(ctx context.Context, h *Handler, groupID, id int64) (map[string]string, error) {
 				l, err := h.svc.ResourceLink(ctx, groupID, id)
@@ -247,7 +259,6 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /g/{code}", h.groupOverview)
 	mux.HandleFunc("GET /g/{code}/homework/{id}", h.homeworkDetail)
 	mux.HandleFunc("POST /g/{code}/homework/{id}/progress", h.updateProgress)
-	mux.HandleFunc("GET /g/{code}/grades", h.myGrades)
 	mux.HandleFunc("GET /g/{code}/schedule", h.schedulePage)
 	mux.HandleFunc("POST /g/{code}/schedule/sync", h.syncSchedule)
 	mux.HandleFunc("GET /g/{code}/subjects/{id}", h.subjectPage)
@@ -430,7 +441,7 @@ func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, http.StatusOK, "group", pageData{
-		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes, ClassLinks: ov.ClassLinks,
+		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes,
 		Schedule: ov.Today, NowCard: h.newNowCard(i18n.FromContext(r.Context()), h.svc.Now(), ov.Today),
 	})
 }

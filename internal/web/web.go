@@ -53,7 +53,7 @@ type Config struct {
 // partials.html.
 var pages = []string{
 	"home", "login", "join", "error",
-	"group", "subjects", "subject", "links", "homework", "homework_detail", "notes", "resources", "grades", "schedule",
+	"group", "subjects", "subject", "links", "homework", "homework_detail", "notes", "resources", "schedule",
 	"members", "feedback", "feedback_inbox", "admin_groups", "more",
 }
 
@@ -151,6 +151,11 @@ type pageData struct {
 	HomeworkList []*service.Homework
 	// HomeworkFilter is the homework list's subject and status filter.
 	HomeworkFilter service.HomeworkFilter
+	// ListFilter narrows the class links and the recordings; ClassLinks and
+	// Resources hold what passes it, out of ClassLinksTotal and ResourcesTotal.
+	ListFilter      listFilter
+	ClassLinksTotal int
+	ResourcesTotal  int
 	// SubjectPage is the subject page's subject with its links, homework and
 	// recordings; SubjectTab is its open tab and Lesson the recordings'
 	// lesson type filter ("" for all).
@@ -164,7 +169,6 @@ type pageData struct {
 	Homework  *service.Homework
 	Notes     []*store.Note
 	Resources []*store.ResourceLink
-	Grades    *service.Grades
 	// ProgressPanel replaces the progress panel of the homework page, to show
 	// a rejected grade with its error.
 	ProgressPanel *hwItem
@@ -202,6 +206,13 @@ type hwItem struct {
 	UpdateBadge bool
 	// Manage adds the editing row menu (edit, delete).
 	Manage bool
+}
+
+// filterButtons is what the filterButtons template renders: whether a list
+// filter is on, and the list's URL without it.
+type filterButtons struct {
+	Active bool
+	URL    string
 }
 
 // rowMenu is what the rowMenu template renders: the Edit and Delete
@@ -247,7 +258,11 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from, Filter: homeworkFilterQuery(d.HomeworkFilter),
 				Manage: d.Group.CanEdit && from == "list"}
 		},
-		"rowMenu":    func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
+		"rowMenu":       func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
+		"filterButtons": func(active bool, url string) filterButtons { return filterButtons{Active: active, URL: url} },
+		"resourceKinds": func() []store.ResourceKind {
+			return []store.ResourceKind{store.ResourceRecording, store.ResourceSolution}
+		},
 		"statuses":   func() []store.ProgressStatus { return service.Statuses },
 		"nextStatus": service.NextStatus,
 		"statusLabel": func(st store.ProgressStatus) string {
@@ -292,7 +307,6 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return ""
 		},
 		"hues":  func() []string { return service.Hues },
-		"num":   formatPoints,
 		"clock": func(t time.Time) string { return t.In(h.loc).Format("15:04") },
 		"when":  func(t time.Time) string { return h.when(l, t) },
 		"dayName": func(t time.Time) string {
@@ -336,12 +350,6 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 				}
 			}
 			return s.Upcoming[0]
-		},
-		"percent": func(earned, max float64) string {
-			if max <= 0 {
-				return "—"
-			}
-			return strconv.FormatFloat(earned/max*100, 'f', 0, 64) + "%"
 		},
 		// The label funcs take any so templates can pass both typed values
 		// and string literals.

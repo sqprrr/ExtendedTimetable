@@ -67,13 +67,6 @@ func TestProgressIsPrivate(t *testing.T) {
 		if list[0].Status != store.StatusNotStarted || list[0].Grade != nil {
 			t.Errorf("%s list sees %s / %v", name, list[0].Status, list[0].Grade)
 		}
-		g, err := f.svc.MyGrades(ctx, gid)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if g.Overall.Earned != 0 || g.Overall.Graded != 0 {
-			t.Errorf("%s grades include someone else's: %+v", name, g.Overall)
-		}
 	}
 
 	// The leader keeps a tracker of their own.
@@ -108,9 +101,6 @@ func TestSuperadminHasNoTracker(t *testing.T) {
 	}
 	if _, err := f.svc.UpdateProgress(root, f.group.ID, hw.ID, service.ProgressInput{Status: status(store.StatusDone)}); !errors.Is(err, service.ErrForbidden) {
 		t.Errorf("superadmin update: %v", err)
-	}
-	if _, err := f.svc.MyGrades(root, f.group.ID); !errors.Is(err, service.ErrForbidden) {
-		t.Errorf("superadmin grades: %v", err)
 	}
 }
 
@@ -197,63 +187,19 @@ func TestDoneIsNotOverdueAndDeleteCascades(t *testing.T) {
 		t.Fatalf("done should not be overdue: %v %+v", err, got)
 	}
 	ov, err := f.svc.GroupOverview(stud, gid)
-	if err != nil || len(ov.Homework) != 1 || ov.Homework[0].Status != store.StatusDone || ov.Homework[0].Overdue {
-		t.Fatalf("overview: %v %+v", err, ov.Homework)
+	if err != nil || len(ov.Homework) != 0 {
+		t.Fatalf("done homework on the overview: %v %+v", err, ov.Homework)
+	}
+	// Someone else's done does not hide it from the leader.
+	if ov, err := f.svc.GroupOverview(lead, gid); err != nil || len(ov.Homework) != 1 || !ov.Homework[0].Overdue {
+		t.Fatalf("leader's overview: %v %+v", err, ov.Homework)
 	}
 
 	if err := f.svc.DeleteHomework(lead, gid, hw.ID); err != nil {
 		t.Fatalf("delete homework with progress: %v", err)
 	}
-	if g, err := f.svc.MyGrades(stud, gid); err != nil || len(g.Subjects) != 0 {
-		t.Fatalf("grades after delete: %v %+v", err, g)
-	}
-}
-
-func TestMyGrades(t *testing.T) {
-	f := setup(t)
-	lead := f.leader(t, "lead")
-	stud := f.as(t, f.register(t, "stud"))
-	gid := f.group.ID
-	phys, chem := f.subject(t, lead, "Physics"), f.subject(t, lead, "Chemistry")
-	p1 := f.homework(t, lead, phys.ID, "P1", ptr(10.0), nil)
-	f.homework(t, lead, phys.ID, "P2", ptr(20.0), nil) // not graded yet
-	p3 := f.homework(t, lead, phys.ID, "P3", nil, nil)
-	c1 := f.homework(t, lead, chem.ID, "C1", ptr(5.0), nil)
-	for _, g := range []struct {
-		id    int64
-		grade float64
-	}{{p1.ID, 7}, {p3.ID, 2}, {c1.ID, 5}} {
-		if _, err := f.svc.UpdateProgress(stud, gid, g.id, service.ProgressInput{SetGrade: true, Grade: ptr(g.grade)}); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	g, err := f.svc.MyGrades(stud, gid)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(g.Subjects) != 2 || g.Subjects[0].SubjectName != "Chemistry" || g.Subjects[1].SubjectName != "Physics" {
-		t.Fatalf("subjects: %+v", g.Subjects)
-	}
-	// P3 has no max points, so its grade is left out.
-	want := map[string]service.Totals{
-		"Chemistry": {Assignments: 1, Graded: 1, Earned: 5, Max: 5},
-		"Physics":   {Assignments: 2, Graded: 1, Earned: 7, Max: 30},
-	}
-	for _, st := range g.Subjects {
-		if st.Totals != want[st.SubjectName] {
-			t.Errorf("%s: %+v, want %+v", st.SubjectName, st.Totals, want[st.SubjectName])
-		}
-	}
-	if g.Overall != (service.Totals{Assignments: 3, Graded: 2, Earned: 12, Max: 35}) {
-		t.Errorf("overall: %+v", g.Overall)
-	}
-
-	// A subject whose assignments have no max points is not listed.
-	other := f.subject(t, lead, "Art")
-	f.homework(t, lead, other.ID, "Draw", nil, nil)
-	if g, _ := f.svc.MyGrades(stud, gid); len(g.Subjects) != 2 {
-		t.Errorf("subjects without max points should be left out: %+v", g.Subjects)
+	if list, err := f.svc.HomeworkList(stud, gid, service.HomeworkFilter{}); err != nil || len(list) != 0 {
+		t.Fatalf("homework after delete: %v %+v", err, list)
 	}
 }
 
@@ -278,11 +224,6 @@ func TestLoweredMaxPoints(t *testing.T) {
 	// Changing only the status still works.
 	if got, err = f.svc.UpdateProgress(stud, gid, hw.ID, service.ProgressInput{Status: status(store.StatusDone)}); err != nil || *got.Grade != 9 {
 		t.Fatalf("status change with an over-max grade: %v %+v", err, got)
-	}
-	// The totals count it as the max.
-	g, err := f.svc.MyGrades(stud, gid)
-	if err != nil || g.Overall.Earned != 5 || g.Overall.Max != 5 {
-		t.Fatalf("totals: %v %+v", err, g.Overall)
 	}
 }
 
