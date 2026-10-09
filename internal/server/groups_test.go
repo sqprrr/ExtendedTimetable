@@ -109,18 +109,19 @@ func TestLeaderManagesGroupPages(t *testing.T) {
 		t.Fatalf("create resource: %d", code)
 	}
 
-	// The overview shows it all to the student, without leader controls.
+	// The overview shows homework and the latest note; class links have
+	// their own page.
 	code, body, _ = stud.get(g)
-	if strings.Contains(body, ">Manage<") || !strings.Contains(body, ">All links<") {
-		t.Error("students should not be offered to manage class links")
-	}
-	if _, lb, _ := lead.get(g); !strings.Contains(lb, ">Manage<") {
-		t.Error("leaders should get the Manage link")
-	}
-	for _, want := range []string{"Lab &lt;1&gt;", "Exam moved", "<em>Friday</em>", "subgroup 1", "https://meet.example/lab"} {
+	for _, want := range []string{"Lab &lt;1&gt;", "Exam moved", "<em>Friday</em>"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("overview missing %q", want)
 		}
+	}
+	if strings.Contains(body, "subgroup 1") {
+		t.Error("the overview should not list class links")
+	}
+	if _, body, _ := stud.get(g + "/links"); !strings.Contains(body, "subgroup 1") || !strings.Contains(body, "https://meet.example/lab") {
+		t.Error("class links page missing the link")
 	}
 	if code != http.StatusOK {
 		t.Fatalf("overview: %d", code)
@@ -280,3 +281,68 @@ func TestAPIGroupContent(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+// Class links and recordings narrow by subject and by lesson type or kind;
+// only subjects that have something are offered.
+func TestListFilters(t *testing.T) {
+	e := newEnv(t)
+	lead := e.signUp(t, "lead", store.RoleLeader)
+	stud := e.signUp(t, "stud", store.RoleStudent)
+	const g = "/g/KIUKI-25-3"
+
+	for _, name := range []string{"Physics", "Chemistry", "Art"} {
+		lead.submit(g+"/subjects", g+"/subjects", url.Values{"name": {name}})
+	}
+	_, body, _ := lead.get(g + "/links/new")
+	ids := map[string]string{}
+	for _, name := range []string{"Physics", "Chemistry"} {
+		m := regexp.MustCompile(`<option value="(\d+)"[^>]*>` + name + `</option>`).FindStringSubmatch(body)
+		if m == nil {
+			t.Fatalf("subject %s missing", name)
+		}
+		ids[name] = m[1]
+	}
+	for _, l := range []struct{ subject, lesson, url string }{
+		{"Physics", "lecture", "https://meet.example/phys-lec"},
+		{"Physics", "lab", "https://meet.example/phys-lab"},
+		{"Chemistry", "lab", "https://meet.example/chem-lab"},
+	} {
+		if code, _, _ := lead.submit(g+"/links", g+"/links", url.Values{"subject_id": {ids[l.subject]}, "lesson_type": {l.lesson}, "url": {l.url}}); code != http.StatusSeeOther {
+			t.Fatalf("create link: %d", code)
+		}
+	}
+	for _, r := range []struct{ subject, kind, title string }{
+		{"Physics", "recording", "Phys recording"},
+		{"Chemistry", "solution", "Chem solution"},
+	} {
+		if code, _, _ := lead.submit(g+"/resources", g+"/resources", url.Values{"subject_id": {ids[r.subject]}, "kind": {r.kind}, "title": {r.title}, "url": {"https://youtu.be/x"}}); code != http.StatusSeeOther {
+			t.Fatalf("create resource: %d", code)
+		}
+	}
+
+	check := func(path string, want, notWant []string) {
+		t.Helper()
+		code, body, _ := stud.get(path)
+		if code != http.StatusOK {
+			t.Fatalf("%s: %d", path, code)
+		}
+		for _, w := range want {
+			if !strings.Contains(body, w) {
+				t.Errorf("%s missing %q", path, w)
+			}
+		}
+		for _, w := range notWant {
+			if strings.Contains(body, w) {
+				t.Errorf("%s should not have %q", path, w)
+			}
+		}
+	}
+	check(g+"/links", []string{"phys-lec", "phys-lab", "chem-lab", `name="lesson_type" value="lab"`, ">Physics<", ">Chemistry<"}, []string{">Art<"})
+	check(g+"/links?lesson_type=lab", []string{"phys-lab", "chem-lab", `value="lab" checked`}, []string{"phys-lec"})
+	check(g+"/links?subject_id="+ids["Physics"]+"&lesson_type=lab", []string{"phys-lab"}, []string{"phys-lec", "chem-lab"})
+	check(g+"/links?lesson_type=practice", []string{"No class links match these filters.", `href="` + g + `/links">Reset`}, []string{"phys-lab"})
+	check(g+"/links?lesson_type=bogus", []string{"phys-lec", "chem-lab"}, nil)
+	check(g+"/resources?kind=solution", []string{"Chem solution", `value="solution" checked`}, []string{"Phys recording"})
+	check(g+"/resources?subject_id="+ids["Physics"], []string{"Phys recording"}, []string{"Chem solution"})
+	check(g+"/resources?subject_id="+ids["Physics"]+"&kind=solution", []string{"Nothing matches these filters."}, []string{"Phys recording", "Chem solution"})
+}

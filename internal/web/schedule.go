@@ -39,11 +39,12 @@ type scheduleDay struct {
 	Events   []*service.ScheduleEvent
 }
 
-// Listed reports whether the day gets a card in the week list: every
-// weekday, and the weekend when it has classes or is selected.
-func (d scheduleDay) Listed() bool {
+// Optional reports whether the day's card is left out of the week list
+// unless the day is selected: a weekend day without classes. Every day has
+// a card, so the day strip can select any of them in place.
+func (d scheduleDay) Optional() bool {
 	wd := d.Date.Weekday()
-	return (wd != time.Saturday && wd != time.Sunday) || len(d.Events) > 0 || d.Selected
+	return (wd == time.Saturday || wd == time.Sunday) && len(d.Events) == 0
 }
 
 // classItem is what the scheduleEvent template renders.

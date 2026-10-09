@@ -76,6 +76,36 @@ document.addEventListener("htmx:afterSettle", (e) => {
   if (e.detail.boosted) document.getElementById("main")?.focus({ preventScroll: true });
 });
 
+// The schedule's day strip selects a day in place: the circle moves to it,
+// its card is marked (phones and the Day view show only that card) and
+// scrolled to in the Week view, and the URL and the page's other links keep
+// the choice. Without JavaScript the links load the page for that day.
+document.addEventListener("click", (e) => {
+  const day = e.target.closest?.(".day-strip a.day");
+  if (!day || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const key = day.dataset.day;
+  const card = document.getElementById("day-" + key);
+  if (!card) return;
+  e.preventDefault();
+  for (const a of day.parentElement.querySelectorAll("a.day")) {
+    if (a === day) a.setAttribute("aria-current", "date");
+    else a.removeAttribute("aria-current");
+  }
+  for (const c of document.querySelectorAll(".day-card.is-selected")) c.classList.remove("is-selected");
+  card.classList.add("is-selected");
+  history.replaceState(history.state, "", day.href);
+  for (const a of document.querySelectorAll(".page-schedule a[href*='day=']:not(.day)")) {
+    const url = new URL(a.href);
+    url.searchParams.set("day", key);
+    a.href = url.pathname + url.search;
+  }
+  for (const input of document.querySelectorAll(".page-schedule input[name=day]")) input.value = key;
+  if (!card.closest(".view-day") && matchMedia("(min-width: 768px)").matches) {
+    const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    card.scrollIntoView({ block: "nearest", behavior: smooth ? "smooth" : "auto" });
+  }
+});
+
 // Row menus are <details>: close the others when one opens, and all of
 // them on a click elsewhere or Escape.
 document.addEventListener("toggle", (e) => {

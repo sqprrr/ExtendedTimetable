@@ -29,9 +29,9 @@
   {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
   {{template "scheduleStatus" .}}
 
-  <div class="week"{{boost}}>
+  <div class="week">
     <div class="toolbar">
-      <nav class="week-nav" aria-label="{{t "schedule.weeks"}}">
+      <nav class="week-nav" aria-label="{{t "schedule.weeks"}}"{{boost}}>
         <a class="btn btn-ghost btn-icon btn-sm" href="{{$g}}/schedule?week={{$w.Prev}}{{if eq $w.View "day"}}&amp;view=day{{end}}" aria-label="{{t "schedule.prev_week"}}" title="{{t "schedule.prev_week"}}">{{icon "chevron-left"}}</a>
         <span class="label">{{$w.Label}}</span>
         <a class="btn btn-ghost btn-icon btn-sm" href="{{$g}}/schedule?week={{$w.Next}}{{if eq $w.View "day"}}&amp;view=day{{end}}" aria-label="{{t "schedule.next_week_label"}}" title="{{t "schedule.next_week_label"}}">{{icon "chevron-right"}}</a>
@@ -41,7 +41,7 @@
     </div>
     <nav class="day-strip" id="days" aria-label="{{t "schedule.days"}}">
       {{range $w.Days}}
-      <a class="day{{if .Today}} is-today{{end}}{{if not .Events}} is-empty{{end}}" href="{{$g}}/schedule?week={{$w.Start.Format "2006-01-02"}}&amp;day={{.Key}}{{if eq $w.View "day"}}&amp;view=day{{end}}"{{if .Selected}} aria-current="date"{{end}}>
+      <a class="day{{if .Today}} is-today{{end}}{{if not .Events}} is-empty{{end}}" href="{{$g}}/schedule?week={{$w.Start.Format "2006-01-02"}}&amp;day={{.Key}}{{if eq $w.View "day"}}&amp;view=day{{end}}" data-day="{{.Key}}"{{if .Selected}} aria-current="date"{{end}}>
         <span class="wd">{{t (print "weekday.short." (weekday .Date))}}</span>
         <span class="num">{{.Date.Day}}</span>
         <span class="dots" aria-hidden="true">{{range $i, $e := .Events}}{{if lt $i 5}}<i></i>{{end}}{{end}}</span>
@@ -51,8 +51,8 @@
     </nav>
   </div>
 
-  {{range $w.Days}}{{if .Listed}}
-  <section class="card day-card{{if .Selected}} is-selected{{end}}{{if .Today}} is-today{{end}}" id="day-{{.Key}}" aria-labelledby="day-{{.Key}}-title">
+  {{range $w.Days}}
+  <section class="card day-card{{if .Selected}} is-selected{{end}}{{if .Today}} is-today{{end}}{{if .Optional}} is-optional{{end}}" id="day-{{.Key}}" aria-labelledby="day-{{.Key}}-title">
     <div class="card-head">
       <h2 id="day-{{.Key}}-title">{{longDate .Date}}</h2>
       {{if .Today}}<span class="badge badge-accent">{{t "overview.today"}}</span>{{end}}
@@ -65,7 +65,7 @@
     <p class="text-tertiary">{{t "schedule.no_classes"}}</p>
     {{end}}
   </section>
-  {{end}}{{end}}
+  {{end}}
 
   {{with nextLater .Schedule}}{{if $w.IsThis}}
   <p class="meta">{{t "schedule.next_class"}} {{.Title}} · {{dayName .StartsAt}}, {{clock .StartsAt}}</p>

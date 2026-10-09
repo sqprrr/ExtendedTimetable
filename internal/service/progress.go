@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
-	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
@@ -119,81 +117,4 @@ func grade(g, max *float64) (*float64, error) {
 	}
 	v := *g
 	return &v, nil
-}
-
-// Totals sums grades over the assignments that have max points; the others
-// cannot be put on the same scale and are left out.
-type Totals struct {
-	// Assignments counts the assignments with max points; Graded those of
-	// them the viewer has a grade for.
-	Assignments int
-	Graded      int
-	// Earned is the sum of the viewer's grades, each capped at its max
-	// points; Max the sum of max points, graded or not.
-	Earned float64
-	Max    float64
-}
-
-// add counts an assignment if it has max points. A grade above them (the
-// leader lowered max points after it was saved) counts as the max.
-func (t *Totals) add(hw *Homework) {
-	if hw.MaxPoints == nil {
-		return
-	}
-	t.Assignments++
-	t.Max += *hw.MaxPoints
-	if hw.Grade != nil {
-		t.Graded++
-		t.Earned += min(*hw.Grade, *hw.MaxPoints)
-	}
-}
-
-// SubjectTotals are the totals of one subject.
-type SubjectTotals struct {
-	SubjectID   int64
-	SubjectName string
-	SubjectHue  string
-	Totals
-}
-
-// Grades is the viewer's "my grades" page: totals per subject and overall.
-type Grades struct {
-	Subjects []*SubjectTotals
-	Overall  Totals
-}
-
-// MyGrades sums the viewer's own grades in a group per subject (sum of
-// grades / sum of max points) and overall.
-func (s *Service) MyGrades(ctx context.Context, groupID int64) (*Grades, error) {
-	v, err := canTrack(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
-	hws, err := s.store.ListHomework(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
-	views, err := s.homeworkViews(ctx, v, groupID, hws)
-	if err != nil {
-		return nil, err
-	}
-	g := &Grades{}
-	bySubject := map[int64]*SubjectTotals{}
-	for _, hw := range views {
-		if hw.MaxPoints == nil {
-			continue
-		}
-		st := bySubject[hw.SubjectID]
-		if st == nil {
-			st = &SubjectTotals{SubjectID: hw.SubjectID, SubjectName: hw.SubjectName, SubjectHue: hw.SubjectHue}
-			bySubject[hw.SubjectID] = st
-			g.Subjects = append(g.Subjects, st)
-		}
-		st.add(hw)
-		g.Overall.add(hw)
-	}
-	sort.Slice(g.Subjects, func(i, j int) bool {
-		return strings.ToLower(g.Subjects[i].SubjectName) < strings.ToLower(g.Subjects[j].SubjectName)
-	})
-	return g, nil
 }

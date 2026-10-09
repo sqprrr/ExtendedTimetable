@@ -19,11 +19,10 @@ const (
 
 // Overview is the front page of a group.
 type Overview struct {
-	// Homework is what is due next, starting with assignments that became
-	// overdue in the last week.
-	Homework   []*Homework
-	Notes      []*store.Note
-	ClassLinks []*store.ClassLink
+	// Homework is what the viewer still has to do, starting with assignments
+	// that became overdue in the last week.
+	Homework []*Homework
+	Notes    []*store.Note
 	// Today is today's classes and the class in progress or next.
 	Today *Schedule
 }
@@ -34,7 +33,11 @@ func (s *Service) GroupOverview(ctx context.Context, groupID int64) (*Overview, 
 	if err != nil {
 		return nil, err
 	}
-	hws, err := s.store.UpcomingHomework(ctx, groupID, s.now().Add(-overviewOverdue), overviewHomework)
+	var userID int64
+	if v.CanTrackGroup(groupID) {
+		userID = v.UserID
+	}
+	hws, err := s.store.UpcomingHomework(ctx, groupID, userID, s.now().Add(-overviewOverdue), overviewHomework)
 	if err != nil {
 		return nil, err
 	}
@@ -58,5 +61,5 @@ func (s *Service) GroupOverview(ctx context.Context, groupID int64) (*Overview, 
 	if err != nil {
 		return nil, err
 	}
-	return &Overview{Homework: views, Notes: notes, ClassLinks: links, Today: today}, nil
+	return &Overview{Homework: views, Notes: notes, Today: today}, nil
 }

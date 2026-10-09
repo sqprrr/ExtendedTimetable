@@ -11,12 +11,10 @@ notes = "Notes"
 links = "Class links"
 resources = "Recordings & solutions"
 subjects = "Subjects"
-grades = "My grades"
 feedback = "Feedback"
 skip = "Skip to content"
 today = "Today"
 more = "More"
-grades_short = "Grades"
 group = "Group"
 my_groups = "My groups"
 homework_short = "Homework"
@@ -137,8 +135,6 @@ week_schedule = "Week schedule"
 no_classes_today = "No classes today."
 all_homework = "All homework"
 nothing_due = "Nothing due."
-manage = "Manage"
-all_links = "All links"
 
 [hw]
 new_title = "New assignment"
@@ -166,20 +162,9 @@ empty_hint = "When the leader adds an assignment, it shows up here with its due 
 [progress]
 title = "My progress"
 private = "Only you can see this."
-grade_over_max = "Your grade is above the current max points ({{.Max}}), which the leader changed after you saved it. It counts as {{.Max}} in My grades."
+grade_over_max = "Your grade is above the current max points ({{.Max}}), which the leader changed after you saved it."
 my_grade = "My grade"
 save_grade = "Save grade"
-
-[grades]
-overall = "Overall"
-explain = "Only assignments with max points are counted. Points are the sum of your grades out of the sum of max points of those assignments, graded or not. Enter grades on each assignment's page."
-empty = "No assignments with max points yet."
-by_subject = "By subject"
-legend = "points · share of max"
-not_graded = "not graded yet"
-graded_of = "{{.Graded}} of {{.Assignments}} graded"
-total_meta = "{{.Earned}} of {{.Max}} points · {{.Graded}} of {{.Assignments}} graded"
-empty_hint = "Grades count once an assignment has max points and you enter your grade on its page."
 
 [notes]
 new_title = "New note"
@@ -198,6 +183,8 @@ empty = "No class links yet."
 note_hint = "For example “subgroup 1” or the meeting password."
 confirm_delete = "Delete this class link?"
 empty_hint = "Meeting links for lectures, practices and labs; the schedule offers them as Join."
+all_types = "All types"
+no_matches = "No class links match these filters."
 
 [resources]
 new_title = "Add a recording or solution"
@@ -207,6 +194,8 @@ link_hint = "YouTube, Google Drive, Teams, GitHub… Files are not uploaded here
 date_hint = "The date of the class."
 confirm_delete = "Delete this link?"
 empty_hint = "Links to class recordings and solutions show up here."
+all_kinds = "All kinds"
+no_matches = "Nothing matches these filters."
 
 [subjects]
 dl_hint = "The subject's page on dl.nure.ua, where attendance is marked."
@@ -217,7 +206,7 @@ short_name_hint = "For example “ОП” or “ВМ”."
 confirm_delete = "Delete subject “{{.Name}}”?"
 empty_hint = "Subjects come from CIST with the schedule, or the leader adds them."
 hue_auto = "Automatic"
-hue_hint = "The colour marks the subject in the schedule, homework and grades."
+hue_hint = "The colour marks the subject in the schedule and homework."
 
 [schedule]
 weeks = "Weeks"

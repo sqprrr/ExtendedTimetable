@@ -2,7 +2,6 @@ package server_test
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -114,7 +113,7 @@ func TestStatusToggleWithHtmx(t *testing.T) {
 	}
 }
 
-func TestGradeFormAndMyGrades(t *testing.T) {
+func TestGradeForm(t *testing.T) {
 	e := newEnv(t)
 	lead := e.signUp(t, "lead", store.RoleLeader)
 	stud := e.signUp(t, "stud", store.RoleStudent)
@@ -138,13 +137,8 @@ func TestGradeFormAndMyGrades(t *testing.T) {
 		t.Fatalf("plain bad grade: %d\n%s", code, body)
 	}
 
-	_, body, _ = stud.get("/g/KIUKI-25-3/grades")
-	if !strings.Contains(body, "My grades") || !strings.Contains(body, "<strong>7.5</strong> / 10") || !strings.Contains(body, "75%") {
-		t.Fatalf("my grades:\n%s", body)
-	}
-	// (Not just "7.5": icon paths hold numbers like that.)
-	if _, body, _ := lead.get("/g/KIUKI-25-3/grades"); strings.Contains(body, "<strong>7.5</strong>") || strings.Contains(body, "75%") {
-		t.Fatal("the leader must not see the student's grades")
+	if code, _, _ := stud.get("/g/KIUKI-25-3/grades"); code != http.StatusNotFound {
+		t.Fatalf("the grades page is gone: %d", code)
 	}
 	if _, body, _ := lead.get(hwURL); strings.Contains(body, `value="7.5"`) {
 		t.Fatal("the leader must not see the student's grade on the homework page")
@@ -162,11 +156,8 @@ func TestSuperadminSeesNoTracker(t *testing.T) {
 	root.submit("/login", "/login", url.Values{"username": {"root"}, "password": {"correct horse"}})
 
 	_, body, _ := root.get(hwURL)
-	if strings.Contains(body, `id="progress"`) || strings.Contains(body, "My grades") {
+	if strings.Contains(body, `id="progress"`) {
 		t.Fatal("a superadmin who is not a member has no tracker")
-	}
-	if code, _, _ := root.get("/g/KIUKI-25-3/grades"); code != http.StatusForbidden {
-		t.Fatalf("superadmin grades page: %d", code)
 	}
 	if code, _, _ := root.submit(hwURL, hwURL+"/progress", url.Values{"status": {"done"}}); code != http.StatusForbidden {
 		t.Fatalf("superadmin progress: %d", code)
@@ -215,21 +206,6 @@ func TestAPIProgress(t *testing.T) {
 	}
 	if code, _ := stud.api("PUT", api+"/homework/"+id+"/progress", tok, map[string]any{"grade": 6}); code != http.StatusOK {
 		t.Fatalf("set grade again: %d", code)
-	}
-	code, body = stud.api("GET", api+"/grades", tok, nil)
-	var g struct {
-		Subjects []struct {
-			SubjectName string  `json:"subject_name"`
-			Earned      float64 `json:"earned"`
-			Max         float64 `json:"max"`
-		} `json:"subjects"`
-		Overall struct{ Graded, Assignments int } `json:"overall"`
-	}
-	if code != http.StatusOK || json.Unmarshal(body, &g) != nil {
-		t.Fatalf("grades: %d %s", code, body)
-	}
-	if len(g.Subjects) != 1 || g.Subjects[0].Earned != 6 || g.Subjects[0].Max != 10 || g.Overall.Graded != 1 {
-		t.Fatalf("grades JSON: %s", body)
 	}
 
 	// The leader's view of the same assignment carries only their own progress.
