@@ -74,20 +74,7 @@ func (q *Queries) GroupByCode(ctx context.Context, code string) (*Group, error) 
 
 // ListGroups returns all groups ordered by code.
 func (q *Queries) ListGroups(ctx context.Context) ([]*Group, error) {
-	rows, err := q.db.QueryContext(ctx, `SELECT `+groupColumns+` FROM groups ORDER BY code`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var gs []*Group
-	for rows.Next() {
-		g, err := scanGroup(rows)
-		if err != nil {
-			return nil, err
-		}
-		gs = append(gs, g)
-	}
-	return gs, rows.Err()
+	return queryAll(ctx, q, scanGroup, `SELECT `+groupColumns+` FROM groups ORDER BY code`)
 }
 
 // GroupSummary is a group with its size, leader and invite, as the
@@ -185,38 +172,34 @@ func (q *Queries) LeaderOf(ctx context.Context, groupID int64) (*Member, error) 
 	return scanMember(q.db.QueryRowContext(ctx, memberSelect+`WHERE m.group_id = ? AND m.role = 'leader'`, groupID))
 }
 
-// Membership returns a user's membership in a group.
-func (q *Queries) Membership(ctx context.Context, userID, groupID int64) (*Membership, error) {
+const membershipColumns = `user_id, group_id, role, joined_at`
+
+func scanMembership(row interface{ Scan(...any) error }) (*Membership, error) {
 	var m Membership
 	var joined int64
-	err := q.db.QueryRowContext(ctx,
-		`SELECT user_id, group_id, role, joined_at FROM memberships WHERE user_id = ? AND group_id = ?`,
-		userID, groupID,
-	).Scan(&m.UserID, &m.GroupID, &m.Role, &joined)
-	if err != nil {
+	if err := row.Scan(&m.UserID, &m.GroupID, &m.Role, &joined); err != nil {
 		return nil, mapErr(err)
 	}
 	m.JoinedAt = time.Unix(joined, 0).UTC()
 	return &m, nil
 }
 
+// Membership returns a user's membership in a group.
+func (q *Queries) Membership(ctx context.Context, userID, groupID int64) (*Membership, error) {
+	return scanMembership(q.db.QueryRowContext(ctx,
+		`SELECT `+membershipColumns+` FROM memberships WHERE user_id = ? AND group_id = ?`, userID, groupID))
+}
+
 // MembershipsByUser returns all memberships of a user.
 func (q *Queries) MembershipsByUser(ctx context.Context, userID int64) ([]Membership, error) {
-	rows, err := q.db.QueryContext(ctx,
-		`SELECT user_id, group_id, role, joined_at FROM memberships WHERE user_id = ? ORDER BY joined_at`, userID)
+	ms, err := queryAll(ctx, q, scanMembership,
+		`SELECT `+membershipColumns+` FROM memberships WHERE user_id = ? ORDER BY joined_at`, userID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var ms []Membership
-	for rows.Next() {
-		var m Membership
-		var joined int64
-		if err := rows.Scan(&m.UserID, &m.GroupID, &m.Role, &joined); err != nil {
-			return nil, err
-		}
-		m.JoinedAt = time.Unix(joined, 0).UTC()
-		ms = append(ms, m)
+	out := make([]Membership, len(ms))
+	for i, m := range ms {
+		out[i] = *m
 	}
-	return ms, rows.Err()
+	return out, nil
 }

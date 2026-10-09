@@ -58,14 +58,11 @@ func (s *Service) HomeGroup(ctx context.Context) (*GroupView, error) {
 	if err != nil || len(v.Memberships) == 0 {
 		return nil, err
 	}
-	id := v.Memberships[0].GroupID
-	g, err := s.store.GroupByID(ctx, id)
+	g, err := s.store.GroupByID(ctx, v.Memberships[0].GroupID)
 	if err != nil {
 		return nil, notFound(err)
 	}
-	gv := &GroupView{Group: g, CanEdit: v.CanEditGroup(id), CanManage: v.CanManageGroup(id), CanTrack: v.CanTrackGroup(id), IsSuperadmin: v.IsSuperadmin}
-	gv.Role, _ = v.RoleIn(id)
-	return gv, nil
+	return groupView(v, g), nil
 }
 
 // Group returns the group with the given code if the viewer may see it.
@@ -81,8 +78,7 @@ func (s *Service) Group(ctx context.Context, code string) (*GroupView, error) {
 	if !v.CanViewGroup(g.ID) {
 		return nil, ErrForbidden
 	}
-	gv := &GroupView{Group: g, CanEdit: v.CanEditGroup(g.ID), CanManage: v.CanManageGroup(g.ID), CanTrack: v.CanTrackGroup(g.ID), IsSuperadmin: v.IsSuperadmin}
-	gv.Role, _ = v.RoleIn(g.ID)
+	gv := groupView(v, g)
 	if lead, err := s.store.LeaderOf(ctx, g.ID); err == nil {
 		gv.Leader = lead.Username
 	} else if !errors.Is(err, store.ErrNotFound) {
@@ -91,41 +87,28 @@ func (s *Service) Group(ctx context.Context, code string) (*GroupView, error) {
 	return gv, nil
 }
 
+// groupView is g with what v may do in it.
+func groupView(v *Viewer, g *store.Group) *GroupView {
+	gv := &GroupView{Group: g, CanEdit: v.CanEditGroup(g.ID), CanManage: v.CanManageGroup(g.ID),
+		CanTrack: v.CanTrackGroup(g.ID), IsSuperadmin: v.IsSuperadmin}
+	gv.Role, _ = v.RoleIn(g.ID)
+	return gv
+}
+
 // canView checks that the viewer may read the group's content.
 func canView(ctx context.Context, groupID int64) (*Viewer, error) {
-	v, err := requireViewer(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !v.CanViewGroup(groupID) {
-		return nil, ErrForbidden
-	}
-	return v, nil
+	return viewerWho(ctx, func(v *Viewer) bool { return v.CanViewGroup(groupID) })
 }
 
 // canEdit checks that the viewer may change the group's content.
 func canEdit(ctx context.Context, groupID int64) (*Viewer, error) {
-	v, err := requireViewer(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !v.CanEditGroup(groupID) {
-		return nil, ErrForbidden
-	}
-	return v, nil
+	return viewerWho(ctx, func(v *Viewer) bool { return v.CanEditGroup(groupID) })
 }
 
 // canManage checks that the viewer may handle the group's invite link and
 // members.
 func canManage(ctx context.Context, groupID int64) (*Viewer, error) {
-	v, err := requireViewer(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !v.CanManageGroup(groupID) {
-		return nil, ErrForbidden
-	}
-	return v, nil
+	return viewerWho(ctx, func(v *Viewer) bool { return v.CanManageGroup(groupID) })
 }
 
 // notFound maps store.ErrNotFound to ErrNotFound and passes other errors on.

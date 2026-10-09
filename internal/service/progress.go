@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"slices"
 	"strconv"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
@@ -19,24 +20,13 @@ var Statuses = []store.ProgressStatus{store.StatusNotStarted, store.StatusInProg
 // NextStatus is the status a one-click toggle moves to: not started → in
 // progress → done → not started.
 func NextStatus(st store.ProgressStatus) store.ProgressStatus {
-	for i, s := range Statuses {
-		if s == st {
-			return Statuses[(i+1)%len(Statuses)]
-		}
-	}
-	return store.StatusNotStarted
+	// An unknown status is -1, so it moves to the first one, not started.
+	return Statuses[(slices.Index(Statuses, st)+1)%len(Statuses)]
 }
 
 // canTrack checks that the viewer has a tracker in the group.
 func canTrack(ctx context.Context, groupID int64) (*Viewer, error) {
-	v, err := requireViewer(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !v.CanTrackGroup(groupID) {
-		return nil, ErrForbidden
-	}
-	return v, nil
+	return viewerWho(ctx, func(v *Viewer) bool { return v.CanTrackGroup(groupID) })
 }
 
 // ProgressInput changes the viewer's progress on an assignment.
@@ -92,14 +82,7 @@ func (s *Service) UpdateProgress(ctx context.Context, groupID, homeworkID int64,
 	return out, nil
 }
 
-func validStatus(st store.ProgressStatus) bool {
-	for _, s := range Statuses {
-		if s == st {
-			return true
-		}
-	}
-	return false
-}
+func validStatus(st store.ProgressStatus) bool { return slices.Contains(Statuses, st) }
 
 // grade checks an optional grade against the assignment's max points.
 func grade(g, max *float64) (*float64, error) {

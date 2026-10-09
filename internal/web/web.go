@@ -274,11 +274,9 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		},
 		"rowMenu":       func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
 		"filterButtons": func(active bool, url string) filterButtons { return filterButtons{Active: active, URL: url} },
-		"resourceKinds": func() []store.ResourceKind {
-			return []store.ResourceKind{store.ResourceRecording, store.ResourceSolution}
-		},
-		"statuses":   func() []store.ProgressStatus { return service.Statuses },
-		"nextStatus": service.NextStatus,
+		"resourceKinds": func() []store.ResourceKind { return service.ResourceKinds },
+		"statuses":      func() []store.ProgressStatus { return service.Statuses },
+		"nextStatus":    service.NextStatus,
 		"statusLabel": func(st store.ProgressStatus) string {
 			return label(l, "status.", string(st))
 		},

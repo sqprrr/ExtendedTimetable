@@ -89,3 +89,15 @@ func requireViewer(ctx context.Context) (*Viewer, error) {
 	}
 	return v, nil
 }
+
+// viewerWho returns the signed-in viewer if ok holds for them.
+func viewerWho(ctx context.Context, ok func(*Viewer) bool) (*Viewer, error) {
+	v, err := requireViewer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !ok(v) {
+		return nil, ErrForbidden
+	}
+	return v, nil
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -228,10 +229,8 @@ func parseHomeworkFilter(q url.Values) service.HomeworkFilter {
 	if id, err := strconv.ParseInt(q.Get("subject_id"), 10, 64); err == nil && id > 0 {
 		f.SubjectID = id
 	}
-	for _, st := range service.Statuses {
-		if q.Get("status") == string(st) {
-			f.Status = st
-		}
+	if st := store.ProgressStatus(q.Get("status")); slices.Contains(service.Statuses, st) {
+		f.Status = st
 	}
 	return f
 }
