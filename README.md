@@ -222,3 +222,10 @@ Create and update return the same object as `GET`. Validation errors return
 `422` with `{"error", "code", "field"}`: the message in English and its
 message ID, for a client that translates on its own; deleting a subject that is still in use
 returns `409`.
+
+## License
+
+[MIT](LICENSE). Bundled third-party assets keep their own licenses:
+[Lucide icons](web/icons/LICENSE) (ISC) and the
+[Onest](web/static/fonts/OFL-Onest.txt) and
+[JetBrains Mono](web/static/fonts/OFL-JetBrainsMono.txt) fonts (SIL OFL 1.1).
