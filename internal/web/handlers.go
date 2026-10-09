@@ -61,13 +61,16 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, sess *ser
 		_ = h.svc.Logout(r.Context(), old)
 	}
 	h.cookies.SetSession(w, sess.Token, sess.ExpiresAt)
-	// The browser keeps showing the user's language and theme after they
-	// log out.
+	// The browser keeps showing the user's language, theme and time zone
+	// after they log out.
 	if sess.Locale != "" {
 		h.cookies.SetLang(w, sess.Locale)
 	}
 	if sess.Theme != "" {
 		h.cookies.SetTheme(w, sess.Theme)
+	}
+	if sess.TimeZone != "" {
+		h.cookies.SetTimeZone(w, sess.TimeZone)
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
@@ -127,7 +130,7 @@ func (h *Handler) theme(r *http.Request) string {
 }
 
 // morePage lists, on phones, what does not fit in the bottom bar: the other
-// sections, feedback, the language and theme, and logging out.
+// sections, feedback, the language, theme and time zone, and logging out.
 func (h *Handler) morePage(w http.ResponseWriter, r *http.Request) {
 	if service.ViewerFrom(r.Context()) == nil {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)

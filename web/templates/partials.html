@@ -197,3 +197,12 @@
   {{if .Active}}<a class="btn btn-ghost btn-sm" href="{{.URL}}">{{t "hw.reset_filters"}}</a>{{end}}
 </div>
 {{end}}
+
+{{/* zoneNote says which time zone a schedule's times are in, when the
+   viewer's clocks show another time than the university's. */}}
+{{define "zoneNote"}}
+{{- with .Zone}}{{if .SiteLabel}}
+<p class="subtitle zone-note">{{icon "clock"}}<span>{{t "tz.note" "Zone" .Label "Offset" .Offset "Site" .SiteLabel "SiteOffset" .SiteOffset}}
+  <a href="{{with $.NavGroup}}/g/{{.Code}}{{end}}/more#time-zone">{{t "tz.change"}}</a></span></p>
+{{- end}}{{end}}
+{{- end}}

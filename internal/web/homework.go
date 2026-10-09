@@ -25,10 +25,11 @@ type hwList struct {
 	Overdue, ThisWeek int
 }
 
-// groupHomework sorts a homework list into its groups. The list keeps its
-// order (by deadline) inside each group; empty groups are left out.
-func (h *Handler) groupHomework(now time.Time, list []*service.Homework, f service.HomeworkFilter) hwList {
-	weekEnd := weekStart("", now, h.loc).AddDate(0, 0, 7)
+// groupHomework sorts a homework list into its groups; weeks are those of
+// loc. The list keeps its order (by deadline) inside each group; empty
+// groups are left out.
+func groupHomework(loc *time.Location, now time.Time, list []*service.Homework, f service.HomeworkFilter) hwList {
+	weekEnd := weekStart("", now, loc).AddDate(0, 0, 7)
 	var overdue, week, later, none []*service.Homework
 	out := hwList{OpenDone: f.Status == store.StatusDone}
 	for _, hw := range list {

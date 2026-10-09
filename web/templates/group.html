@@ -6,6 +6,7 @@
   <div>
     <h1>{{t "nav.today"}}</h1>
     <p class="subtitle">{{longDate now}}</p>
+    {{template "zoneNote" .}}
   </div>
   <a class="btn btn-secondary hide-sm" href="{{$g}}/schedule"{{boost}}>{{icon "calendar-days"}}{{t "overview.week_schedule"}}</a>
 </header>

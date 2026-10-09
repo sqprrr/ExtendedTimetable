@@ -49,6 +49,12 @@ func regexpOption(name string) *regexp.Regexp {
 // newScheduleEnv is newEnv with a fake CIST and KIUKI-25-3 linked to it.
 func newScheduleEnv(t *testing.T, src *fakeCIST) *env {
 	t.Helper()
+	return newScheduleEnvIn(t, src, nil)
+}
+
+// newScheduleEnvIn is newScheduleEnv with the site in time zone loc.
+func newScheduleEnvIn(t *testing.T, src *fakeCIST, loc *time.Location) *env {
+	t.Helper()
 	ctx := context.Background()
 	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
@@ -58,7 +64,7 @@ func newScheduleEnv(t *testing.T, src *fakeCIST) *env {
 	if err := st.Migrate(ctx, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
-	svc := service.New(st, service.Config{CIST: src})
+	svc := service.New(st, service.Config{CIST: src, Location: loc})
 	cistID := int64(11881842)
 	if _, err := svc.AdminCreateGroup(ctx, "KIUKI-25-3", "", &cistID); err != nil {
 		t.Fatal(err)

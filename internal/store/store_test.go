@@ -216,7 +216,8 @@ func TestInvitesMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range names {
-		if name >= "0010" {
+		// 0013 only adds a users column, which CreateUser below writes.
+		if name >= "0010" && name != "0013_user_time_zone.sql" {
 			continue
 		}
 		data, err := fs.ReadFile(migrations.FS, name)

@@ -57,7 +57,7 @@ Environment:
   EXTT_ADDR           listen address for serve        (default 127.0.0.1:8080)
   EXTT_SECURE_COOKIES set to "false" for local HTTP   (default true)
   EXTT_TRUST_PROXY    "true" to use X-Real-IP         (default false)
-  EXTT_TZ             time zone for dates             (default Europe/Kyiv)
+  EXTT_TZ             site time zone (users may pick) (default Europe/Kyiv)
   EXTT_CIST_INTERVAL  how often serve syncs schedules (default 6h; 0 turns it off)
   EXTT_BASE_URL       the site's address for invite links, e.g. https://example.org
                       (serve takes it from each request when unset; the CLI then

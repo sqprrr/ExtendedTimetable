@@ -29,6 +29,8 @@ type NewSession struct {
 	Locale string
 	// Theme is the user's chosen colour theme, or "" if they have not chosen.
 	Theme string
+	// TimeZone is the user's chosen time zone, or "" if they have not chosen.
+	TimeZone string
 }
 
 // RegisterInput is the self-registration form.
@@ -44,6 +46,9 @@ type RegisterInput struct {
 	// Theme is the colour theme the visitor chose before registering, if
 	// any; an unsupported one is ignored.
 	Theme string
+	// TimeZone is the time zone the visitor chose before registering, if
+	// any; an unknown one is ignored.
+	TimeZone string
 }
 
 // Register creates an account through a group's invite link, makes it a
@@ -77,7 +82,8 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 		if g, err = q.GroupByID(ctx, inv.GroupID); err != nil {
 			return err
 		}
-		u := &store.User{Username: username, PasswordHash: hash, Locale: chosenLocale(in.Locale), Theme: chosenTheme(in.Theme), CreatedAt: now}
+		u := &store.User{Username: username, PasswordHash: hash, Locale: chosenLocale(in.Locale), Theme: chosenTheme(in.Theme),
+			TimeZone: chosenTimeZone(in.TimeZone), CreatedAt: now}
 		if err := q.CreateUser(ctx, u); errors.Is(err, store.ErrConflict) {
 			return ErrUsernameTaken
 		} else if err != nil {
@@ -102,6 +108,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 	}
 	sess.Locale = chosenLocale(in.Locale)
 	sess.Theme = chosenTheme(in.Theme)
+	sess.TimeZone = chosenTimeZone(in.TimeZone)
 	return sess, nil
 }
 
@@ -150,6 +157,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error)
 	}
 	sess.Locale = u.Locale
 	sess.Theme = u.Theme
+	sess.TimeZone = u.TimeZone
 	return sess, nil
 }
 
@@ -247,6 +255,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (context.Conte
 		IsSuperadmin: u.IsSuperadmin,
 		Locale:       u.Locale,
 		Theme:        u.Theme,
+		TimeZone:     u.TimeZone,
 		Memberships:  ms,
 	}), nil
 }

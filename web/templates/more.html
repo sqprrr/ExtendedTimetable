@@ -34,6 +34,7 @@
     <div class="settings">
       <div class="setting"><span class="field-label">{{t "more.language"}}</span>{{template "langSwitch" .}}</div>
       <div class="setting"><span class="field-label">{{t "theme.label"}}</span>{{template "themeSwitch" .}}</div>
+      <div class="setting" id="time-zone"><span class="field-label">{{t "tz.label"}}</span>{{template "tzSwitch" .}}</div>
     </div>
   </section>
   <form method="post" action="/logout">

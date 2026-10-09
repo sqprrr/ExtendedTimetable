@@ -13,6 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
+	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/locales"
 )
 
@@ -98,6 +99,19 @@ func TestEveryUsedMessageExists(t *testing.T) {
 	for _, id := range append(slices.Sorted(maps.Keys(used)), dynamic...) {
 		if !en[id] {
 			t.Errorf("message %s is used but not defined", id)
+		}
+	}
+}
+
+// The time zone picker names each zone it offers by its city (zone.<key>).
+func TestEveryZoneHasAName(t *testing.T) {
+	for _, lang := range i18n.Languages {
+		msgs := ids(t, lang)
+		for _, z := range service.Zones {
+			key, ok := service.ZoneKey(z)
+			if !ok || !msgs["zone."+key] {
+				t.Errorf("%s.toml: no name for %s (zone.%s)", lang, z, key)
+			}
 		}
 	}
 }

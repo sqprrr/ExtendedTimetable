@@ -569,6 +569,15 @@ button.nav-item { width: 100%; background: none; cursor: pointer; font-family: i
 .theme-switch .segmented > button { height: 28px; padding: 0 8px; }
 .theme-switch .segmented > [aria-pressed="true"] .icon { color: var(--accent); }
 
+/* Time zone switch: a select, applied on change; the button is for no JS */
+.tz-switch { display: flex; align-items: center; gap: var(--space-8); min-width: 0; margin: 0; }
+.tz-switch .select { width: auto; min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+.sidebar .tz-switch { flex: 1; justify-content: flex-end; }
+/* A select is as wide as its longest option; let it take what is left. */
+.sidebar .tz-switch .select { flex: 1; width: 0; min-height: 28px; height: 28px; padding: 0 26px 0 8px; font-size: 13px; background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%; }
+.zone-note { display: flex; align-items: flex-start; gap: var(--space-6); }
+.zone-note .icon { width: 14px; height: 14px; margin-top: 2px; }
+
 /* Rows that are whole links (the More page) */
 .row-link {
   display: flex; align-items: center; gap: var(--space-12); min-height: 48px; padding: var(--space-12) 0;

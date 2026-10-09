@@ -126,9 +126,10 @@ func (h *Handler) joinRegister(w http.ResponseWriter, r *http.Request) {
 		Password:    password,
 		InviteToken: r.PathValue("token"),
 		ClientIP:    auth.ClientIP(r, h.trustProxy),
-		// Keep the language and theme the visitor picked, if any.
-		Locale: h.cookies.Lang(r),
-		Theme:  h.cookies.Theme(r),
+		// Keep the language, theme and time zone the visitor picked, if any.
+		Locale:   h.cookies.Lang(r),
+		Theme:    h.cookies.Theme(r),
+		TimeZone: h.cookies.TimeZone(r),
 	})
 	if err != nil {
 		h.joinError(w, r, form, err)

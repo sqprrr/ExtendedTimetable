@@ -44,7 +44,8 @@ type Config struct {
 	SessionTTL time.Duration
 	// CIST is where schedules come from; nil turns schedule sync off.
 	CIST cist.Source
-	// Location is the time zone that decides what "today" is; UTC if nil.
+	// Location is the site's time zone: the default for users who have not
+	// chosen one and whose device does not say; UTC if nil.
 	Location *time.Location
 }
 
@@ -87,9 +88,6 @@ func New(st *store.Store, cfg Config) *Service {
 // Now is the service's clock. Transports use it for "today" so they agree
 // with the service about what is in progress.
 func (s *Service) Now() time.Time { return s.now() }
-
-// Location is the time zone of "today".
-func (s *Service) Location() *time.Location { return s.cfg.Location }
 
 // StartOfDay returns midnight of t's calendar day in loc.
 func StartOfDay(t time.Time, loc *time.Location) time.Time {
