@@ -15,10 +15,14 @@ func TestLoadTimeZone(t *testing.T) {
 			t.Errorf("%q should not be a time zone", name)
 		}
 	}
-	for _, name := range append([]string{"Europe/Kiev", "America/Argentina/Buenos_Aires"}, service.Zones...) {
+	for _, name := range append([]string{"America/Argentina/Buenos_Aires"}, service.Zones...) {
 		if loc := service.LoadTimeZone(name); loc == nil || loc.String() != name {
 			t.Errorf("%q should load, got %v", name, loc)
 		}
+	}
+	// The old name is the site's zone under its new name.
+	if loc := service.LoadTimeZone("Europe/Kiev"); loc == nil || loc.String() != "Europe/Kyiv" {
+		t.Errorf("Europe/Kiev should load as Europe/Kyiv, got %v", loc)
 	}
 	if !service.IsTimeZoneChoice(service.TimeZoneAuto) {
 		t.Error("auto is a choice")

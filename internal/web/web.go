@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
@@ -39,7 +40,17 @@ type Handler struct {
 	// pristine holds the same templates, never executed, to be copied for
 	// users in other time zones: html/template copies only those.
 	pristine map[string]map[string]*template.Template
+	// zoned holds those copies by language and zone, then per page, made on
+	// first use; at most maxZonedSets zones are kept.
+	zonedMu sync.Mutex
+	zoned   map[zonedKey]map[string]*template.Template
 }
+
+type zonedKey struct{ lang, zone string }
+
+// maxZonedSets bounds the template copies kept for other time zones; zones
+// beyond it get a fresh copy on each request.
+const maxZonedSets = 32
 
 // Config configures the HTML handler.
 type Config struct {
@@ -63,7 +74,8 @@ var pages = []string{
 func New(svc *service.Service, cfg Config) (*Handler, error) {
 	h := &Handler{svc: svc, cookies: cfg.Cookies, trustProxy: cfg.TrustProxy,
 		base:  strings.TrimRight(cfg.BaseURL, "/"),
-		pages: map[string]map[string]*template.Template{}, pristine: map[string]map[string]*template.Template{}}
+		pages: map[string]map[string]*template.Template{}, pristine: map[string]map[string]*template.Template{},
+		zoned: map[zonedKey]map[string]*template.Template{}}
 	icons, err := loadIcons(assets.Icons)
 	if err != nil {
 		return nil, fmt.Errorf("load icons: %w", err)
@@ -386,16 +398,31 @@ func (h *Handler) timeFuncs(l *i18n.Localizer, loc *time.Location) template.Func
 
 // templates returns a page's templates for language l and dates in loc.
 // The site's time zone has its own set; another zone gets a copy of the
-// pristine set with the date functions bound to it.
+// pristine set with the date functions bound to it, kept in h.zoned.
 func (h *Handler) templates(l *i18n.Localizer, page string, loc *time.Location) (*template.Template, error) {
 	if loc.String() == h.svc.SiteLocation().String() {
 		return h.pages[l.Lang()][page], nil
+	}
+	key := zonedKey{l.Lang(), loc.String()}
+	h.zonedMu.Lock()
+	defer h.zonedMu.Unlock()
+	set, ok := h.zoned[key]
+	if !ok && len(h.zoned) < maxZonedSets {
+		set = map[string]*template.Template{}
+		h.zoned[key] = set
+	}
+	if t := set[page]; t != nil {
+		return t, nil
 	}
 	t, err := h.pristine[l.Lang()][page].Clone()
 	if err != nil {
 		return nil, err
 	}
-	return t.Funcs(h.timeFuncs(l, loc)), nil
+	t.Funcs(h.timeFuncs(l, loc))
+	if set != nil {
+		set[page] = t
+	}
+	return t, nil
 }
 
 // when formats a moment in loc with a short weekday: "Пн 01.09.2026 09:30".

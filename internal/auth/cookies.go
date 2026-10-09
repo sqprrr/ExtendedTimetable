@@ -59,8 +59,11 @@ func (c Cookies) ClearSession(w http.ResponseWriter) {
 }
 
 // SessionToken returns the session token from the request, if any.
-func (c Cookies) SessionToken(r *http.Request) string {
-	ck, err := r.Cookie(c.SessionName())
+func (c Cookies) SessionToken(r *http.Request) string { return cookieValue(r, c.SessionName()) }
+
+// cookieValue returns the value of the cookie named name, or "" if there is none.
+func cookieValue(r *http.Request, name string) string {
+	ck, err := r.Cookie(name)
 	if err != nil {
 		return ""
 	}
@@ -80,13 +83,7 @@ func (c Cookies) SetLang(w http.ResponseWriter, lang string) {
 }
 
 // Lang returns the language cookie's value, if any.
-func (c Cookies) Lang(r *http.Request) string {
-	ck, err := r.Cookie(c.LangName())
-	if err != nil {
-		return ""
-	}
-	return ck.Value
-}
+func (c Cookies) Lang(r *http.Request) string { return cookieValue(r, c.LangName()) }
 
 // ThemeName is the colour theme cookie name.
 func (c Cookies) ThemeName() string { return c.name("extt_theme") }
@@ -97,13 +94,7 @@ func (c Cookies) SetTheme(w http.ResponseWriter, theme string) {
 }
 
 // Theme returns the colour theme cookie's value, if any.
-func (c Cookies) Theme(r *http.Request) string {
-	ck, err := r.Cookie(c.ThemeName())
-	if err != nil {
-		return ""
-	}
-	return ck.Value
-}
+func (c Cookies) Theme(r *http.Request) string { return cookieValue(r, c.ThemeName()) }
 
 // TimeZoneName is the name of the cookie holding the time zone choice.
 func (c Cookies) TimeZoneName() string { return c.name("extt_tz") }
@@ -114,13 +105,7 @@ func (c Cookies) SetTimeZone(w http.ResponseWriter, tz string) {
 }
 
 // TimeZone returns the time zone choice cookie's value, if any.
-func (c Cookies) TimeZone(r *http.Request) string {
-	ck, err := r.Cookie(c.TimeZoneName())
-	if err != nil {
-		return ""
-	}
-	return ck.Value
-}
+func (c Cookies) TimeZone(r *http.Request) string { return cookieValue(r, c.TimeZoneName()) }
 
 // DeviceTimeZoneName is the name of the cookie in which the browser's
 // script reports the device's time zone. Unlike the others, the script
@@ -129,11 +114,15 @@ func (c Cookies) DeviceTimeZoneName() string { return c.name("extt_device_tz") }
 
 // DeviceTimeZone returns the time zone the device reported, if any.
 func (c Cookies) DeviceTimeZone(r *http.Request) string {
-	ck, err := r.Cookie(c.DeviceTimeZoneName())
-	if err != nil {
-		return ""
-	}
-	return ck.Value
+	return cookieValue(r, c.DeviceTimeZoneName())
+}
+
+type renewedKey struct{}
+
+// WithRenewedSession returns a context that tells LoadSession the session
+// now lasts until expires, so it sends the cookie again.
+func WithRenewedSession(ctx context.Context, expires time.Time) context.Context {
+	return context.WithValue(ctx, renewedKey{}, expires)
 }
 
 // ErrNoSession is returned by an Authenticator when the token does not
@@ -141,7 +130,8 @@ func (c Cookies) DeviceTimeZone(r *http.Request) string {
 var ErrNoSession = errors.New("auth: no valid session")
 
 // Authenticator resolves a session token and returns a context carrying the
-// signed-in user. It returns ErrNoSession for unknown or expired tokens.
+// signed-in user, marked with WithRenewedSession if it extended the session.
+// It returns ErrNoSession for unknown or expired tokens.
 type Authenticator func(ctx context.Context, token string) (context.Context, error)
 
 // LoadSession resolves the session cookie on every request. Requests without
@@ -163,6 +153,9 @@ func (c Cookies) LoadSession(authn Authenticator) func(http.Handler) http.Handle
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			default:
+				if expires, ok := ctx.Value(renewedKey{}).(time.Time); ok {
+					c.SetSession(w, token, expires)
+				}
 				r = r.WithContext(ctx)
 			}
 			next.ServeHTTP(w, r)

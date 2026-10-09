@@ -4,6 +4,7 @@ package auth
 
 import (
 	"errors"
+	"sync"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -19,8 +20,12 @@ const MaxPasswordBytes = 72
 var ErrPasswordTooLong = errors.New("auth: password longer than 72 bytes")
 
 // dummyHash is compared against when a user does not exist, so that login
-// takes the same time whether or not the username is valid.
-var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("extt-dummy-password"), bcrypt.DefaultCost)
+// takes the same time whether or not the username is valid. It is made on
+// first use, at BcryptCost like real hashes.
+var dummyHash = sync.OnceValue(func() []byte {
+	h, _ := bcrypt.GenerateFromPassword([]byte("extt-dummy-password"), BcryptCost)
+	return h
+})
 
 // HashPassword returns a bcrypt hash of password.
 func HashPassword(password string) (string, error) {
@@ -39,5 +44,5 @@ func CheckPassword(hash, password string) bool {
 // BurnPasswordCheck spends roughly the time of a CheckPassword call. Use it
 // when the user does not exist to avoid leaking that through timing.
 func BurnPasswordCheck(password string) {
-	_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
+	_ = bcrypt.CompareHashAndPassword(dummyHash(), []byte(password))
 }

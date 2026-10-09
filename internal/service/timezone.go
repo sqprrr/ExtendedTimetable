@@ -57,6 +57,7 @@ var (
 
 // LoadTimeZone returns the IANA time zone name, or nil when it is not one.
 // "" and "Local" (UTC and the server's zone to time.LoadLocation) are not.
+// Europe/Kiev loads as Europe/Kyiv, so it matches the site's zone.
 func LoadTimeZone(name string) *time.Location {
 	if name == "" || name == "Local" || len(name) > 64 {
 		return nil
@@ -64,7 +65,11 @@ func LoadTimeZone(name string) *time.Location {
 	if loc, ok := zoneCache.Load(name); ok {
 		return loc.(*time.Location)
 	}
-	loc, err := time.LoadLocation(name)
+	load := name
+	if load == "Europe/Kiev" { // the old name, which some browsers still report
+		load = "Europe/Kyiv"
+	}
+	loc, err := time.LoadLocation(load)
 	if err != nil {
 		return nil
 	}

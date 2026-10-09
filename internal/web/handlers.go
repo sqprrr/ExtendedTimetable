@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cmp"
 	"net/http"
 	"net/url"
 	"strings"
@@ -69,9 +70,9 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, sess *ser
 	if sess.Theme != "" {
 		h.cookies.SetTheme(w, sess.Theme)
 	}
-	if sess.TimeZone != "" {
-		h.cookies.SetTimeZone(w, sess.TimeZone)
-	}
+	// A user who never chose a zone follows the device, not the zone a
+	// previous user of this browser chose.
+	h.cookies.SetTimeZone(w, cmp.Or(sess.TimeZone, service.TimeZoneAuto))
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
