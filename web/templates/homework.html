@@ -67,7 +67,7 @@
     <label class="field">
       <span class="field-label">{{t "field.due"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
       <input class="input" name="due_at" type="datetime-local" value="{{index .Fields "due_at"}}">
-      <span class="field-hint">{{t "hw.due_hint"}}</span>
+      <span class="field-hint">{{t "hw.due_hint"}}{{with .Zone}}{{if .SiteLabel}} {{t "tz.due_hint" "Zone" .Label "Offset" .Offset}}{{end}}{{end}}</span>
     </label>
     <label class="field">
       <span class="field-label">{{t "field.max_points"}} <span class="optional">· {{t "form.optional_label"}}</span></span>

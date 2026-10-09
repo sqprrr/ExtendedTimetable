@@ -11,7 +11,8 @@
   <script src="{{asset "app.js"}}" defer></script>
 </head>
 <body hx-headers='{"X-CSRF-Token": "{{.CSRFToken}}"}'
-      data-msg-save-failed="{{t "js.save_failed"}}" data-msg-offline="{{t "js.offline"}}">
+      data-msg-save-failed="{{t "js.save_failed"}}" data-msg-offline="{{t "js.offline"}}"
+      {{- with .Zone}} data-tz-offset="{{.OffsetMinutes}}" data-tz-cookie="{{.Cookie}}" data-tz-device="{{.Device}}"{{if .Reload}} data-tz-reload{{end}}{{end}}>
   <a class="skip-link" href="#main">{{t "nav.skip"}}</a>
   {{if .Viewer}}
   <div class="app">
@@ -83,6 +84,10 @@
     <div class="user-line">
       <span>{{t "theme.label"}}</span>
       {{template "themeSwitch" .}}
+    </div>
+    <div class="user-line">
+      <span>{{t "tz.label"}}</span>
+      {{template "tzSwitch" .}}
     </div>
     {{template "logout" .}}
   </div>
@@ -158,6 +163,22 @@
     </button>
     {{end}}
   </div>
+</form>
+{{end}}
+
+{{/* tzSwitch picks the time zone dates are shown and entered in, or the
+   device's; the choice is kept like the language. app.js applies a choice
+   at once; the button is for browsers without JavaScript. */}}
+{{define "tzSwitch"}}
+<form method="post" action="/timezone" class="tz-switch" hx-boost="false" data-autosubmit>
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <input type="hidden" name="back" value="{{.Back}}">
+  <select class="select" name="tz" aria-label="{{t "tz.label"}}">
+    <option value="auto"{{if eq .Zone.Choice "auto"}} selected{{end}}>{{.Zone.AutoLabel}}</option>
+    {{range .Zone.Options}}<option value="{{.Name}}"{{if .Selected}} selected{{end}}>{{.Label}}</option>
+    {{end}}
+  </select>
+  <button type="submit" class="btn btn-secondary btn-sm">{{t "tz.apply"}}</button>
 </form>
 {{end}}
 

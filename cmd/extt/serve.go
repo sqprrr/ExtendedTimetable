@@ -22,7 +22,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	addr := fs.String("addr", envOr("EXTT_ADDR", "127.0.0.1:8080"), "listen address")
 	secure := fs.Bool("secure-cookies", envBool("EXTT_SECURE_COOKIES", true), "mark cookies Secure (disable for local HTTP)")
 	trustProxy := fs.Bool("trust-proxy", envBool("EXTT_TRUST_PROXY", false), "take client IP from X-Real-IP")
-	tz := fs.String("tz", envOr("EXTT_TZ", "Europe/Kyiv"), "time zone for showing and entering dates")
+	tz := fs.String("tz", envOr("EXTT_TZ", "Europe/Kyiv"), "the site's time zone: for users who have not picked one and whose browser does not say")
 	cistEvery := fs.Duration("cist-interval", envDuration("EXTT_CIST_INTERVAL", 6*time.Hour), "how often to sync schedules from CIST (0 turns it off)")
 	baseURL := baseURLFlag(fs)
 	metricsAddr := fs.String("metrics-addr", envOr("EXTT_METRICS_ADDR", ""), "listen address for Prometheus metrics at /metrics; keep it on loopback (empty turns it off)")
@@ -49,7 +49,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	defer st.Close()
 
 	svc := newService(st, loc)
-	handler, err := server.New(svc, server.Config{SecureCookies: *secure, TrustProxy: *trustProxy, Location: loc, BaseURL: *baseURL})
+	handler, err := server.New(svc, server.Config{SecureCookies: *secure, TrustProxy: *trustProxy, BaseURL: *baseURL})
 	if err != nil {
 		return err
 	}

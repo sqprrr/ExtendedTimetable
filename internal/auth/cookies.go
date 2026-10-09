@@ -70,7 +70,8 @@ func (c Cookies) SessionToken(r *http.Request) string {
 // LangName is the language cookie name.
 func (c Cookies) LangName() string { return c.name("extt_lang") }
 
-// langTTL is how long the language and theme choices are remembered.
+// langTTL is how long the language, theme and time zone choices are
+// remembered.
 const langTTL = 365 * 24 * time.Hour
 
 // SetLang remembers the visitor's language.
@@ -98,6 +99,37 @@ func (c Cookies) SetTheme(w http.ResponseWriter, theme string) {
 // Theme returns the colour theme cookie's value, if any.
 func (c Cookies) Theme(r *http.Request) string {
 	ck, err := r.Cookie(c.ThemeName())
+	if err != nil {
+		return ""
+	}
+	return ck.Value
+}
+
+// TimeZoneName is the name of the cookie holding the time zone choice.
+func (c Cookies) TimeZoneName() string { return c.name("extt_tz") }
+
+// SetTimeZone remembers the visitor's time zone choice.
+func (c Cookies) SetTimeZone(w http.ResponseWriter, tz string) {
+	http.SetCookie(w, c.cookie(c.TimeZoneName(), tz, time.Now().Add(langTTL)))
+}
+
+// TimeZone returns the time zone choice cookie's value, if any.
+func (c Cookies) TimeZone(r *http.Request) string {
+	ck, err := r.Cookie(c.TimeZoneName())
+	if err != nil {
+		return ""
+	}
+	return ck.Value
+}
+
+// DeviceTimeZoneName is the name of the cookie in which the browser's
+// script reports the device's time zone. Unlike the others, the script
+// writes it, so it is not HttpOnly.
+func (c Cookies) DeviceTimeZoneName() string { return c.name("extt_device_tz") }
+
+// DeviceTimeZone returns the time zone the device reported, if any.
+func (c Cookies) DeviceTimeZone(r *http.Request) string {
+	ck, err := r.Cookie(c.DeviceTimeZoneName())
 	if err != nil {
 		return ""
 	}

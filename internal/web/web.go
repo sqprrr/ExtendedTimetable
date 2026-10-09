@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -28,13 +29,16 @@ type Handler struct {
 	svc        *service.Service
 	cookies    auth.Cookies
 	trustProxy bool
-	loc        *time.Location
 	icons      iconSet
 	static     *staticAssets
 	// base is the configured site address for shared links; "" uses the request's.
 	base string
-	// pages holds the parsed templates per language, then per page.
+	// pages holds the parsed templates per language, then per page, with
+	// dates in the site's time zone.
 	pages map[string]map[string]*template.Template
+	// pristine holds the same templates, never executed, to be copied for
+	// users in other time zones: html/template copies only those.
+	pristine map[string]map[string]*template.Template
 }
 
 // Config configures the HTML handler.
@@ -42,8 +46,6 @@ type Config struct {
 	Cookies auth.Cookies
 	// TrustProxy uses X-Real-IP for the client address (behind nginx).
 	TrustProxy bool
-	// Location is the time zone dates are shown and entered in; UTC if nil.
-	Location *time.Location
 	// BaseURL is the site's address (https://example.org) for the invite
 	// links shown to leaders; if empty, it is taken from each request.
 	BaseURL string
@@ -59,11 +61,9 @@ var pages = []string{
 
 // New parses the templates and returns a Handler.
 func New(svc *service.Service, cfg Config) (*Handler, error) {
-	h := &Handler{svc: svc, cookies: cfg.Cookies, trustProxy: cfg.TrustProxy, loc: cfg.Location,
-		base: strings.TrimRight(cfg.BaseURL, "/"), pages: map[string]map[string]*template.Template{}}
-	if h.loc == nil {
-		h.loc = time.UTC
-	}
+	h := &Handler{svc: svc, cookies: cfg.Cookies, trustProxy: cfg.TrustProxy,
+		base:  strings.TrimRight(cfg.BaseURL, "/"),
+		pages: map[string]map[string]*template.Template{}, pristine: map[string]map[string]*template.Template{}}
 	icons, err := loadIcons(assets.Icons)
 	if err != nil {
 		return nil, fmt.Errorf("load icons: %w", err)
@@ -77,13 +77,17 @@ func New(svc *service.Service, cfg Config) (*Handler, error) {
 	for _, lang := range i18n.Languages {
 		funcs := h.templateFuncs(i18n.For(lang))
 		h.pages[lang] = map[string]*template.Template{}
+		h.pristine[lang] = map[string]*template.Template{}
 		for _, page := range pages {
 			t, err := template.New(page).Funcs(funcs).ParseFS(assets.Templates,
 				"templates/layout.html", "templates/partials.html", "templates/"+page+".html")
 			if err != nil {
 				return nil, fmt.Errorf("parse template %s: %w", page, err)
 			}
-			h.pages[lang][page] = t
+			h.pristine[lang][page] = t
+			if h.pages[lang][page], err = t.Clone(); err != nil {
+				return nil, fmt.Errorf("copy template %s: %w", page, err)
+			}
 		}
 	}
 	return h, nil
@@ -99,6 +103,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /logout", h.logout)
 	mux.HandleFunc("POST /lang", h.setLang)
 	mux.HandleFunc("POST /theme", h.setTheme)
+	mux.HandleFunc("POST /timezone", h.setTimeZone)
 	mux.HandleFunc("GET /more", h.morePage)
 	mux.HandleFunc("GET /g/{code}/more", h.groupMorePage)
 	h.registerGroupRoutes(mux)
@@ -114,6 +119,8 @@ type pageData struct {
 	Back string
 	// Theme is the colour theme: "light", "dark" or "system".
 	Theme string
+	// Zone is the time zone the page's dates are in.
+	Zone zoneView
 	// NavGroup is the group the navigation leads to: the page's group, else
 	// the viewer's first group. It is nil for visitors and users in no group.
 	NavGroup *service.GroupView
@@ -223,8 +230,10 @@ type rowMenu struct {
 	CSRF    string
 }
 
+// templateFuncs are the template functions of language l. Those that show
+// dates are timeFuncs, here for the site's time zone.
 func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
-	return template.FuncMap{
+	funcs := template.FuncMap{
 		"lang": l.Lang,
 		"t":    l.T,
 		"icon": h.icons.html,
@@ -240,13 +249,6 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		},
 		// markdown renders sanitized HTML, so it is safe to mark as such.
 		"markdown": func(s string) template.HTML { return template.HTML(markdown.ToHTML(s)) },
-		"datetime": func(t *time.Time) string {
-			if t == nil {
-				return ""
-			}
-			return h.when(l, *t)
-		},
-		"date": func(t time.Time) string { return t.In(h.loc).Format("02.01.2006") },
 		"points": func(p *float64) string {
 			if p == nil {
 				return ""
@@ -306,13 +308,7 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			}
 			return ""
 		},
-		"hues":  func() []string { return service.Hues },
-		"clock": func(t time.Time) string { return t.In(h.loc).Format("15:04") },
-		"when":  func(t time.Time) string { return h.when(l, t) },
-		"dayName": func(t time.Time) string {
-			t = t.In(h.loc)
-			return l.T("weekday.long."+weekdayKey(t)) + ", " + t.Format("02.01")
-		},
+		"hues": func() []string { return service.Hues },
 		"classType": func(e *service.ScheduleEvent) string {
 			if e.LessonType == "" {
 				return e.CISTType
@@ -322,13 +318,7 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		"classItem": func(s *service.Schedule, e *service.ScheduleEvent) classItem {
 			return classItem{E: e, Next: !e.Now && s.IsUpcoming(e), Past: !e.EndsAt.After(h.svc.Now())}
 		},
-		// Relative dates (dates.go); "now" is the service's clock.
-		"now":       h.svc.Now,
-		"due":       func(hw *service.Homework) string { return h.due(l, h.svc.Now(), hw) },
-		"relWhen":   func(t time.Time) string { return h.relWhen(l, h.svc.Now(), t) },
-		"shortDate": func(t time.Time) string { return h.shortDate(l, h.svc.Now(), t) },
-		"longDate":  func(t time.Time) string { return h.longDate(l, t) },
-		"weekday":   func(t time.Time) string { return weekdayKey(t.In(h.loc)) },
+		"now": h.svc.Now,
 		"statusIcon": func(st store.ProgressStatus) string {
 			switch st {
 			case store.StatusInProgress:
@@ -365,11 +355,52 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return strings.Repeat("★", int(n)) + strings.Repeat("☆", 5-int(n))
 		},
 	}
+	maps.Copy(funcs, h.timeFuncs(l, h.svc.SiteLocation()))
+	return funcs
 }
 
-// when formats a moment with a short weekday: "Пн 01.09.2026 09:30".
-func (h *Handler) when(l *i18n.Localizer, t time.Time) string {
-	t = t.In(h.loc)
+// timeFuncs are the template functions that show dates, in loc. Relative
+// dates (dates.go) are relative to the service's clock.
+func (h *Handler) timeFuncs(l *i18n.Localizer, loc *time.Location) template.FuncMap {
+	return template.FuncMap{
+		"datetime": func(t *time.Time) string {
+			if t == nil {
+				return ""
+			}
+			return when(l, loc, *t)
+		},
+		"date":  func(t time.Time) string { return t.In(loc).Format("02.01.2006") },
+		"clock": func(t time.Time) string { return t.In(loc).Format("15:04") },
+		"when":  func(t time.Time) string { return when(l, loc, t) },
+		"dayName": func(t time.Time) string {
+			t = t.In(loc)
+			return l.T("weekday.long."+weekdayKey(t)) + ", " + t.Format("02.01")
+		},
+		"due":       func(hw *service.Homework) string { return due(l, loc, h.svc.Now(), hw) },
+		"relWhen":   func(t time.Time) string { return relWhen(l, loc, h.svc.Now(), t) },
+		"shortDate": func(t time.Time) string { return shortDate(l, loc, h.svc.Now(), t) },
+		"longDate":  func(t time.Time) string { return longDate(l, loc, t) },
+		"weekday":   func(t time.Time) string { return weekdayKey(t.In(loc)) },
+	}
+}
+
+// templates returns a page's templates for language l and dates in loc.
+// The site's time zone has its own set; another zone gets a copy of the
+// pristine set with the date functions bound to it.
+func (h *Handler) templates(l *i18n.Localizer, page string, loc *time.Location) (*template.Template, error) {
+	if loc.String() == h.svc.SiteLocation().String() {
+		return h.pages[l.Lang()][page], nil
+	}
+	t, err := h.pristine[l.Lang()][page].Clone()
+	if err != nil {
+		return nil, err
+	}
+	return t.Funcs(h.timeFuncs(l, loc)), nil
+}
+
+// when formats a moment in loc with a short weekday: "Пн 01.09.2026 09:30".
+func when(l *i18n.Localizer, loc *time.Location, t time.Time) string {
+	t = t.In(loc)
 	return l.T("weekday.short."+weekdayKey(t)) + " " + t.Format("02.01.2006 15:04")
 }
 
@@ -397,6 +428,9 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 	data.CSRFToken = auth.CSRFToken(r.Context())
 	data.Back = backPath(r)
 	data.Theme = h.theme(r)
+	l := i18n.FromContext(r.Context())
+	loc := h.pageLocation(r)
+	data.Zone = h.zoneView(r, l, loc)
 	if data.Viewer != nil {
 		data.NavGroup = data.Group
 		if data.NavGroup == nil {
@@ -408,9 +442,12 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 			data.NavGroup = g
 		}
 	}
-	l := i18n.FromContext(r.Context())
 	var buf bytes.Buffer
-	if err := h.pages[l.Lang()][page].ExecuteTemplate(&buf, "layout", data); err != nil {
+	t, err := h.templates(l, page, loc)
+	if err == nil {
+		err = t.ExecuteTemplate(&buf, "layout", data)
+	}
+	if err != nil {
 		slog.ErrorContext(r.Context(), "render template", "page", page, "err", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -426,7 +463,11 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 func (h *Handler) renderFragment(w http.ResponseWriter, r *http.Request, name string, data any) {
 	var buf bytes.Buffer
 	// Every page set holds partials.html; any of them will do.
-	if err := h.pages[i18n.FromContext(r.Context()).Lang()]["homework"].ExecuteTemplate(&buf, name, data); err != nil {
+	t, err := h.templates(i18n.FromContext(r.Context()), "homework", h.pageLocation(r))
+	if err == nil {
+		err = t.ExecuteTemplate(&buf, name, data)
+	}
+	if err != nil {
 		slog.ErrorContext(r.Context(), "render fragment", "name", name, "err", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return

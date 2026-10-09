@@ -51,6 +51,6 @@ func (h *Handler) subjectPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	d.HomeworkList = p.Homework
-	d.HomeworkGroups = h.groupHomework(h.svc.Now(), p.Homework, service.HomeworkFilter{SubjectID: id})
+	d.HomeworkGroups = groupHomework(h.svc.Location(r.Context()), h.svc.Now(), p.Homework, service.HomeworkFilter{SubjectID: id})
 	h.render(w, r, http.StatusOK, "subject", d)
 }

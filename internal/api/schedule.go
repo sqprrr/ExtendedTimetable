@@ -62,9 +62,10 @@ func (h *Handler) schedule(w http.ResponseWriter, r *http.Request) {
 	if gid == 0 {
 		return
 	}
-	from := service.StartOfDay(h.svc.Now(), h.loc)
+	loc := h.svc.Location(r.Context())
+	from := service.StartOfDay(h.svc.Now(), loc)
 	if s := r.URL.Query().Get("from"); s != "" {
-		d, err := time.ParseInLocation(time.DateOnly, s, h.loc)
+		d, err := time.ParseInLocation(time.DateOnly, s, loc)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "from must be a date like 2026-10-05")
 			return
@@ -73,7 +74,7 @@ func (h *Handler) schedule(w http.ResponseWriter, r *http.Request) {
 	}
 	to := from.AddDate(0, 0, 7)
 	if s := r.URL.Query().Get("to"); s != "" {
-		d, err := time.ParseInLocation(time.DateOnly, s, h.loc)
+		d, err := time.ParseInLocation(time.DateOnly, s, loc)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "to must be a date like 2026-10-12")
 			return

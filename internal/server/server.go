@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
-	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/api"
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
@@ -21,8 +20,6 @@ type Config struct {
 	SecureCookies bool
 	// TrustProxy takes the client IP from X-Real-IP (set by nginx).
 	TrustProxy bool
-	// Location is the time zone dates are shown and entered in; UTC if nil.
-	Location *time.Location
 	// BaseURL is the site's public address for invite links; if empty, it
 	// is taken from each request.
 	BaseURL string
@@ -31,7 +28,7 @@ type Config struct {
 // New returns the application's root handler.
 func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	cookies := auth.Cookies{Secure: cfg.SecureCookies}
-	webH, err := web.New(svc, web.Config{Cookies: cookies, TrustProxy: cfg.TrustProxy, Location: cfg.Location, BaseURL: cfg.BaseURL})
+	webH, err := web.New(svc, web.Config{Cookies: cookies, TrustProxy: cfg.TrustProxy, BaseURL: cfg.BaseURL})
 	if err != nil {
 		return nil, err
 	}
@@ -39,12 +36,13 @@ func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok\n")) })
 	webH.Register(mux)
-	api.New(svc, cfg.Location).Register(mux)
+	api.New(svc).Register(mux)
 
 	// Outermost last. requestLog must wrap recoverer to log panics as 500s,
 	// and recordUser must run after the session is loaded.
 	var h http.Handler = mux
 	h = language(cookies)(h)
+	h = timeZone(cookies, svc)(h)
 	h = recordUser(h)
 	h = cookies.LoadSession(svc.Authenticate)(h)
 	h = cookies.CSRF(h)
@@ -67,6 +65,18 @@ func language(cookies auth.Cookies) func(http.Handler) http.Handler {
 				lang = i18n.Default
 			}
 			next.ServeHTTP(w, r.WithContext(i18n.WithLang(r.Context(), lang)))
+		})
+	}
+}
+
+// timeZone puts the request's time zone in its context: the signed-in
+// user's choice, else the time zone cookie's; for TimeZoneAuto (also when
+// nothing was chosen), the zone the device reported, else the site's.
+func timeZone(cookies auth.Cookies, svc *service.Service) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			choice := service.TimeZoneChoice(r.Context(), cookies.TimeZone(r))
+			next.ServeHTTP(w, r.WithContext(svc.WithTimeZone(r.Context(), choice, cookies.DeviceTimeZone(r))))
 		})
 	}
 }

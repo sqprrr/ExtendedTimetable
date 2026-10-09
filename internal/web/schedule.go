@@ -78,14 +78,14 @@ func (h *Handler) schedulePage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) showSchedule(w http.ResponseWriter, r *http.Request, g *service.GroupView, status int, week, day, view, errMsg string) {
 	// The service's clock, so "today" agrees with its Now and Next marks.
-	now := h.svc.Now()
-	start := weekStart(week, now, h.loc)
+	now, loc := h.svc.Now(), h.svc.Location(r.Context())
+	start := weekStart(week, now, loc)
 	sch, err := h.svc.Schedule(r.Context(), g.ID, start, start.AddDate(0, 0, 7))
 	if err != nil {
 		h.renderError(w, r, err)
 		return
 	}
-	this := weekStart("", now, h.loc)
+	this := weekStart("", now, loc)
 	wv := &weekView{
 		Start:  start,
 		Prev:   start.AddDate(0, 0, -7).Format(time.DateOnly),
@@ -99,7 +99,7 @@ func (h *Handler) showSchedule(w http.ResponseWriter, r *http.Request, g *servic
 	if view == "day" {
 		wv.View = "day"
 	}
-	today := now.In(h.loc).Format(time.DateOnly)
+	today := now.In(loc).Format(time.DateOnly)
 	firstBusy := ""
 	for i := range 7 {
 		d := scheduleDay{Date: start.AddDate(0, 0, i)}

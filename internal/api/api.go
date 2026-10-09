@@ -8,7 +8,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
 	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
@@ -18,17 +17,12 @@ import (
 // Handler serves the JSON API.
 type Handler struct {
 	svc *service.Service
-	// loc is the time zone that schedule dates in queries are read in.
-	loc *time.Location
 }
 
-// New returns an API handler. loc is the time zone of dates in queries; UTC
-// if nil.
-func New(svc *service.Service, loc *time.Location) *Handler {
-	if loc == nil {
-		loc = time.UTC
-	}
-	return &Handler{svc: svc, loc: loc}
+// New returns an API handler. Dates in queries are read in the request's
+// time zone (service.Location).
+func New(svc *service.Service) *Handler {
+	return &Handler{svc: svc}
 }
 
 // Register adds the API routes to mux.
@@ -60,8 +54,14 @@ type meJSON struct {
 	Locale string `json:"locale"`
 	// Theme is the colour theme the user chose: "light", "dark" or
 	// "system" (the device's, also when they have not chosen).
-	Theme  string      `json:"theme"`
-	Groups []groupJSON `json:"groups"`
+	Theme string `json:"theme"`
+	// TimeZone is the time zone the user chose: an IANA name, or "auto"
+	// (the device's, also when they have not chosen).
+	TimeZone string `json:"time_zone"`
+	// Location is the time zone in effect: TimeZone, or for "auto" the
+	// device's (from the browser's cookie), else the site's.
+	Location string      `json:"location"`
+	Groups   []groupJSON `json:"groups"`
 	// CSRFToken must be sent as the X-CSRF-Token header on unsafe requests.
 	CSRFToken string `json:"csrf_token"`
 }
@@ -82,6 +82,8 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 		IsSuperadmin: v.IsSuperadmin,
 		Locale:       i18n.FromContext(r.Context()).Lang(),
 		Theme:        cmp.Or(v.Theme, service.ThemeSystem),
+		TimeZone:     cmp.Or(v.TimeZone, service.TimeZoneAuto),
+		Location:     h.svc.Location(r.Context()).String(),
 		Groups:       make([]groupJSON, 0, len(groups)),
 		CSRFToken:    auth.CSRFToken(r.Context()),
 	}
@@ -94,11 +96,13 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 }
 
 // updateMe changes the viewer's settings; the body is {"locale": "uk"|"en",
-// "theme": "light"|"dark"|"system"}, either field optional.
+// "theme": "light"|"dark"|"system", "time_zone": "auto"|"<IANA name>"},
+// every field optional.
 func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Locale *string `json:"locale"`
-		Theme  *string `json:"theme"`
+		Locale   *string `json:"locale"`
+		Theme    *string `json:"theme"`
+		TimeZone *string `json:"time_zone"`
 	}
 	if !decode(w, r, &in) {
 		return
@@ -115,6 +119,13 @@ func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 			h.fail(w, r, err)
 			return
 		}
+	}
+	if in.TimeZone != nil {
+		if err := h.svc.SetTimeZone(r.Context(), *in.TimeZone); err != nil {
+			h.fail(w, r, err)
+			return
+		}
+		r = r.WithContext(h.svc.WithTimeZone(r.Context(), *in.TimeZone, service.DeviceTimeZone(r.Context())))
 	}
 	h.me(w, r)
 }

@@ -14,7 +14,10 @@ type Viewer struct {
 	// Locale is the language the user chose, or "" if they have not.
 	Locale string
 	// Theme is the colour theme the user chose, or "" if they have not.
-	Theme       string
+	Theme string
+	// TimeZone is the time zone the user chose (an IANA name or
+	// TimeZoneAuto), or "" if they have not.
+	TimeZone    string
 	Memberships []store.Membership
 }
 

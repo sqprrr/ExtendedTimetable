@@ -395,9 +395,9 @@ func (s *Service) scheduleView(ctx context.Context, g *store.Group, events []*st
 }
 
 // todaySchedule returns the group's classes of the current day in the
-// service's time zone; links are the group's class links.
+// request's time zone; links are the group's class links.
 func (s *Service) todaySchedule(ctx context.Context, g *store.Group, links []*store.ClassLink) (*Schedule, error) {
-	start := StartOfDay(s.now(), s.cfg.Location)
+	start := StartOfDay(s.now(), s.Location(ctx))
 	events, err := s.store.ListScheduleEvents(ctx, g.ID, start, start.AddDate(0, 0, 1))
 	if err != nil {
 		return nil, err

@@ -13,16 +13,18 @@ type User struct {
 	IsSuperadmin bool
 	Locale       string
 	// Theme is 'system', 'light' or 'dark', or '' if the user has not chosen.
-	Theme     string
+	Theme string
+	// TimeZone is an IANA zone name or 'auto', or '' if the user has not chosen.
+	TimeZone  string
 	CreatedAt time.Time
 }
 
-const userColumns = `id, username, password_hash, is_superadmin, locale, theme, created_at`
+const userColumns = `id, username, password_hash, is_superadmin, locale, theme, time_zone, created_at`
 
 func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 	var u User
 	var created int64
-	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.IsSuperadmin, &u.Locale, &u.Theme, &created); err != nil {
+	if err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.IsSuperadmin, &u.Locale, &u.Theme, &u.TimeZone, &created); err != nil {
 		return nil, mapErr(err)
 	}
 	u.CreatedAt = time.Unix(created, 0).UTC()
@@ -32,8 +34,8 @@ func scanUser(row interface{ Scan(...any) error }) (*User, error) {
 // CreateUser inserts a user and sets u.ID. Returns ErrConflict if the username is taken.
 func (q *Queries) CreateUser(ctx context.Context, u *User) error {
 	res, err := q.db.ExecContext(ctx,
-		`INSERT INTO users (username, password_hash, is_superadmin, locale, theme, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		u.Username, u.PasswordHash, u.IsSuperadmin, u.Locale, u.Theme, u.CreatedAt.Unix())
+		`INSERT INTO users (username, password_hash, is_superadmin, locale, theme, time_zone, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		u.Username, u.PasswordHash, u.IsSuperadmin, u.Locale, u.Theme, u.TimeZone, u.CreatedAt.Unix())
 	if err != nil {
 		return mapErr(err)
 	}
@@ -69,4 +71,9 @@ func (q *Queries) SetSuperadmin(ctx context.Context, userID int64, on bool) erro
 // SetTheme stores a user's chosen colour theme.
 func (q *Queries) SetTheme(ctx context.Context, userID int64, theme string) error {
 	return expectOne(q.db.ExecContext(ctx, `UPDATE users SET theme = ? WHERE id = ?`, theme, userID))
+}
+
+// SetTimeZone stores a user's chosen time zone.
+func (q *Queries) SetTimeZone(ctx context.Context, userID int64, tz string) error {
+	return expectOne(q.db.ExecContext(ctx, `UPDATE users SET time_zone = ? WHERE id = ?`, tz, userID))
 }

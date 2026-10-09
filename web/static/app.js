@@ -122,3 +122,24 @@ document.addEventListener("keydown", (e) => {
     d.querySelector("summary").focus();
   }
 });
+
+// Dates follow the device's time zone until the user picks one. The server
+// cannot see the device's zone, so report it in a cookie (data-tz-cookie)
+// whenever it is not the one the server last got (data-tz-device), and load
+// the page again if it follows the device (data-tz-reload) and was drawn
+// for a zone whose clock shows another time (data-tz-offset, minutes east
+// of UTC). Only reload once the cookie has stuck: with cookies blocked, the
+// page would otherwise reload forever.
+(() => {
+  const d = document.body.dataset;
+  let tz = "";
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {}
+  if (!d.tzCookie || !/^[A-Za-z0-9_+\-\/]{1,64}$/.test(tz) || tz === d.tzDevice) return;
+  const secure = d.tzCookie.startsWith("__Host-") ? "; Secure" : "";
+  document.cookie = `${d.tzCookie}=${tz}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+  const stuck = document.cookie.split("; ").includes(`${d.tzCookie}=${tz}`);
+  const offset = -new Date().getTimezoneOffset();
+  if (stuck && d.tzReload !== undefined && Number(d.tzOffset) !== offset) location.reload();
+})();

@@ -106,7 +106,7 @@ func (h *Handler) sections() []*section {
 				if d.HomeworkList, err = h.svc.HomeworkList(ctx, groupID, d.HomeworkFilter); err != nil {
 					return err
 				}
-				d.HomeworkGroups = h.groupHomework(h.svc.Now(), d.HomeworkList, d.HomeworkFilter)
+				d.HomeworkGroups = groupHomework(h.svc.Location(ctx), h.svc.Now(), d.HomeworkList, d.HomeworkFilter)
 				return loadSubjects(ctx, h, groupID, d)
 			},
 			fields: func(ctx context.Context, h *Handler, groupID, id int64) (map[string]string, error) {
@@ -119,7 +119,7 @@ func (h *Handler) sections() []*section {
 					"description": hw.DescriptionMD, "links": formatLinks(hw.Links),
 				}
 				if hw.DueAt != nil {
-					f["due_at"] = hw.DueAt.In(h.loc).Format(dateTimeLocal)
+					f["due_at"] = hw.DueAt.In(h.svc.Location(ctx)).Format(dateTimeLocal)
 				}
 				if hw.MaxPoints != nil {
 					f["max_points"] = formatPoints(*hw.MaxPoints)
@@ -442,7 +442,7 @@ func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, http.StatusOK, "group", pageData{
 		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes,
-		Schedule: ov.Today, NowCard: h.newNowCard(i18n.FromContext(r.Context()), h.svc.Now(), ov.Today),
+		Schedule: ov.Today, NowCard: newNowCard(i18n.FromContext(r.Context()), h.svc.Location(r.Context()), h.svc.Now(), ov.Today),
 	})
 }
 
@@ -526,7 +526,7 @@ func (h *Handler) homeworkInput(r *http.Request) (service.HomeworkInput, error) 
 		return in, err
 	}
 	if s := strings.TrimSpace(r.PostFormValue("due_at")); s != "" {
-		t, err := time.ParseInLocation(dateTimeLocal, s, h.loc)
+		t, err := time.ParseInLocation(dateTimeLocal, s, h.svc.Location(r.Context()))
 		if err != nil {
 			return in, &service.InputError{Field: "due_at", Msg: i18n.M("err.due_invalid")}
 		}

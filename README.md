@@ -56,6 +56,15 @@ notes, and a private homework tracker per student. See
   and tabs for its homework and for its recordings and solutions, which can
   be filtered by lesson type (recordings and solutions now take an optional
   one).
+- **Time zones:** classes run on Kyiv time (`EXTT_TZ`), but each user sees
+  and enters dates in their own time zone. It follows the device (the
+  browser reports its zone in a cookie, `extt_device_tz`, and the page is
+  reloaded once if it was drawn for another clock) until the user picks a
+  zone under Settings (the sidebar, or More on phones). The choice is kept
+  like the language and theme: a cookie and, once signed in, the account.
+  "Today", the week on the schedule and homework deadlines all follow it;
+  when the user's clock differs from Kyiv's, Today and Schedule say so, and
+  so does the deadline field.
 
 ## Quick start (local)
 
@@ -109,7 +118,7 @@ restoring a backup.
 | `EXTT_SECURE_COOKIES` | `--secure-cookies` | `true` |
 | `EXTT_TRUST_PROXY` | `--trust-proxy` | `false` (set `true` behind nginx so `X-Real-IP` is used for rate limiting) |
 | `EXTT_BASE_URL` | `--base-url` | none (the site's address for full invite links, e.g. `https://example.org`; `serve` falls back to the request's host, the CLI prints only the path) |
-| `EXTT_TZ` | `--tz` | `Europe/Kyiv` (time zone for showing and entering dates) |
+| `EXTT_TZ` | `--tz` | `Europe/Kyiv` (the site's time zone: classes run on it; dates are shown in it to users who have not picked a zone and whose browser does not report one) |
 | `EXTT_CIST_INTERVAL` | `--cist-interval` | `6h` (how often `serve` syncs schedules from CIST; `0` turns it off) |
 | `EXTT_LOG_LEVEL` | `--log-level` | `info` (`debug`, `info`, `warn`, `error`; `debug` also logs the source line) |
 | `EXTT_LOG_FORMAT` | `--log-format` | `text` (`json` for log collectors) |
@@ -190,7 +199,9 @@ the code uses exists.
 All under `/api/v1/groups/{code}`; unsafe methods need the `X-CSRF-Token`
 header (get the token from `GET /api/v1/me`). `PUT /api/v1/me` with
 `{"locale": "uk"|"en"}` changes the user's language; `/me` reports the one
-in effect.
+in effect. `{"time_zone": "auto"|"Europe/Warsaw"}` (any IANA zone) changes
+their time zone; `/me` reports the choice as `time_zone` and the zone in
+effect as `location`, which the schedule's `from` and `to` dates are read in.
 
 | Resource | Endpoints |
 |---|---|

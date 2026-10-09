@@ -23,8 +23,8 @@ type nowCard struct {
 }
 
 // newNowCard picks the class for the Now card from today's schedule, or
-// returns nil when nothing is coming up.
-func (h *Handler) newNowCard(l *i18n.Localizer, now time.Time, sch *service.Schedule) *nowCard {
+// returns nil when nothing is coming up. Times are in loc.
+func newNowCard(l *i18n.Localizer, loc *time.Location, now time.Time, sch *service.Schedule) *nowCard {
 	if sch == nil || len(sch.Upcoming) == 0 {
 		return nil
 	}
@@ -44,7 +44,7 @@ func (h *Handler) newNowCard(l *i18n.Localizer, now time.Time, sch *service.Sche
 	case e.StartsAt.Sub(now) < time.Hour:
 		c.State = l.T("today.next_in", "Count", minutesUntil(now, e.StartsAt))
 	default:
-		c.State = l.T("today.next_at", "When", h.relWhen(l, now, e.StartsAt))
+		c.State = l.T("today.next_at", "When", relWhen(l, loc, now, e.StartsAt))
 	}
 	return c
 }

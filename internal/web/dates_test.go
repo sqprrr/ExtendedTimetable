@@ -14,7 +14,6 @@ func TestRelativeDates(t *testing.T) {
 	if err != nil {
 		t.Skip("no tzdata:", err)
 	}
-	h := &Handler{loc: kyiv}
 	en, uk := i18n.For("en"), i18n.For("uk")
 	// Wednesday 7 October 2026, 10:00 in Kyiv.
 	now := time.Date(2026, 10, 7, 10, 0, 0, 0, kyiv)
@@ -39,28 +38,27 @@ func TestRelativeDates(t *testing.T) {
 		{at(7, 9, 0), true, "due today, 09:00"},
 	} {
 		hw := &service.Homework{Homework: store.Homework{DueAt: c.due}, Overdue: c.overdue}
-		if got := h.due(en, now, hw); got != c.want {
+		if got := due(en, kyiv, now, hw); got != c.want {
 			t.Errorf("due %v (overdue %v) = %q, want %q", c.due, c.overdue, got, c.want)
 		}
 	}
 	next := time.Date(2027, 1, 20, 9, 0, 0, 0, kyiv)
-	if got := h.shortDate(en, now, next); got != "20 Jan 2027" {
+	if got := shortDate(en, kyiv, now, next); got != "20 Jan 2027" {
 		t.Errorf("another year: %q", got)
 	}
-	if got := h.longDate(uk, now); got != "Середа, 7 жовтня" {
+	if got := longDate(uk, kyiv, now); got != "Середа, 7 жовтня" {
 		t.Errorf("uk long date: %q", got)
 	}
-	if got := h.due(uk, now, &service.Homework{Homework: store.Homework{DueAt: at(3, 9, 0)}, Overdue: true}); got != "прострочено на 4 дні" {
+	if got := due(uk, kyiv, now, &service.Homework{Homework: store.Homework{DueAt: at(3, 9, 0)}, Overdue: true}); got != "прострочено на 4 дні" {
 		t.Errorf("uk overdue: %q", got)
 	}
 	// Across the switch to winter time (25 October) days stay whole.
-	if got := h.relWhen(en, time.Date(2026, 10, 24, 23, 0, 0, 0, kyiv), time.Date(2026, 10, 26, 1, 0, 0, 0, kyiv)); got != "Mon, 01:00" {
+	if got := relWhen(en, kyiv, time.Date(2026, 10, 24, 23, 0, 0, 0, kyiv), time.Date(2026, 10, 26, 1, 0, 0, 0, kyiv)); got != "Mon, 01:00" {
 		t.Errorf("across DST: %q", got)
 	}
 }
 
 func TestNowCard(t *testing.T) {
-	h := &Handler{loc: time.UTC}
 	en := i18n.For("en")
 	now := time.Date(2026, 10, 7, 10, 40, 0, 0, time.UTC)
 	ev := func(id int64, start, end string, live bool) *service.ScheduleEvent {
@@ -70,20 +68,20 @@ func TestNowCard(t *testing.T) {
 	}
 	oop, math := ev(1, "09:30", "11:05", true), ev(2, "11:15", "12:50", false)
 
-	c := h.newNowCard(en, now, &service.Schedule{Events: []*service.ScheduleEvent{oop, math}, Upcoming: []*service.ScheduleEvent{oop}})
+	c := newNowCard(en, time.UTC, now, &service.Schedule{Events: []*service.ScheduleEvent{oop, math}, Upcoming: []*service.ScheduleEvent{oop}})
 	if c == nil || !c.Live || c.State != "Now · 25 min left" || c.After != math || c.Elapsed != 70*60 || c.Total != 95*60 {
 		t.Fatalf("live card: %+v", c)
 	}
-	c = h.newNowCard(en, now.Add(30*time.Minute), &service.Schedule{Events: []*service.ScheduleEvent{math}, Upcoming: []*service.ScheduleEvent{math}})
+	c = newNowCard(en, time.UTC, now.Add(30*time.Minute), &service.Schedule{Events: []*service.ScheduleEvent{math}, Upcoming: []*service.ScheduleEvent{math}})
 	if c == nil || c.Live || c.State != "Next · in 5 min" {
 		t.Fatalf("next soon: %+v", c)
 	}
 	early := ev(1, "09:30", "11:05", false)
-	c = h.newNowCard(en, now.Add(-3*time.Hour), &service.Schedule{Upcoming: []*service.ScheduleEvent{early}})
+	c = newNowCard(en, time.UTC, now.Add(-3*time.Hour), &service.Schedule{Upcoming: []*service.ScheduleEvent{early}})
 	if c == nil || c.State != "Next · today, 09:30" {
 		t.Fatalf("next later: %+v", c)
 	}
-	if c := h.newNowCard(en, now, &service.Schedule{}); c != nil {
+	if c := newNowCard(en, time.UTC, now, &service.Schedule{}); c != nil {
 		t.Fatalf("nothing upcoming: %+v", c)
 	}
 }

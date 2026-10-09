@@ -7,6 +7,7 @@
   <div>
     <h1>{{t "nav.schedule"}}</h1>
     {{with .Schedule}}{{if and .HasSource .Sync}}<p class="subtitle">{{template "syncLine" .}}</p>{{end}}{{end}}
+    {{template "zoneNote" .}}
   </div>
   <div class="btn-row">
     {{if and .Group.CanEdit .Schedule.HasSource}}
