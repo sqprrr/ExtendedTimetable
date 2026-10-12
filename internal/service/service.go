@@ -13,6 +13,7 @@ import (
 	"github.com/sqprrr/ExtendedTimetable/internal/cist"
 	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
+	"github.com/sqprrr/ExtendedTimetable/internal/youtube"
 )
 
 var (
@@ -44,6 +45,9 @@ type Config struct {
 	SessionTTL time.Duration
 	// CIST is where schedules come from; nil turns schedule sync off.
 	CIST cist.Source
+	// YouTube is where playlists of recordings come from; nil turns their
+	// sync off.
+	YouTube youtube.Source
 	// Location is the site's time zone: the default for users who have not
 	// chosen one and whose device does not say; UTC if nil.
 	Location *time.Location
@@ -60,9 +64,9 @@ type Service struct {
 	registerByIP    *auth.Limiter
 	feedbackByUser  *auth.Limiter
 
-	// syncing holds the groups whose schedule sync is running.
+	// syncing holds the groups' syncs that are running.
 	syncMu  sync.Mutex
-	syncing map[int64]bool
+	syncing map[syncKey]bool
 }
 
 // New creates a Service.
@@ -81,7 +85,7 @@ func New(st *store.Store, cfg Config) *Service {
 		loginByUsername: auth.NewLimiter(10, 15*time.Minute),
 		registerByIP:    auth.NewLimiter(10, time.Hour),
 		feedbackByUser:  auth.NewLimiter(10, time.Hour),
-		syncing:         map[int64]bool{},
+		syncing:         map[syncKey]bool{},
 	}
 }
 

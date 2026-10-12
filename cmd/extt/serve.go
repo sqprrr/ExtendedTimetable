@@ -24,6 +24,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	trustProxy := fs.Bool("trust-proxy", envBool("EXTT_TRUST_PROXY", false), "take client IP from X-Real-IP")
 	tz := fs.String("tz", envOr("EXTT_TZ", "Europe/Kyiv"), "the site's time zone: for users who have not picked one and whose browser does not say")
 	cistEvery := fs.Duration("cist-interval", envDuration("EXTT_CIST_INTERVAL", 6*time.Hour), "how often to sync schedules from CIST (0 turns it off)")
+	youtubeEvery := fs.Duration("youtube-interval", envDuration("EXTT_YOUTUBE_INTERVAL", time.Hour), "how often to sync recordings from YouTube playlists (0 turns it off; needs EXTT_YOUTUBE_KEY)")
 	baseURL := baseURLFlag(fs)
 	metricsAddr := fs.String("metrics-addr", envOr("EXTT_METRICS_ADDR", ""), "listen address for Prometheus metrics at /metrics; keep it on loopback (empty turns it off)")
 	logLevel := fs.String("log-level", envOr("EXTT_LOG_LEVEL", "info"), "debug, info, warn or error")
@@ -62,6 +63,10 @@ func cmdServe(ctx context.Context, args []string) error {
 	if *cistEvery > 0 {
 		go svc.RunScheduleSync(ctx, *cistEvery)
 	}
+	youtubeOn := *youtubeEvery > 0 && os.Getenv("EXTT_YOUTUBE_KEY") != ""
+	if youtubeOn {
+		go svc.RunRecordingSync(ctx, *youtubeEvery)
+	}
 
 	srv := &http.Server{
 		Addr:              *addr,
@@ -75,7 +80,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	errc := make(chan error, 2)
 	go func() {
 		slog.Info("listening", "addr", *addr, "db", *dbPath, "secure_cookies", *secure, "trust_proxy", *trustProxy,
-			"tz", loc.String(), "cist_interval", cistEvery.String(), "log_level", *logLevel)
+			"tz", loc.String(), "cist_interval", cistEvery.String(), "youtube_sync", youtubeOn, "log_level", *logLevel)
 		errc <- srv.ListenAndServe()
 	}()
 

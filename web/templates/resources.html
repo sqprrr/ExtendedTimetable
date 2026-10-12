@@ -12,6 +12,7 @@
 </header>
 {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
 <div class="section-gap">
+{{with .Recordings}}{{template "playlist" (playlistCard $ .)}}{{end}}
 {{if .ResourcesTotal}}
 {{$f := .ListFilter}}
 <form class="filters" method="get" action="{{$g}}/resources" data-autosubmit aria-label="{{t "hw.filters"}}">
@@ -102,4 +103,46 @@
   </label>
   {{template "formButtons" .}}
 </form>
+{{end}}
+
+{{/* playlist is the YouTube playlist the recordings are synced from, for
+   the leader and editors. */}}
+{{define "playlist"}}
+{{$g := print "/g/" .Code}}
+{{with .Src}}
+<section class="card playlist" aria-labelledby="playlist-title">
+  <div class="card-head">
+    <h2 id="playlist-title">{{t "playlist.title"}}</h2>
+    {{if and .Playlist .Enabled}}
+    <form method="post" action="{{$g}}/resources/youtube/sync" class="inline">
+      <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+      <button type="submit" class="btn btn-secondary btn-sm">{{icon "refresh-cw"}}{{t "playlist.sync_now"}}</button>
+    </form>
+    {{end}}
+  </div>
+  <p class="playlist-status">
+    {{- if not .Enabled}}{{t "playlist.disabled"}}
+    {{- else if not .Playlist}}{{t "playlist.hint"}}
+    {{- else if not .Sync}}{{t "playlist.never_synced"}}
+    {{- else if .Sync.LastError}}{{t "playlist.sync_failed" "When" (relWhen .Sync.LastAttemptAt) "Error" .Sync.LastError}}
+    {{- else}}{{t "playlist.synced_at" "When" (relWhen .Sync.LastAttemptAt) "N" .Sync.Added}}{{end -}}
+  </p>
+  <form class="form inline-form" method="post" action="{{$g}}/resources/youtube">
+    <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+    <label class="field">
+      <span class="field-label">{{t "playlist.link"}}</span>
+      <input class="input" name="playlist" value="{{or $.Input .PlaylistURL}}" placeholder="https://www.youtube.com/playlist?list=…" spellcheck="false" autocomplete="off">
+      <span class="field-hint">{{t "playlist.link_hint"}}</span>
+    </label>
+    <button type="submit" class="btn btn-primary">{{t "action.save"}}</button>
+  </form>
+  {{with .Sync}}{{with .Unmatched}}
+  <details class="playlist-unmatched">
+    <summary>{{t "playlist.unmatched" "N" (len .)}}</summary>
+    <p class="field-hint">{{t "playlist.unmatched_hint"}}</p>
+    <ul>{{range .}}<li class="mono">{{.}}</li>{{end}}</ul>
+  </details>
+  {{end}}{{end}}
+</section>
+{{end}}
 {{end}}

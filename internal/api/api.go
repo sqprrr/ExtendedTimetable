@@ -138,9 +138,11 @@ func (h *Handler) fail(w http.ResponseWriter, r *http.Request, err error) {
 		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
 			"error": i18n.English(ie.Msg), "code": ie.Msg.ID, "field": ie.Field,
 		})
-	case errors.Is(err, service.ErrSubjectInUse), errors.Is(err, service.ErrNoCISTGroup), errors.Is(err, service.ErrSyncDisabled):
+	case errors.Is(err, service.ErrSubjectInUse), errors.Is(err, service.ErrNoCISTGroup), errors.Is(err, service.ErrSyncDisabled),
+		errors.Is(err, service.ErrNoPlaylist), errors.Is(err, service.ErrRecordingSyncDisabled):
 		writeError(w, r, http.StatusConflict, err.Error())
-	case errors.Is(err, service.ErrSyncTooSoon), errors.Is(err, service.ErrSyncRunning):
+	case errors.Is(err, service.ErrSyncTooSoon), errors.Is(err, service.ErrSyncRunning),
+		errors.Is(err, service.ErrRecordingSyncTooSoon), errors.Is(err, service.ErrRecordingSyncRunning):
 		writeError(w, r, http.StatusTooManyRequests, err.Error())
 	case errors.As(err, new(*service.SyncError)):
 		writeError(w, r, http.StatusBadGateway, err.Error())

@@ -43,11 +43,15 @@ var (
 	ErrSyncRunning = errors.New("the schedule is being synced right now, try again in a minute")
 )
 
-// SyncError is a failed fetch from CIST. It is recorded in the group's sync
-// status, which the schedule page shows.
-type SyncError struct{ Err error }
+// SyncError is a failed fetch from CIST or YouTube. It is recorded in the
+// group's sync status, which the schedule or recordings page shows.
+type SyncError struct {
+	// Source is what failed: "CIST" or "YouTube".
+	Source string
+	Err    error
+}
 
-func (e *SyncError) Error() string { return "CIST sync failed: " + e.Err.Error() }
+func (e *SyncError) Error() string { return e.Source + " sync failed: " + e.Err.Error() }
 func (e *SyncError) Unwrap() error { return e.Err }
 
 // lessonTypes maps CIST's lesson type abbreviations to class link types.
@@ -67,10 +71,10 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 	if g.CISTGroupID == nil {
 		return nil, ErrNoCISTGroup
 	}
-	if !s.startSync(g.ID) {
+	if !s.startSync(syncSchedule, g.ID) {
 		return nil, ErrSyncRunning
 	}
-	defer s.endSync(g.ID)
+	defer s.endSync(syncSchedule, g.ID)
 	now := s.now()
 	from, to := now.Add(-syncPast), now.Add(syncAhead)
 	slog.DebugContext(ctx, "schedule sync started", "group", g.Code, "cist_group", *g.CISTGroupID)
@@ -91,7 +95,7 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 		if serr := s.store.SaveScheduleSync(ctx, rec); serr != nil {
 			return nil, serr
 		}
-		return rec, &SyncError{Err: err}
+		return rec, &SyncError{Source: "CIST", Err: err}
 	}
 
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
@@ -120,21 +124,35 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 	return rec, nil
 }
 
-// startSync marks a group's sync as running; false if it already is.
-func (s *Service) startSync(groupID int64) bool {
+// syncKind tells the group's syncs apart, which may run at the same time.
+type syncKind int
+
+const (
+	syncSchedule syncKind = iota
+	syncRecordings
+)
+
+type syncKey struct {
+	kind  syncKind
+	group int64
+}
+
+// startSync marks a group's sync of a kind as running; false if it already is.
+func (s *Service) startSync(kind syncKind, groupID int64) bool {
 	s.syncMu.Lock()
 	defer s.syncMu.Unlock()
-	if s.syncing[groupID] {
+	k := syncKey{kind, groupID}
+	if s.syncing[k] {
 		return false
 	}
-	s.syncing[groupID] = true
+	s.syncing[k] = true
 	return true
 }
 
-func (s *Service) endSync(groupID int64) {
+func (s *Service) endSync(kind syncKind, groupID int64) {
 	s.syncMu.Lock()
 	defer s.syncMu.Unlock()
-	delete(s.syncing, groupID)
+	delete(s.syncing, syncKey{kind, groupID})
 }
 
 // subjectsForBriefs finds the group's subject for every short name in events

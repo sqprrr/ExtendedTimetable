@@ -36,6 +36,12 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
+	return newEnvWith(t, service.Config{})
+}
+
+// newEnvWith is newEnv with a service configured by cfg.
+func newEnvWith(t *testing.T, cfg service.Config) *env {
+	t.Helper()
 	ctx := context.Background()
 	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
@@ -45,7 +51,7 @@ func newEnv(t *testing.T) *env {
 	if err := st.Migrate(ctx, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
-	svc := service.New(st, service.Config{})
+	svc := service.New(st, cfg)
 	if _, err := svc.AdminCreateGroup(ctx, "KIUKI-25-3", "", nil); err != nil {
 		t.Fatal(err)
 	}

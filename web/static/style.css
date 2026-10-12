@@ -757,3 +757,12 @@ li.feedback.resolved .feedback-message { color: var(--text-secondary); }
 a.chip { text-decoration: none; }
 @media (min-width: 768px) { .subject-card h1 { font-size: 26px; line-height: 34px; } }
 @media (max-width: 480px) { .teachers { grid-template-columns: minmax(0, 1fr); gap: 0; } .teachers dd + dt { margin-top: var(--space-8); } }
+
+/* Recordings: YouTube playlist */
+.playlist .card-head { margin-bottom: var(--space-4); }
+.playlist .btn .icon { width: 14px; height: 14px; }
+.playlist-status { color: var(--text-secondary); font-size: 13px; line-height: 18px; margin-bottom: var(--space-12); overflow-wrap: anywhere; }
+.playlist .inline-form .field { flex: 1 1 18rem; min-width: 0; }
+.playlist-unmatched { margin-top: var(--space-12); font-size: 13px; line-height: 18px; }
+.playlist-unmatched summary { cursor: pointer; color: var(--text-secondary); }
+.playlist-unmatched ul { margin: var(--space-8) 0 0; padding-left: var(--space-16); color: var(--text-secondary); overflow-wrap: anywhere; }

@@ -188,6 +188,10 @@ type pageData struct {
 	Homework  *service.Homework
 	Notes     []*store.Note
 	Resources []*store.ResourceLink
+	// Recordings is the playlist the recordings are synced from, for those
+	// who edit the group; PlaylistInput redisplays a rejected link.
+	Recordings    *service.RecordingsSource
+	PlaylistInput string
 	// ProgressPanel replaces the progress panel of the homework page, to show
 	// a rejected grade with its error.
 	ProgressPanel *hwItem
@@ -234,6 +238,15 @@ type filterButtons struct {
 	URL    string
 }
 
+// playlistCard is what the playlist template renders.
+type playlistCard struct {
+	Code string
+	CSRF string
+	Src  *service.RecordingsSource
+	// Input is a rejected link to show again.
+	Input string
+}
+
 // rowMenu is what the rowMenu template renders: the Edit and Delete
 // for the item at Base (/g/<code>/<section>/<id>).
 type rowMenu struct {
@@ -272,7 +285,10 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from, Filter: homeworkFilterQuery(d.HomeworkFilter),
 				Manage: d.Group.CanEdit && from == "list"}
 		},
-		"rowMenu":       func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
+		"rowMenu": func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
+		"playlistCard": func(d pageData, src *service.RecordingsSource) playlistCard {
+			return playlistCard{Code: d.Group.Code, CSRF: d.CSRFToken, Src: src, Input: d.PlaylistInput}
+		},
 		"filterButtons": func(active bool, url string) filterButtons { return filterButtons{Active: active, URL: url} },
 		"resourceKinds": func() []store.ResourceKind { return service.ResourceKinds },
 		"statuses":      func() []store.ProgressStatus { return service.Statuses },
@@ -534,6 +550,10 @@ var knownErrors = []struct {
 	{service.ErrSyncRunning, i18n.M("err.sync_running"), http.StatusTooManyRequests},
 	{service.ErrNoCISTGroup, i18n.M("err.no_cist_group"), http.StatusConflict},
 	{service.ErrSyncDisabled, i18n.M("err.sync_disabled"), http.StatusConflict},
+	{service.ErrRecordingSyncTooSoon, i18n.M("err.playlist_sync_too_soon", "Count", service.RecordingSyncCooldownMinutes), http.StatusTooManyRequests},
+	{service.ErrRecordingSyncRunning, i18n.M("err.playlist_sync_running"), http.StatusTooManyRequests},
+	{service.ErrNoPlaylist, i18n.M("err.no_playlist"), http.StatusConflict},
+	{service.ErrRecordingSyncDisabled, i18n.M("err.recording_sync_disabled"), http.StatusConflict},
 	{service.ErrSubjectInUse, i18n.M("err.subject_in_use"), http.StatusConflict},
 	{service.ErrInviteInvalid, i18n.M("err.invite_invalid"), http.StatusNotFound},
 	{service.ErrLeaderTaken, i18n.M("err.leader_taken"), http.StatusConflict},
