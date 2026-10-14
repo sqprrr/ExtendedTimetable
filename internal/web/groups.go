@@ -188,7 +188,10 @@ func (h *Handler) sections() []*section {
 				d.ListFilter = parseListFilter(d.Query)
 				d.ResourcesTotal = len(d.Resources)
 				d.Resources = filterResources(&d.ListFilter, d.Subjects, d.Resources)
-				return nil
+				if d.Group.CanEdit {
+					d.Recordings, err = h.svc.RecordingsSourceFor(ctx, groupID)
+				}
+				return err
 			},
 			fields: func(ctx context.Context, h *Handler, groupID, id int64) (map[string]string, error) {
 				l, err := h.svc.ResourceLink(ctx, groupID, id)
@@ -260,6 +263,8 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /g/{code}/homework/{id}/progress", h.updateProgress)
 	mux.HandleFunc("GET /g/{code}/schedule", h.schedulePage)
 	mux.HandleFunc("POST /g/{code}/schedule/sync", h.syncSchedule)
+	mux.HandleFunc("POST /g/{code}/resources/youtube", h.setPlaylist)
+	mux.HandleFunc("POST /g/{code}/resources/youtube/sync", h.syncRecordings)
 	mux.HandleFunc("GET /g/{code}/subjects/{id}", h.subjectPage)
 	for _, s := range h.sections() {
 		base := "/g/{code}/" + s.name

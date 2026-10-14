@@ -208,6 +208,34 @@ Prometheus' data and Grafana's users are kept. Change the dashboard in
 `deploy/monitoring/extt.json` (or save a copy in Grafana: the provisioned
 one cannot be saved over).
 
+## Recordings from YouTube
+
+Groups can have their class recordings added from a YouTube playlist (the
+leader sets it on the Recordings page). The server reads playlists through
+the YouTube Data API, which needs a key; it is free, and the hourly sync uses
+a few units of the 10 000 a day it allows.
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a
+   project (any name), open **APIs & Services → Library**, find **YouTube Data
+   API v3** and press **Enable**.
+2. **APIs & Services → Credentials → Create credentials → API key**. Edit
+   the key: under **API restrictions** pick **Restrict key** and tick
+   YouTube Data API v3 only.
+3. Put it on the server and restart:
+
+   ```sh
+   sudo nano /etc/extt/extt.env      # EXTT_YOUTUBE_KEY=AIza…
+   sudo systemctl restart extt
+   ```
+
+The key reads public and unlisted playlists only: a private playlist answers
+as not found, and the page says so. From the server:
+
+```sh
+sudo exttctl admin set-playlist KIUKI-25-3 'https://youtube.com/playlist?list=…'
+sudo exttctl admin sync-recordings KIUKI-25-3   # add new videos now
+```
+
 ## Day to day
 
 ```sh

@@ -202,6 +202,44 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		}
 		fmt.Fprintf(stdout, "%d classes loaded from CIST for %s\n", rec.EventCount, strings.ToUpper(pos[0]))
 
+	case "set-playlist":
+		pos, svc, err := open(2)
+		if err != nil {
+			return err
+		}
+		link := pos[1]
+		if link == "none" {
+			link = ""
+		}
+		err = svc.AdminSetPlaylist(ctx, pos[0], link)
+		var serr *service.SyncError
+		if err != nil && !errors.As(err, &serr) {
+			return err
+		}
+		code := strings.ToUpper(pos[0])
+		switch {
+		case link == "":
+			fmt.Fprintf(stdout, "%s no longer syncs recordings from YouTube\n", code)
+		case os.Getenv("EXTT_YOUTUBE_KEY") == "":
+			fmt.Fprintf(stdout, "%s will sync recordings from that playlist once EXTT_YOUTUBE_KEY is set\n", code)
+		case serr != nil:
+			fmt.Fprintf(stdout, "%s will sync recordings from that playlist, but the first sync failed\n", code)
+			return err
+		default:
+			fmt.Fprintf(stdout, "%s syncs recordings from that playlist\n", code)
+			return printRecordingSync(ctx, svc, stdout, code)
+		}
+
+	case "sync-recordings":
+		pos, svc, err := open(1)
+		if err != nil {
+			return err
+		}
+		if _, err := svc.AdminSyncRecordings(ctx, pos[0]); err != nil {
+			return err
+		}
+		return printRecordingSync(ctx, svc, stdout, strings.ToUpper(pos[0]))
+
 	case "feedback":
 		all := fs.Bool("all", false, "include resolved feedback")
 		_, svc, err := open(0)
@@ -272,4 +310,20 @@ func readNewPassword(stdin io.Reader, stdout io.Writer) (string, error) {
 		return "", fmt.Errorf("read password from stdin: %w", err)
 	}
 	return strings.TrimRight(line, "\r\n"), nil
+}
+
+// printRecordingSync prints what the group's last playlist sync did.
+func printRecordingSync(ctx context.Context, svc *service.Service, w io.Writer, code string) error {
+	rec, err := svc.AdminRecordingSync(ctx, code)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w, "%d recordings added from YouTube for %s\n", rec.Added, code)
+	if len(rec.Unmatched) > 0 {
+		fmt.Fprintln(w, "videos left out (no date, or a subject the group does not have):")
+		for _, t := range rec.Unmatched {
+			fmt.Fprintln(w, "  "+t)
+		}
+	}
+	return nil
 }

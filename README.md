@@ -66,6 +66,16 @@ notes, and a private homework tracker per student. See
   when the user's clock differs from Kyiv's, Today and Schedule say so, and
   so does the deadline field.
 
+- **Recordings from YouTube:** the leader or an editor sets the group's
+  YouTube playlist on the Recordings page, and new videos show up as
+  recordings by themselves (hourly, or "Sync with YouTube"). The subject,
+  lesson type and date come from the video's title
+  (`КІУКІ-25 2026 10 07 Філ ЛК №4`); recordings are titled "Лекція №N",
+  numbered by date. Short (failed) videos are skipped, titles that name no
+  subject are listed for the leader, and deleted recordings do not come back.
+  Needs a YouTube Data API key (`EXTT_YOUTUBE_KEY`, see
+  [docs/deploy.md](docs/deploy.md#recordings-from-youtube)).
+
 ## Quick start (local)
 
 Requires Go 1.26+.
@@ -95,7 +105,7 @@ server:
 ```
 
 Run `./extt help` for all commands. Other admin commands: `demote`,
-`group-log <code>`, `reset-password`, `set-cist-id <code> <id|none>` (link an
+`group-log <code>`, `set-playlist <code> <link|none>`, `sync-recordings <code>`, `reset-password`, `set-cist-id <code> <id|none>` (link an
 existing group to CIST), `feedback [--all]` (print the feedback users sent). `./extt backup <file>` writes a consistent copy of the database, also
 while the server runs.
 
@@ -120,6 +130,8 @@ restoring a backup.
 | `EXTT_BASE_URL` | `--base-url` | none (the site's address for full invite links, e.g. `https://example.org`; `serve` falls back to the request's host, the CLI prints only the path) |
 | `EXTT_TZ` | `--tz` | `Europe/Kyiv` (the site's time zone: classes run on it; dates are shown in it to users who have not picked a zone and whose browser does not report one) |
 | `EXTT_CIST_INTERVAL` | `--cist-interval` | `6h` (how often `serve` syncs schedules from CIST; `0` turns it off) |
+| `EXTT_YOUTUBE_KEY` | none | none (YouTube Data API key for syncing recordings from playlists; empty turns it off. Only an env var, so it is not in the process list) |
+| `EXTT_YOUTUBE_INTERVAL` | `--youtube-interval` | `1h` (how often `serve` syncs playlists; `0` turns it off) |
 | `EXTT_LOG_LEVEL` | `--log-level` | `info` (`debug`, `info`, `warn`, `error`; `debug` also logs the source line) |
 | `EXTT_LOG_FORMAT` | `--log-format` | `text` (`json` for log collectors) |
 | `EXTT_METRICS_ADDR` | `--metrics-addr` | none: off (address for Prometheus metrics at `/metrics`, e.g. `127.0.0.1:9101`; keep it on loopback) |

@@ -197,6 +197,19 @@ empty_hint = "Links to class recordings and solutions show up here."
 all_kinds = "All kinds"
 no_matches = "Nothing matches these filters."
 
+[playlist]
+title = "YouTube playlist"
+hint = "Add the playlist class recordings are uploaded to, and new videos will show up here by themselves."
+link = "Playlist link"
+link_hint = "Public or unlisted. Video titles: “… 2026 10 07 Філ ЛК №4”: the date, the subject’s short name, ЛК/ПЗ/ЛБ."
+sync_now = "Sync with YouTube"
+synced_at = "Synced {{.When}}, new recordings: {{.N}}."
+never_synced = "Not synced yet."
+sync_failed = "The last sync ({{.When}}) failed: {{.Error}}."
+disabled = "The server has no YouTube API key (EXTT_YOUTUBE_KEY), so the playlist is not synced."
+unmatched = "Videos that could not be placed: {{.N}}"
+unmatched_hint = "No date in the title, or no subject with that short name. Rename the video or the subject and it is added on the next sync."
+
 [subjects]
 dl_hint = "The subject's page on dl.nure.ua, where attendance is marked."
 new_title = "Add a subject"
@@ -398,6 +411,10 @@ leader_taken = "The group already has a leader."
 leader_must_resign = "Give up the leader role before leaving the group."
 group_exists = "Group {{.Code}} already exists."
 cist_id = "CIST id must be a positive number."
+playlist = "This is not a YouTube playlist link."
+no_playlist = "This group has no YouTube playlist yet."
+recording_sync_disabled = "Syncing recordings from YouTube is turned off on this server."
+playlist_sync_running = "The playlist is being synced right now, try again in a minute."
 
 [err.too_long]
 one = "{{.Field}} must be at most {{.Count}} character."
@@ -418,6 +435,10 @@ other = "The range must be positive and at most {{.Count}} days."
 [err.sync_too_soon]
 one = "The schedule was synced less than {{.Count}} minute ago, try again later."
 other = "The schedule was synced less than {{.Count}} minutes ago, try again later."
+
+[err.playlist_sync_too_soon]
+one = "The playlist was synced less than {{.Count}} minute ago, try again later."
+other = "The playlist was synced less than {{.Count}} minutes ago, try again later."
 
 [theme]
 label = "Theme"

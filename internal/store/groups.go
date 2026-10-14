@@ -12,7 +12,10 @@ type Group struct {
 	Code        string
 	Name        string
 	CISTGroupID *int64
-	CreatedAt   time.Time
+	// YouTubePlaylist is the id of the playlist its recordings are synced
+	// from, or "".
+	YouTubePlaylist string
+	CreatedAt       time.Time
 }
 
 // Role is a member's role within a group. An editor changes the group's
@@ -33,13 +36,13 @@ type Membership struct {
 	JoinedAt time.Time
 }
 
-const groupColumns = `id, code, name, cist_group_id, created_at`
+const groupColumns = `id, code, name, cist_group_id, youtube_playlist, created_at`
 
 func scanGroup(row interface{ Scan(...any) error }) (*Group, error) {
 	var g Group
 	var cist sql.NullInt64
 	var created int64
-	if err := row.Scan(&g.ID, &g.Code, &g.Name, &cist, &created); err != nil {
+	if err := row.Scan(&g.ID, &g.Code, &g.Name, &cist, &g.YouTubePlaylist, &created); err != nil {
 		return nil, mapErr(err)
 	}
 	if cist.Valid {
@@ -96,7 +99,7 @@ func (q *Queries) ListGroupSummaries(ctx context.Context) ([]*GroupSummary, erro
 		var inv Invite
 		var cist sql.NullInt64
 		var created, expires, invCreated int64
-		if err := row.Scan(&g.ID, &g.Code, &g.Name, &cist, &created, &gs.Members, &gs.Leader,
+		if err := row.Scan(&g.ID, &g.Code, &g.Name, &cist, &g.YouTubePlaylist, &created, &gs.Members, &gs.Leader,
 			&inv.GroupID, &inv.Token, &expires, &invCreated); err != nil {
 			return nil, mapErr(err)
 		}
@@ -106,7 +109,7 @@ func (q *Queries) ListGroupSummaries(ctx context.Context) ([]*GroupSummary, erro
 		inv.CreatedAt = time.Unix(invCreated, 0).UTC()
 		gs.Group, gs.Invite = &g, &inv
 		return &gs, nil
-	}, `SELECT g.id, g.code, g.name, g.cist_group_id, g.created_at,
+	}, `SELECT g.id, g.code, g.name, g.cist_group_id, g.youtube_playlist, g.created_at,
 		(SELECT COUNT(*) FROM memberships m WHERE m.group_id = g.id),
 		COALESCE((SELECT u.username FROM memberships m JOIN users u ON u.id = m.user_id
 		          WHERE m.group_id = g.id AND m.role = 'leader'), ''),

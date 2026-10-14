@@ -16,6 +16,7 @@ import (
 	"github.com/sqprrr/ExtendedTimetable/internal/logging"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
+	"github.com/sqprrr/ExtendedTimetable/internal/youtube"
 	"github.com/sqprrr/ExtendedTimetable/migrations"
 )
 
@@ -45,6 +46,9 @@ Commands:
                                           Ukrainian name, e.g. КІУКІ-25-3
   admin set-cist-id <code> <id|none>      Link a group to its CIST timetable
   admin sync-schedule <code>              Load a group's schedule from CIST now
+  admin set-playlist <code> <link|none>   Sync a group's recordings from a YouTube
+                                          playlist (needs EXTT_YOUTUBE_KEY)
+  admin sync-recordings <code>            Add a playlist's new videos now
   admin feedback [--all]                  Print the open feedback users sent (with
                                           --all, the resolved too)
 
@@ -59,6 +63,9 @@ Environment:
   EXTT_TRUST_PROXY    "true" to use X-Real-IP         (default false)
   EXTT_TZ             site time zone (users may pick) (default Europe/Kyiv)
   EXTT_CIST_INTERVAL  how often serve syncs schedules (default 6h; 0 turns it off)
+  EXTT_YOUTUBE_KEY    YouTube Data API key for syncing recordings from
+                      playlists (default: none, which turns it off)
+  EXTT_YOUTUBE_INTERVAL how often serve syncs playlists (default 1h; 0 turns it off)
   EXTT_BASE_URL       the site's address for invite links, e.g. https://example.org
                       (serve takes it from each request when unset; the CLI then
                       prints only the path)
@@ -172,8 +179,17 @@ const cistTimeout = 12 * time.Second
 
 // newService returns the service; loc is the time zone of "today" (UTC if nil).
 func newService(st *store.Store, loc *time.Location) *service.Service {
-	return service.New(st, service.Config{CIST: cist.New(nil, cistTimeout), Location: loc})
+	cfg := service.Config{CIST: cist.New(nil, cistTimeout), Location: loc}
+	// The key is read from the environment only: a flag would show it in
+	// the process list.
+	if key := os.Getenv("EXTT_YOUTUBE_KEY"); key != "" {
+		cfg.YouTube = youtube.New(key, "", youtubeTimeout)
+	}
+	return service.New(st, cfg)
 }
+
+// youtubeTimeout bounds one request to the YouTube Data API.
+const youtubeTimeout = 20 * time.Second
 
 // baseURLFlag is the site's public address, used to print full invite links.
 func baseURLFlag(fs *flag.FlagSet) *string {
