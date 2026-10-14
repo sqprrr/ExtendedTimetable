@@ -16,8 +16,8 @@ import (
 	"github.com/sqprrr/ExtendedTimetable/internal/youtube"
 )
 
-// Class recordings can come from a YouTube playlist: the group's leader or an
-// editor sets it, and a sync adds each new video to the recordings. The
+// Class recordings can come from YouTube playlists: the group's leader or an
+// editor adds them, and a sync adds each new video to the recordings. The
 // subject, lesson type and date come from the video's title, which the
 // uploaders write as
 //
@@ -37,13 +37,15 @@ const (
 	// RecordingSyncCooldownMinutes is how long the group waits between
 	// syncs by hand.
 	RecordingSyncCooldownMinutes = int(recordingSyncCooldown / time.Minute)
+	// MaxPlaylists bounds a group's playlists.
+	MaxPlaylists = 10
 	// maxUnmatched bounds the unplaced titles a sync keeps for the page.
 	maxUnmatched = 20
 )
 
 var (
-	// ErrNoPlaylist is returned when syncing a group without a playlist.
-	ErrNoPlaylist = errors.New("this group has no YouTube playlist yet")
+	// ErrNoPlaylist is returned when syncing a group without playlists.
+	ErrNoPlaylist = errors.New("this group has no YouTube playlists yet")
 	// ErrRecordingSyncDisabled is returned when the server has no YouTube API key.
 	ErrRecordingSyncDisabled = errors.New("syncing recordings from YouTube is turned off on this server")
 	// ErrRecordingSyncTooSoon is returned when the group syncs again within the cooldown.
@@ -121,33 +123,30 @@ func parseRecordingTitle(title string) (p recordingTitle, ok bool) {
 // RecordingsSource is where the group's recordings are synced from, for
 // those who edit it.
 type RecordingsSource struct {
-	// Playlist is the playlist's id, or "".
-	Playlist string
+	// Playlists are the group's playlists, in the order they were added.
+	Playlists []*store.YouTubePlaylist
 	// Enabled is false when the server cannot sync (no API key).
 	Enabled bool
 	// Sync is nil until the first sync attempt.
 	Sync *store.RecordingSync
+	// CanAdd is false once the group has MaxPlaylists.
+	CanAdd bool
 }
 
-// PlaylistURL is the playlist's link on YouTube.
-func (r *RecordingsSource) PlaylistURL() string {
-	if r.Playlist == "" {
-		return ""
-	}
-	return "https://www.youtube.com/playlist?list=" + r.Playlist
-}
+// PlaylistURL is a playlist's link on YouTube.
+func PlaylistURL(id string) string { return "https://www.youtube.com/playlist?list=" + id }
 
-// RecordingsSourceFor returns the group's playlist and how its last sync
+// RecordingsSourceFor returns the group's playlists and how their last sync
 // went (leader, editors and superadmins).
 func (s *Service) RecordingsSourceFor(ctx context.Context, groupID int64) (*RecordingsSource, error) {
 	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
-	g, err := s.store.GroupByID(ctx, groupID)
+	pls, err := s.store.ListYouTubePlaylists(ctx, groupID)
 	if err != nil {
-		return nil, notFound(err)
+		return nil, err
 	}
-	src := &RecordingsSource{Playlist: g.YouTubePlaylist, Enabled: s.cfg.YouTube != nil}
+	src := &RecordingsSource{Playlists: pls, Enabled: s.cfg.YouTube != nil, CanAdd: len(pls) < MaxPlaylists}
 	if src.Sync, err = s.store.RecordingSyncFor(ctx, groupID); errors.Is(err, store.ErrNotFound) {
 		src.Sync = nil
 	} else if err != nil {
@@ -156,41 +155,68 @@ func (s *Service) RecordingsSourceFor(ctx context.Context, groupID int64) (*Reco
 	return src, nil
 }
 
-// SetPlaylist sets the group's playlist from a link or id, or clears it with
-// "", and syncs it right away. Recordings already added stay. A failed fetch
-// is returned as *SyncError after the playlist is saved.
-func (s *Service) SetPlaylist(ctx context.Context, groupID int64, link string) error {
+// AddPlaylist adds a playlist to the group from a link or id, and syncs the
+// group's playlists right away. A failed fetch is returned as *SyncError
+// after the playlist is saved.
+func (s *Service) AddPlaylist(ctx context.Context, groupID int64, link string) error {
 	if _, err := canEdit(ctx, groupID); err != nil {
 		return err
 	}
-	return s.setPlaylist(ctx, groupID, link)
+	return s.addPlaylist(ctx, groupID, link)
 }
 
-func (s *Service) setPlaylist(ctx context.Context, groupID int64, link string) error {
-	id := ""
-	if strings.TrimSpace(link) != "" {
-		var ok bool
-		if id, ok = youtube.PlaylistID(link); !ok {
-			return inputError("playlist", "err.playlist")
-		}
+func (s *Service) addPlaylist(ctx context.Context, groupID int64, link string) error {
+	id, ok := youtube.PlaylistID(link)
+	if !ok {
+		return inputError("playlist", "err.playlist")
 	}
-	if err := s.store.SetGroupYouTubePlaylist(ctx, groupID, id); err != nil {
-		return notFound(err)
+	err := s.store.InTx(ctx, func(q *store.Queries) error {
+		pls, err := q.ListYouTubePlaylists(ctx, groupID)
+		if err != nil {
+			return err
+		}
+		if len(pls) >= MaxPlaylists {
+			return inputError("playlist", "err.too_many_playlists", "Count", MaxPlaylists)
+		}
+		err = q.AddYouTubePlaylist(ctx, &store.YouTubePlaylist{GroupID: groupID, PlaylistID: id, AddedAt: s.now()})
+		if errors.Is(err, store.ErrConflict) {
+			return inputError("playlist", "err.playlist_added")
+		}
+		return err
+	})
+	if err != nil {
+		return err
 	}
 	g, err := s.store.GroupByID(ctx, groupID)
 	if err != nil {
 		return notFound(err)
 	}
-	slog.InfoContext(ctx, "playlist set", "group", g.Code, "playlist", id)
-	if id == "" || s.cfg.YouTube == nil {
+	slog.InfoContext(ctx, "playlist added", "group", g.Code, "playlist", id)
+	if s.cfg.YouTube == nil {
 		return nil
 	}
 	_, err = s.syncRecordings(ctx, g)
 	return err
 }
 
-// SyncRecordingsNow syncs the group's playlist at the request of someone who
-// edits the group, at most once per cooldown.
+// RemovePlaylist stops syncing a playlist. The recordings it added stay.
+func (s *Service) RemovePlaylist(ctx context.Context, groupID int64, playlistID string) error {
+	if _, err := canEdit(ctx, groupID); err != nil {
+		return err
+	}
+	return s.removePlaylist(ctx, groupID, playlistID)
+}
+
+func (s *Service) removePlaylist(ctx context.Context, groupID int64, playlistID string) error {
+	if err := notFound(s.store.DeleteYouTubePlaylist(ctx, groupID, playlistID)); err != nil {
+		return err
+	}
+	slog.InfoContext(ctx, "playlist removed", "group_id", groupID, "playlist", playlistID)
+	return nil
+}
+
+// SyncRecordingsNow syncs the group's playlists at the request of someone
+// who edits the group, at most once per cooldown.
 func (s *Service) SyncRecordingsNow(ctx context.Context, groupID int64) (*store.RecordingSync, error) {
 	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
@@ -207,17 +233,39 @@ func (s *Service) SyncRecordingsNow(ctx context.Context, groupID int64) (*store.
 	return s.syncRecordings(ctx, g)
 }
 
-// AdminSetPlaylist sets (or with "" clears) a group's playlist from the
-// admin CLI, and syncs it.
-func (s *Service) AdminSetPlaylist(ctx context.Context, groupCode, link string) error {
+// AdminAddPlaylist adds a playlist to a group from the admin CLI, and syncs.
+func (s *Service) AdminAddPlaylist(ctx context.Context, groupCode, link string) error {
 	g, err := s.adminGroup(ctx, groupCode)
 	if err != nil {
 		return err
 	}
-	return s.setPlaylist(ctx, g.ID, link)
+	return s.addPlaylist(ctx, g.ID, link)
 }
 
-// AdminSyncRecordings syncs a group's playlist from the admin CLI: no
+// AdminRemovePlaylist removes a group's playlist, given by link or id, from
+// the admin CLI.
+func (s *Service) AdminRemovePlaylist(ctx context.Context, groupCode, link string) error {
+	g, err := s.adminGroup(ctx, groupCode)
+	if err != nil {
+		return err
+	}
+	id, ok := youtube.PlaylistID(link)
+	if !ok {
+		return inputError("playlist", "err.playlist")
+	}
+	return s.removePlaylist(ctx, g.ID, id)
+}
+
+// AdminPlaylists returns a group's playlists, for the admin CLI.
+func (s *Service) AdminPlaylists(ctx context.Context, groupCode string) ([]*store.YouTubePlaylist, error) {
+	g, err := s.adminGroup(ctx, groupCode)
+	if err != nil {
+		return nil, err
+	}
+	return s.store.ListYouTubePlaylists(ctx, g.ID)
+}
+
+// AdminSyncRecordings syncs a group's playlists from the admin CLI: no
 // permission check and no cooldown.
 func (s *Service) AdminSyncRecordings(ctx context.Context, groupCode string) (*store.RecordingSync, error) {
 	g, err := s.adminGroup(ctx, groupCode)
@@ -238,7 +286,7 @@ func (s *Service) AdminRecordingSync(ctx context.Context, groupCode string) (*st
 	return rec, notFound(err)
 }
 
-// RunRecordingSync syncs every group that has a playlist, now and then every
+// RunRecordingSync syncs every group that has playlists, now and then every
 // interval, until ctx is done. Groups synced less than half an interval ago
 // are skipped.
 func (s *Service) RunRecordingSync(ctx context.Context, every time.Duration) {
@@ -263,32 +311,40 @@ func (s *Service) syncAllRecordings(ctx context.Context, fresh time.Duration) {
 		return
 	}
 	for _, g := range groups {
-		if g.YouTubePlaylist == "" || ctx.Err() != nil {
-			continue
+		if ctx.Err() != nil {
+			return
 		}
 		if rec, err := s.store.RecordingSyncFor(ctx, g.ID); err == nil && s.now().Sub(rec.LastAttemptAt) < fresh {
 			continue
 		}
 		_, err := s.syncRecordings(ctx, g)
 		var serr *SyncError
-		if err != nil && !errors.As(err, &serr) && !errors.Is(err, ErrRecordingSyncRunning) && ctx.Err() == nil {
+		if err != nil && !errors.As(err, &serr) && !errors.Is(err, ErrNoPlaylist) &&
+			!errors.Is(err, ErrRecordingSyncRunning) && ctx.Err() == nil {
 			slog.ErrorContext(ctx, "recording sync", "group", g.Code, "err", err)
 		}
 	}
 }
 
-// syncRecordings adds the playlist's new videos to the group's recordings
-// and renumbers them. A video is placed once: a recording deleted later is
-// not added again. Videos shorter than MinRecordingLength and streams that
-// are on are left for later; videos whose title has no date or names no
-// subject of the group are listed in the sync status and retried next time.
-// A recording added by hand with the video's link is taken over instead of
-// added twice.
+// syncRecordings adds the new videos of the group's playlists to its
+// recordings and renumbers them. A video in several playlists is placed
+// once, and a recording deleted later is not added again. Videos shorter
+// than MinRecordingLength and streams that are on are left for later; videos
+// whose title has no date or names no subject of the group are listed in
+// the sync status and retried next time. A recording added by hand with the
+// video's link is taken over instead of added twice.
+//
+// A playlist that cannot be read keeps its error and does not stop the
+// others; the sync returns *SyncError if any failed.
 func (s *Service) syncRecordings(ctx context.Context, g *store.Group) (*store.RecordingSync, error) {
 	if s.cfg.YouTube == nil {
 		return nil, ErrRecordingSyncDisabled
 	}
-	if g.YouTubePlaylist == "" {
+	pls, err := s.store.ListYouTubePlaylists(ctx, g.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(pls) == 0 {
 		return nil, ErrNoPlaylist
 	}
 	if !s.startSync(syncRecordings, g.ID) {
@@ -296,22 +352,53 @@ func (s *Service) syncRecordings(ctx context.Context, g *store.Group) (*store.Re
 	}
 	defer s.endSync(syncRecordings, g.ID)
 	now := s.now()
-	videos, err := s.cfg.YouTube.PlaylistVideos(ctx, g.YouTubePlaylist)
 
-	rec, lerr := s.store.RecordingSyncFor(ctx, g.ID)
-	if errors.Is(lerr, store.ErrNotFound) {
+	var videos []youtube.Video
+	var failures []error
+	seen := map[string]bool{}
+	for _, pl := range pls {
+		got, err := s.cfg.YouTube.Playlist(ctx, pl.PlaylistID)
+		pl.LastError = ""
+		if err != nil {
+			slog.WarnContext(ctx, "playlist sync failed", "group", g.Code, "playlist", pl.PlaylistID, "err", err)
+			pl.LastError = truncate(err.Error(), 500)
+			failures = append(failures, fmt.Errorf("%s: %w", cmp.Or(pl.Title, pl.PlaylistID), err))
+			continue
+		}
+		pl.Title = truncate(got.Title, maxTitleLen)
+		for _, v := range got.Videos {
+			if !seen[v.ID] {
+				seen[v.ID] = true
+				videos = append(videos, v)
+			}
+		}
+	}
+	failed := errors.Join(failures...)
+
+	rec, err := s.store.RecordingSyncFor(ctx, g.ID)
+	if errors.Is(err, store.ErrNotFound) {
 		rec = &store.RecordingSync{GroupID: g.ID}
-	} else if lerr != nil {
-		return nil, lerr
+	} else if err != nil {
+		return nil, err
 	}
 	rec.LastAttemptAt = now
-	if err != nil {
-		slog.WarnContext(ctx, "recording sync failed", "group", g.Code, "err", err)
-		rec.LastError = truncate(err.Error(), 500)
-		if serr := s.store.SaveRecordingSync(ctx, rec); serr != nil {
-			return nil, serr
+	rec.LastError = ""
+	if failed != nil {
+		rec.LastError = truncate(strings.ReplaceAll(failed.Error(), "\n", "; "), 500)
+	}
+	if len(failures) == len(pls) {
+		err := s.store.InTx(ctx, func(q *store.Queries) error {
+			for _, pl := range pls {
+				if err := q.SaveYouTubePlaylistStatus(ctx, pl); err != nil {
+					return err
+				}
+			}
+			return q.SaveRecordingSync(ctx, rec)
+		})
+		if err != nil {
+			return nil, err
 		}
-		return rec, &SyncError{Source: "YouTube", Err: err}
+		return rec, &SyncError{Source: "YouTube", Err: failed}
 	}
 
 	var added int
@@ -383,13 +470,22 @@ func (s *Service) syncRecordings(ctx context.Context, g *store.Group) (*store.Re
 		if err := renumberRecordings(ctx, q, g.ID); err != nil {
 			return err
 		}
-		rec.LastSuccessAt, rec.LastError, rec.Added, rec.Unmatched = &now, "", added, unmatched
+		for _, pl := range pls {
+			if err := q.SaveYouTubePlaylistStatus(ctx, pl); err != nil {
+				return err
+			}
+		}
+		rec.LastSuccessAt, rec.Added, rec.Unmatched = &now, added, unmatched
 		return q.SaveRecordingSync(ctx, rec)
 	})
 	if err != nil {
 		return nil, err
 	}
-	slog.InfoContext(ctx, "recordings synced", "group", g.Code, "videos", len(videos), "added", added, "unmatched", len(unmatched))
+	slog.InfoContext(ctx, "recordings synced", "group", g.Code, "playlists", len(pls), "videos", len(videos),
+		"added", added, "unmatched", len(unmatched))
+	if failed != nil {
+		return rec, &SyncError{Source: "YouTube", Err: failed}
+	}
 	return rec, nil
 }
 

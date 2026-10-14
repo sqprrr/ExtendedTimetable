@@ -198,8 +198,13 @@ all_kinds = "All kinds"
 no_matches = "Nothing matches these filters."
 
 [playlist]
-title = "YouTube playlist"
-hint = "Add the playlist class recordings are uploaded to, and new videos will show up here by themselves."
+title = "YouTube playlists"
+hint = "Add the playlists class recordings are uploaded to, and new videos will show up here by themselves."
+add_another = "Add another playlist"
+untitled = "Playlist (its title shows up after a sync)"
+remove = "Remove playlist"
+confirm_remove = "Remove this playlist? The recordings it added stay."
+limit = "The maximum of {{.N}} playlists is added."
 link = "Playlist link"
 link_hint = "Public or unlisted. Video titles: “… 2026 10 07 Філ ЛК №4”: the date, the subject’s short name, ЛК/ПЗ/ЛБ."
 sync_now = "Sync with YouTube"
@@ -412,7 +417,8 @@ leader_must_resign = "Give up the leader role before leaving the group."
 group_exists = "Group {{.Code}} already exists."
 cist_id = "CIST id must be a positive number."
 playlist = "This is not a YouTube playlist link."
-no_playlist = "This group has no YouTube playlist yet."
+playlist_added = "This playlist is added already."
+no_playlist = "This group has no YouTube playlists yet."
 recording_sync_disabled = "Syncing recordings from YouTube is turned off on this server."
 playlist_sync_running = "The playlist is being synced right now, try again in a minute."
 
@@ -435,6 +441,10 @@ other = "The range must be positive and at most {{.Count}} days."
 [err.sync_too_soon]
 one = "The schedule was synced less than {{.Count}} minute ago, try again later."
 other = "The schedule was synced less than {{.Count}} minutes ago, try again later."
+
+[err.too_many_playlists]
+one = "At most {{.Count}} playlist can be added."
+other = "At most {{.Count}} playlists can be added."
 
 [err.playlist_sync_too_soon]
 one = "The playlist was synced less than {{.Count}} minute ago, try again later."

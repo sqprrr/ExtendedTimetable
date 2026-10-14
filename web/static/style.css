@@ -766,3 +766,6 @@ a.chip { text-decoration: none; }
 .playlist-unmatched { margin-top: var(--space-12); font-size: 13px; line-height: 18px; }
 .playlist-unmatched summary { cursor: pointer; color: var(--text-secondary); }
 .playlist-unmatched ul { margin: var(--space-8) 0 0; padding-left: var(--space-16); color: var(--text-secondary); overflow-wrap: anywhere; }
+.playlist-list { margin-bottom: var(--space-12); }
+.playlist-list .badge { white-space: normal; overflow-wrap: anywhere; }
+.playlist-list form { margin: 0; }

@@ -285,7 +285,9 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 			return hwItem{Code: d.Group.Code, CSRF: d.CSRFToken, HW: hw, From: from, Filter: homeworkFilterQuery(d.HomeworkFilter),
 				Manage: d.Group.CanEdit && from == "list"}
 		},
-		"rowMenu": func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
+		"rowMenu":      func(base, confirm, csrf string) rowMenu { return rowMenu{Base: base, Confirm: confirm, CSRF: csrf} },
+		"playlistURL":  service.PlaylistURL,
+		"maxPlaylists": func() int { return service.MaxPlaylists },
 		"playlistCard": func(d pageData, src *service.RecordingsSource) playlistCard {
 			return playlistCard{Code: d.Group.Code, CSRF: d.CSRFToken, Src: src, Input: d.PlaylistInput}
 		},

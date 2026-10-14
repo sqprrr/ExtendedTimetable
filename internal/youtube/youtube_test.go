@@ -19,6 +19,12 @@ func TestPlaylistVideos(t *testing.T) {
 			return
 		}
 		switch r.URL.Path {
+		case "/playlists":
+			if r.URL.Query().Get("id") != "PLx" {
+				fmt.Fprint(w, `{"items":[]}`)
+				return
+			}
+			fmt.Fprint(w, `{"items":[{"snippet":{"title":"[2026 Осінній семестр] КІУКІ-25"}}]}`)
 		case "/playlistItems":
 			if r.URL.Query().Get("playlistId") != "PLx" {
 				w.WriteHeader(http.StatusNotFound)
@@ -44,10 +50,14 @@ func TestPlaylistVideos(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := New("k", srv.URL, time.Second).PlaylistVideos(context.Background(), "PLx")
+	pl, err := New("k", srv.URL, time.Second).Playlist(context.Background(), "PLx")
 	if err != nil {
 		t.Fatal(err)
 	}
+	if pl.Title != "[2026 Осінній семестр] КІУКІ-25" {
+		t.Errorf("title = %q", pl.Title)
+	}
+	got := pl.Videos
 	if len(got) != 3 || got[0].ID != "v1" || got[1].ID != "v2" || got[2].ID != "v4" {
 		t.Fatalf("videos (playlist order, deleted left out): %+v", got)
 	}
@@ -59,10 +69,10 @@ func TestPlaylistVideos(t *testing.T) {
 		t.Errorf("a live stream should be marked: %+v", got[2])
 	}
 
-	if _, err := New("k", srv.URL, time.Second).PlaylistVideos(context.Background(), "PLnope"); !errors.Is(err, ErrPlaylistNotFound) {
+	if _, err := New("k", srv.URL, time.Second).Playlist(context.Background(), "PLnope"); !errors.Is(err, ErrPlaylistNotFound) {
 		t.Errorf("missing playlist: %v", err)
 	}
-	_, err = New("bad", srv.URL, time.Second).PlaylistVideos(context.Background(), "PLx")
+	_, err = New("bad", srv.URL, time.Second).Playlist(context.Background(), "PLx")
 	if err == nil || !strings.Contains(err.Error(), "API key not valid") || strings.Contains(err.Error(), "bad") {
 		t.Errorf("bad key: %v", err)
 	}

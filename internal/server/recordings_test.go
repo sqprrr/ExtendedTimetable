@@ -18,11 +18,11 @@ type fakePlaylist struct{ videos []youtube.Video }
 
 const playlistID = "PLNlrZymF62fMabcdefghijklmnopqrstu"
 
-func (f *fakePlaylist) PlaylistVideos(_ context.Context, id string) ([]youtube.Video, error) {
+func (f *fakePlaylist) Playlist(_ context.Context, id string) (*youtube.Playlist, error) {
 	if id != playlistID {
 		return nil, youtube.ErrPlaylistNotFound
 	}
-	return f.videos, nil
+	return &youtube.Playlist{Title: "КІУКІ-25 lectures", Videos: f.videos}, nil
 }
 
 func TestRecordingsPlaylist(t *testing.T) {
@@ -35,7 +35,7 @@ func TestRecordingsPlaylist(t *testing.T) {
 	const g = "/g/KIUKI-25-3"
 	lead.submit(g+"/subjects/new", g+"/subjects", url.Values{"name": {"Філософія"}, "short_name": {"Філ"}})
 
-	if _, body, _ := stud.get(g + "/resources"); strings.Contains(body, "YouTube playlist") {
+	if _, body, _ := stud.get(g + "/resources"); strings.Contains(body, "YouTube playlists") {
 		t.Fatal("students should not see the playlist settings")
 	}
 	if code, _, _ := stud.submit(g+"/resources", g+"/resources/youtube", url.Values{"playlist": {playlistID}}); code != http.StatusForbidden {
@@ -43,7 +43,7 @@ func TestRecordingsPlaylist(t *testing.T) {
 	}
 
 	_, body, _ := lead.get(g + "/resources")
-	if !strings.Contains(body, "YouTube playlist") || strings.Contains(body, "Sync with YouTube") {
+	if !strings.Contains(body, "YouTube playlists") || strings.Contains(body, "Sync with YouTube") {
 		t.Fatalf("leader before setting a playlist:\n%s", body)
 	}
 	code, body, _ := lead.submit(g+"/resources", g+"/resources/youtube", url.Values{"playlist": {"https://example.org/list"}})
@@ -53,11 +53,12 @@ func TestRecordingsPlaylist(t *testing.T) {
 
 	code, _, h := lead.submit(g+"/resources", g+"/resources/youtube", url.Values{"playlist": {"https://youtube.com/playlist?list=" + playlistID + "&si=x"}})
 	if code != http.StatusSeeOther || h.Get("Location") != g+"/resources" {
-		t.Fatalf("set playlist: %d %s", code, h.Get("Location"))
+		t.Fatalf("add playlist: %d %s", code, h.Get("Location"))
 	}
 	_, body, _ = lead.get(g + "/resources")
 	for _, want := range []string{
-		"https://www.youtube.com/playlist?list=" + playlistID, "Sync with YouTube", "new recordings: 1",
+		`href="https://www.youtube.com/playlist?list=` + playlistID + `"`, "КІУКІ-25 lectures", "Add another playlist",
+		"Sync with YouTube", "new recordings: 1",
 		`href="https://youtu.be/N0ICmxyIe-I"`, "Лекція №1", "Videos that could not be placed: 1", "КІУКІ-25 2026 10 08 ОБД ЛК №5",
 	} {
 		if !strings.Contains(body, want) {
@@ -72,6 +73,22 @@ func TestRecordingsPlaylist(t *testing.T) {
 	code, body, _ = lead.submit(g+"/resources", g+"/resources/youtube/sync", url.Values{})
 	if code != http.StatusTooManyRequests || !strings.Contains(body, "The playlist was synced less than 5 minutes ago") {
 		t.Fatalf("sync too soon: %d", code)
+	}
+
+	// The same playlist twice is refused; removing it keeps its recordings.
+	code, body, _ = lead.submit(g+"/resources", g+"/resources/youtube", url.Values{"playlist": {playlistID}})
+	if code != http.StatusUnprocessableEntity || !strings.Contains(body, "added already") {
+		t.Fatalf("duplicate: %d", code)
+	}
+	if code, _, _ := stud.submit(g+"/resources", g+"/resources/youtube/"+playlistID+"/delete", url.Values{}); code != http.StatusForbidden {
+		t.Fatalf("student removes: %d", code)
+	}
+	code, _, h = lead.submit(g+"/resources", g+"/resources/youtube/"+playlistID+"/delete", url.Values{})
+	if code != http.StatusSeeOther {
+		t.Fatalf("remove: %d", code)
+	}
+	if _, body, _ = lead.get(g + "/resources"); strings.Contains(body, "КІУКІ-25 lectures") || !strings.Contains(body, "Лекція №1") {
+		t.Fatal("the playlist should be gone and its recording kept")
 	}
 }
 

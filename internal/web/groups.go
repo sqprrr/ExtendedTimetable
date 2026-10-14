@@ -263,7 +263,8 @@ func (h *Handler) registerGroupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /g/{code}/homework/{id}/progress", h.updateProgress)
 	mux.HandleFunc("GET /g/{code}/schedule", h.schedulePage)
 	mux.HandleFunc("POST /g/{code}/schedule/sync", h.syncSchedule)
-	mux.HandleFunc("POST /g/{code}/resources/youtube", h.setPlaylist)
+	mux.HandleFunc("POST /g/{code}/resources/youtube", h.addPlaylist)
+	mux.HandleFunc("POST /g/{code}/resources/youtube/{playlist}/delete", h.removePlaylist)
 	mux.HandleFunc("POST /g/{code}/resources/youtube/sync", h.syncRecordings)
 	mux.HandleFunc("GET /g/{code}/subjects/{id}", h.subjectPage)
 	for _, s := range h.sections() {

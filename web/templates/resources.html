@@ -105,7 +105,7 @@
 </form>
 {{end}}
 
-{{/* playlist is the YouTube playlist the recordings are synced from, for
+{{/* playlist is the YouTube playlists the recordings are synced from, for
    the leader and editors. */}}
 {{define "playlist"}}
 {{$g := print "/g/" .Code}}
@@ -113,7 +113,7 @@
 <section class="card playlist" aria-labelledby="playlist-title">
   <div class="card-head">
     <h2 id="playlist-title">{{t "playlist.title"}}</h2>
-    {{if and .Playlist .Enabled}}
+    {{if and .Playlists .Enabled}}
     <form method="post" action="{{$g}}/resources/youtube/sync" class="inline">
       <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
       <button type="submit" class="btn btn-secondary btn-sm">{{icon "refresh-cw"}}{{t "playlist.sync_now"}}</button>
@@ -122,20 +122,45 @@
   </div>
   <p class="playlist-status">
     {{- if not .Enabled}}{{t "playlist.disabled"}}
-    {{- else if not .Playlist}}{{t "playlist.hint"}}
+    {{- else if not .Playlists}}{{t "playlist.hint"}}
     {{- else if not .Sync}}{{t "playlist.never_synced"}}
     {{- else if .Sync.LastError}}{{t "playlist.sync_failed" "When" (relWhen .Sync.LastAttemptAt) "Error" .Sync.LastError}}
     {{- else}}{{t "playlist.synced_at" "When" (relWhen .Sync.LastAttemptAt) "N" .Sync.Added}}{{end -}}
   </p>
+  {{with .Playlists}}
+  <ul class="rows playlist-list">
+    {{range .}}
+    <li class="link-row">
+      <div class="main">
+        <a class="row-title" href="{{playlistURL .PlaylistID}}" target="_blank" rel="noopener noreferrer">{{or .Title (t "playlist.untitled")}}</a>
+        <div class="meta">
+          <span class="meta-item mono">{{.PlaylistID}}</span>
+          {{with .LastError}}<span class="badge badge-danger">{{icon "triangle-alert"}}{{.}}</span>{{end}}
+        </div>
+      </div>
+      <div class="row-end">
+        <form method="post" action="{{$g}}/resources/youtube/{{.PlaylistID}}/delete" data-confirm="{{t "playlist.confirm_remove"}}">
+          <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+          <button type="submit" class="btn btn-ghost btn-icon btn-sm" aria-label="{{t "playlist.remove"}}" title="{{t "playlist.remove"}}">{{icon "trash-2"}}</button>
+        </form>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+  {{end}}
+  {{if .CanAdd}}
   <form class="form inline-form" method="post" action="{{$g}}/resources/youtube">
     <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
     <label class="field">
-      <span class="field-label">{{t "playlist.link"}}</span>
-      <input class="input" name="playlist" value="{{or $.Input .PlaylistURL}}" placeholder="https://www.youtube.com/playlist?list=…" spellcheck="false" autocomplete="off">
+      <span class="field-label">{{if .Playlists}}{{t "playlist.add_another"}}{{else}}{{t "playlist.link"}}{{end}}</span>
+      <input class="input" name="playlist" value="{{$.Input}}" placeholder="https://www.youtube.com/playlist?list=…" spellcheck="false" autocomplete="off" required>
       <span class="field-hint">{{t "playlist.link_hint"}}</span>
     </label>
-    <button type="submit" class="btn btn-primary">{{t "action.save"}}</button>
+    <button type="submit" class="btn btn-primary">{{icon "plus"}}{{t "action.add"}}</button>
   </form>
+  {{else}}
+  <p class="field-hint">{{t "playlist.limit" "N" maxPlaylists}}</p>
+  {{end}}
   {{with .Sync}}{{with .Unmatched}}
   <details class="playlist-unmatched">
     <summary>{{t "playlist.unmatched" "N" (len .)}}</summary>

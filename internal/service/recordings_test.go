@@ -1,8 +1,10 @@
 package service_test
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"sync"
@@ -15,36 +17,51 @@ import (
 	"github.com/sqprrr/ExtendedTimetable/migrations"
 )
 
-// fakeYouTube serves a canned playlist.
+// fakeYouTube serves canned playlists.
 type fakeYouTube struct {
-	mu       sync.Mutex
-	playlist string
-	videos   []youtube.Video
-	err      error
-	calls    int
+	mu        sync.Mutex
+	playlists map[string][]youtube.Video
+	// errs makes a playlist (or, under "", every one) fail.
+	errs  map[string]error
+	added int
 }
 
-func (f *fakeYouTube) PlaylistVideos(_ context.Context, id string) ([]youtube.Video, error) {
+func (f *fakeYouTube) Playlist(_ context.Context, id string) (*youtube.Playlist, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.calls++
-	if f.err != nil {
-		return nil, f.err
+	if err := cmp.Or(f.errs[id], f.errs[""]); err != nil {
+		return nil, err
 	}
-	if id != f.playlist {
+	videos, ok := f.playlists[id]
+	if !ok {
 		return nil, youtube.ErrPlaylistNotFound
 	}
-	return slices.Clone(f.videos), nil
+	return &youtube.Playlist{Title: "Title of " + id[:6], Videos: slices.Clone(videos)}, nil
 }
 
+// add puts a video in the test playlist.
 func (f *fakeYouTube) add(id, title string, length time.Duration) {
+	f.addTo(testPlaylist, id, title, length)
+}
+
+func (f *fakeYouTube) addTo(playlist, id, title string, length time.Duration) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.videos = append(f.videos, youtube.Video{ID: id, Title: title, Duration: length,
-		PublishedAt: time.Date(2026, 10, 1, 12, 0, 0, len(f.videos), time.UTC)})
+	f.added++
+	f.playlists[playlist] = append(f.playlists[playlist], youtube.Video{ID: id, Title: title, Duration: length,
+		PublishedAt: time.Date(2026, 10, 1, 12, 0, 0, f.added, time.UTC)})
 }
 
-const testPlaylist = "PLNlrZymF62fMabcdefghijklmnopqrstu"
+func (f *fakeYouTube) fail(playlist string, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.errs[playlist] = err
+}
+
+const (
+	testPlaylist  = "PLNlrZymF62fMabcdefghijklmnopqrstu"
+	otherPlaylist = "PLotherotherotherotherotherotherot"
+)
 
 type recordingsFixture struct {
 	*fixture
@@ -65,7 +82,7 @@ func setupRecordings(t *testing.T) *recordingsFixture {
 	if err := st.Migrate(ctx, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
-	yt := &fakeYouTube{playlist: testPlaylist}
+	yt := &fakeYouTube{playlists: map[string][]youtube.Video{testPlaylist: nil, otherPlaylist: nil}, errs: map[string]error{}}
 	svc := service.New(st, service.Config{YouTube: yt})
 	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
 	service.SetClock(svc, func() time.Time { return now })
@@ -151,12 +168,13 @@ func TestSyncRecordings(t *testing.T) {
 	f.yt.add("eeeeeeeeee1", "КІУКІ-25 2026 09 22 ОБД ЛК №1", h)                         // no such subject
 	f.yt.add("eeeeeeeeee2", "Організаційні питання", h)                                 // no date
 
-	// Setting the playlist syncs it right away; links work as well as ids.
-	if err := f.svc.SetPlaylist(f.lead, f.group.ID, "https://youtube.com/playlist?list="+testPlaylist+"&si=x"); err != nil {
+	// Adding the playlist syncs it right away; links work as well as ids.
+	if err := f.svc.AddPlaylist(f.lead, f.group.ID, "https://youtube.com/playlist?list="+testPlaylist+"&si=x"); err != nil {
 		t.Fatal(err)
 	}
 	src, err := f.svc.RecordingsSourceFor(f.lead, f.group.ID)
-	if err != nil || src.Playlist != testPlaylist || !src.Enabled || src.Sync == nil {
+	if err != nil || len(src.Playlists) != 1 || src.Playlists[0].PlaylistID != testPlaylist ||
+		src.Playlists[0].Title != "Title of PLNlrZ" || !src.Enabled || !src.CanAdd || src.Sync == nil {
 		t.Fatalf("source: %+v %v", src, err)
 	}
 	if src.Sync.Added != 7 || !slices.Equal(src.Sync.Unmatched, []string{"КІУКІ-25 2026 09 22 ОБД ЛК №1", "Організаційні питання"}) {
@@ -226,9 +244,7 @@ func TestSyncRecordings(t *testing.T) {
 	}
 
 	// A failed fetch is recorded; the recordings stay.
-	f.yt.mu.Lock()
-	f.yt.err = errors.New("quota exceeded")
-	f.yt.mu.Unlock()
+	f.yt.fail("", errors.New("quota exceeded"))
 	_, err = f.svc.AdminSyncRecordings(ctx, f.group.Code)
 	var serr *service.SyncError
 	if !errors.As(err, &serr) || serr.Source != "YouTube" {
@@ -256,7 +272,7 @@ func TestSyncRecordingsTakesOverRecordingsAddedByHand(t *testing.T) {
 	f.yt.add("aaaaaaaaaa1", "КІУКІ-25 2026 09 16 Філ ЛК №1", time.Hour)
 	f.yt.add("aaaaaaaaaa2", "КІУКІ-25 2026 09 23 Філ ЛК №2", time.Hour)
 	f.yt.add("aaaaaaaaaa3", "КІУКІ-25 2026 09 30 Філ ЛК №3", time.Hour)
-	if err := f.svc.AdminSetPlaylist(context.Background(), f.group.Code, testPlaylist); err != nil {
+	if err := f.svc.AdminAddPlaylist(context.Background(), f.group.Code, testPlaylist); err != nil {
 		t.Fatal(err)
 	}
 	recs := f.recordings(t)
@@ -276,8 +292,8 @@ func TestRecordingSyncPermissions(t *testing.T) {
 	}
 	ed = f.as(t, edSess)
 
-	if err := f.svc.SetPlaylist(stud, f.group.ID, testPlaylist); !errors.Is(err, service.ErrForbidden) {
-		t.Errorf("student sets the playlist: %v", err)
+	if err := f.svc.AddPlaylist(stud, f.group.ID, testPlaylist); !errors.Is(err, service.ErrForbidden) {
+		t.Errorf("student adds a playlist: %v", err)
 	}
 	if _, err := f.svc.RecordingsSourceFor(stud, f.group.ID); !errors.Is(err, service.ErrForbidden) {
 		t.Errorf("student reads the source: %v", err)
@@ -285,9 +301,12 @@ func TestRecordingSyncPermissions(t *testing.T) {
 	if _, err := f.svc.SyncRecordingsNow(ed, f.group.ID); !errors.Is(err, service.ErrNoPlaylist) {
 		t.Errorf("sync without a playlist: %v", err)
 	}
-	wantInputError(t, f.svc.SetPlaylist(ed, f.group.ID, "https://example.org/x"), "playlist")
-	if err := f.svc.SetPlaylist(ed, f.group.ID, testPlaylist); err != nil {
-		t.Fatalf("editor sets the playlist: %v", err)
+	wantInputError(t, f.svc.AddPlaylist(ed, f.group.ID, "https://example.org/x"), "playlist")
+	if err := f.svc.AddPlaylist(ed, f.group.ID, testPlaylist); err != nil {
+		t.Fatalf("editor adds a playlist: %v", err)
+	}
+	if err := f.svc.RemovePlaylist(stud, f.group.ID, testPlaylist); !errors.Is(err, service.ErrForbidden) {
+		t.Errorf("student removes a playlist: %v", err)
 	}
 
 	// Syncing by hand waits for the cooldown.
@@ -299,9 +318,12 @@ func TestRecordingSyncPermissions(t *testing.T) {
 		t.Errorf("sync after the cooldown: %v", err)
 	}
 
-	// Clearing the playlist keeps the recordings and stops syncing.
-	if err := f.svc.SetPlaylist(f.lead, f.group.ID, ""); err != nil {
+	// Removing the last playlist stops syncing.
+	if err := f.svc.RemovePlaylist(f.lead, f.group.ID, testPlaylist); err != nil {
 		t.Fatal(err)
+	}
+	if err := f.svc.RemovePlaylist(f.lead, f.group.ID, testPlaylist); !errors.Is(err, service.ErrNotFound) {
+		t.Errorf("removing it again: %v", err)
 	}
 	*f.now = f.now.Add(6 * time.Minute)
 	if _, err := f.svc.SyncRecordingsNow(f.lead, f.group.ID); !errors.Is(err, service.ErrNoPlaylist) {
@@ -311,13 +333,68 @@ func TestRecordingSyncPermissions(t *testing.T) {
 	// Without an API key nothing syncs, but the playlist can be set.
 	off := setup(t)
 	lead := off.leader(t, "lead")
-	if err := off.svc.SetPlaylist(lead, off.group.ID, testPlaylist); err != nil {
+	if err := off.svc.AddPlaylist(lead, off.group.ID, testPlaylist); err != nil {
 		t.Fatal(err)
 	}
-	if src, err := off.svc.RecordingsSourceFor(lead, off.group.ID); err != nil || src.Enabled || src.Playlist != testPlaylist {
+	if src, err := off.svc.RecordingsSourceFor(lead, off.group.ID); err != nil || src.Enabled || len(src.Playlists) != 1 {
 		t.Errorf("without a key: %+v %v", src, err)
 	}
 	if _, err := off.svc.SyncRecordingsNow(lead, off.group.ID); !errors.Is(err, service.ErrRecordingSyncDisabled) {
 		t.Errorf("sync without a key: %v", err)
 	}
+}
+
+func TestSyncSeveralPlaylists(t *testing.T) {
+	f := setupRecordings(t)
+	const h = time.Hour
+	f.yt.addTo(testPlaylist, "aaaaaaaaaa1", "КІУКІ-25 2026 09 16 Філ ЛК №1", h)
+	f.yt.addTo(otherPlaylist, "aaaaaaaaaa2", "КІУКІ-25 2026 09 23 Філ ЛК №2", h)
+	// In both playlists: placed once.
+	f.yt.addTo(otherPlaylist, "aaaaaaaaaa1", "КІУКІ-25 2026 09 16 Філ ЛК №1", h)
+
+	for _, pl := range []string{testPlaylist, otherPlaylist} {
+		if err := f.svc.AddPlaylist(f.lead, f.group.ID, pl); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wantInputError(t, f.svc.AddPlaylist(f.lead, f.group.ID, "https://www.youtube.com/playlist?list="+otherPlaylist), "playlist")
+	recs := f.recordings(t)
+	if len(recs) != 2 || recs["https://youtu.be/aaaaaaaaaa1"].Title != "Лекція №1" || recs["https://youtu.be/aaaaaaaaaa2"].Title != "Лекція №2" {
+		t.Fatalf("recordings from two playlists: %+v", recs)
+	}
+
+	// One playlist failing does not stop the other; its error is kept.
+	f.yt.fail(testPlaylist, youtube.ErrPlaylistNotFound)
+	f.yt.addTo(otherPlaylist, "aaaaaaaaaa3", "КІУКІ-25 2026 09 30 Філ ЛК №3", h)
+	rec, err := f.svc.AdminSyncRecordings(context.Background(), f.group.Code)
+	var serr *service.SyncError
+	if !errors.As(err, &serr) || rec == nil || rec.Added != 1 || rec.LastSuccessAt == nil || rec.LastError == "" {
+		t.Fatalf("partial failure: %+v %v", rec, err)
+	}
+	src, err := f.svc.RecordingsSourceFor(f.lead, f.group.ID)
+	if err != nil || len(src.Playlists) != 2 || src.Playlists[0].LastError == "" || src.Playlists[1].LastError != "" {
+		t.Fatalf("playlist errors: %+v %v", src.Playlists, err)
+	}
+
+	// Removing a playlist keeps its recordings.
+	if err := f.svc.RemovePlaylist(f.lead, f.group.ID, testPlaylist); err != nil {
+		t.Fatal(err)
+	}
+	if rec := f.sync(t); rec.LastError != "" || len(f.recordings(t)) != 3 {
+		t.Fatalf("after removing: %+v", rec)
+	}
+
+	// At most MaxPlaylists.
+	for i := 1; i < service.MaxPlaylists; i++ {
+		if err := f.svc.AdminAddPlaylist(context.Background(), f.group.Code, fmt.Sprintf("PLfill%028d", i)); err != nil {
+			var serr *service.SyncError
+			if !errors.As(err, &serr) { // the fake does not know these playlists
+				t.Fatal(err)
+			}
+		}
+	}
+	if src, _ := f.svc.RecordingsSourceFor(f.lead, f.group.ID); src.CanAdd || len(src.Playlists) != service.MaxPlaylists {
+		t.Fatalf("full: %d playlists, CanAdd %v", len(src.Playlists), src.CanAdd)
+	}
+	wantInputError(t, f.svc.AddPlaylist(f.lead, f.group.ID, testPlaylist), "playlist")
 }

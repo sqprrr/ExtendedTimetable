@@ -83,9 +83,55 @@ func (q *Queries) SetResourceLinkTitle(ctx context.Context, groupID, id int64, t
 	return expectOne(q.db.ExecContext(ctx, `UPDATE resource_links SET title = ? WHERE id = ? AND group_id = ?`, title, id, groupID))
 }
 
-// SetGroupYouTubePlaylist sets or (with "") clears a group's playlist.
-func (q *Queries) SetGroupYouTubePlaylist(ctx context.Context, groupID int64, playlistID string) error {
-	return expectOne(q.db.ExecContext(ctx, `UPDATE groups SET youtube_playlist = ? WHERE id = ?`, playlistID, groupID))
+// YouTubePlaylist is a row of the youtube_playlists table: a playlist the
+// group's recordings are synced from.
+type YouTubePlaylist struct {
+	GroupID    int64
+	PlaylistID string
+	// Title is the playlist's title on YouTube, "" until the first sync.
+	Title string
+	// LastError is why the last sync could not read it, "" if it could.
+	LastError string
+	AddedAt   time.Time
+}
+
+// AddYouTubePlaylist adds a playlist to the group. Returns ErrConflict if
+// the group has it already.
+func (q *Queries) AddYouTubePlaylist(ctx context.Context, p *YouTubePlaylist) error {
+	_, err := q.db.ExecContext(ctx,
+		`INSERT INTO youtube_playlists (group_id, playlist_id, title, last_error, added_at) VALUES (?, ?, ?, ?, ?)`,
+		p.GroupID, p.PlaylistID, p.Title, p.LastError, p.AddedAt.Unix())
+	return mapErr(err)
+}
+
+// DeleteYouTubePlaylist removes a playlist from the group.
+func (q *Queries) DeleteYouTubePlaylist(ctx context.Context, groupID int64, playlistID string) error {
+	return expectOne(q.db.ExecContext(ctx,
+		`DELETE FROM youtube_playlists WHERE group_id = ? AND playlist_id = ?`, groupID, playlistID))
+}
+
+// ListYouTubePlaylists returns the group's playlists in the order they were
+// added.
+func (q *Queries) ListYouTubePlaylists(ctx context.Context, groupID int64) ([]*YouTubePlaylist, error) {
+	return queryAll(ctx, q, func(row interface{ Scan(...any) error }) (*YouTubePlaylist, error) {
+		var p YouTubePlaylist
+		var added int64
+		if err := row.Scan(&p.GroupID, &p.PlaylistID, &p.Title, &p.LastError, &added); err != nil {
+			return nil, mapErr(err)
+		}
+		p.AddedAt = time.Unix(added, 0).UTC()
+		return &p, nil
+	}, `SELECT group_id, playlist_id, title, last_error, added_at FROM youtube_playlists
+		WHERE group_id = ? ORDER BY added_at, playlist_id`, groupID)
+}
+
+// SaveYouTubePlaylistStatus records what a sync saw of a playlist. A missing
+// playlist (removed during the sync) is not an error.
+func (q *Queries) SaveYouTubePlaylistStatus(ctx context.Context, p *YouTubePlaylist) error {
+	_, err := q.db.ExecContext(ctx,
+		`UPDATE youtube_playlists SET title = ?, last_error = ? WHERE group_id = ? AND playlist_id = ?`,
+		p.Title, p.LastError, p.GroupID, p.PlaylistID)
+	return mapErr(err)
 }
 
 // RecordingSync is a row of the youtube_syncs table: how a group's last

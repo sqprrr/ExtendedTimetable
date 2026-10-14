@@ -8,13 +8,24 @@ import (
 )
 
 // The recordings page holds, for the leader and editors, the YouTube
-// playlist the group's recordings are synced from.
+// playlists the group's recordings are synced from.
 
-// setPlaylist saves the group's playlist (or clears it) and syncs it.
-func (h *Handler) setPlaylist(w http.ResponseWriter, r *http.Request) {
+// addPlaylist adds a playlist and syncs the group's playlists.
+func (h *Handler) addPlaylist(w http.ResponseWriter, r *http.Request) {
 	if g := h.groupPage(w, r); g != nil {
 		input := r.PostFormValue("playlist")
-		h.afterRecordingSync(w, r, g, h.svc.SetPlaylist(r.Context(), g.ID, input), input)
+		h.afterRecordingSync(w, r, g, h.svc.AddPlaylist(r.Context(), g.ID, input), input)
+	}
+}
+
+// removePlaylist stops syncing a playlist; its recordings stay.
+func (h *Handler) removePlaylist(w http.ResponseWriter, r *http.Request) {
+	if g := h.groupPage(w, r); g != nil {
+		if err := h.svc.RemovePlaylist(r.Context(), g.ID, r.PathValue("playlist")); err != nil {
+			h.renderError(w, r, err)
+			return
+		}
+		http.Redirect(w, r, sectionURL(g, "resources"), http.StatusSeeOther)
 	}
 }
 
