@@ -66,8 +66,8 @@ notes, and a private homework tracker per student. See
   when the user's clock differs from Kyiv's, Today and Schedule say so, and
   so does the deadline field.
 
-- **Recordings from YouTube:** the leader or an editor sets the group's
-  YouTube playlist on the Recordings page, and new videos show up as
+- **Recordings from YouTube:** the leader or an editor adds the group's
+  YouTube playlists (up to 10) on the Recordings page, and new videos show up as
   recordings by themselves (hourly, or "Sync with YouTube"). The subject,
   lesson type and date come from the video's title
   (`КІУКІ-25 2026 10 07 Філ ЛК №4`); recordings are titled "Лекція №N",
@@ -105,7 +105,7 @@ server:
 ```
 
 Run `./extt help` for all commands. Other admin commands: `demote`,
-`group-log <code>`, `set-playlist <code> <link|none>`, `sync-recordings <code>`, `reset-password`, `set-cist-id <code> <id|none>` (link an
+`group-log <code>`, `add-playlist <code> <link>`, `remove-playlist <code> <link|id>`, `playlists <code>`, `sync-recordings <code>`, `reset-password`, `set-cist-id <code> <id|none>` (link an
 existing group to CIST), `feedback [--all]` (print the feedback users sent). `./extt backup <file>` writes a consistent copy of the database, also
 while the server runs.
 

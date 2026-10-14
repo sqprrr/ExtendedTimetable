@@ -202,32 +202,55 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		}
 		fmt.Fprintf(stdout, "%d classes loaded from CIST for %s\n", rec.EventCount, strings.ToUpper(pos[0]))
 
-	case "set-playlist":
+	case "add-playlist":
 		pos, svc, err := open(2)
 		if err != nil {
 			return err
 		}
-		link := pos[1]
-		if link == "none" {
-			link = ""
-		}
-		err = svc.AdminSetPlaylist(ctx, pos[0], link)
+		err = svc.AdminAddPlaylist(ctx, pos[0], pos[1])
 		var serr *service.SyncError
 		if err != nil && !errors.As(err, &serr) {
 			return err
 		}
 		code := strings.ToUpper(pos[0])
 		switch {
-		case link == "":
-			fmt.Fprintf(stdout, "%s no longer syncs recordings from YouTube\n", code)
 		case os.Getenv("EXTT_YOUTUBE_KEY") == "":
-			fmt.Fprintf(stdout, "%s will sync recordings from that playlist once EXTT_YOUTUBE_KEY is set\n", code)
+			fmt.Fprintf(stdout, "playlist added to %s; it is synced once EXTT_YOUTUBE_KEY is set\n", code)
 		case serr != nil:
-			fmt.Fprintf(stdout, "%s will sync recordings from that playlist, but the first sync failed\n", code)
+			fmt.Fprintf(stdout, "playlist added to %s, but the sync failed\n", code)
 			return err
 		default:
-			fmt.Fprintf(stdout, "%s syncs recordings from that playlist\n", code)
+			fmt.Fprintf(stdout, "playlist added to %s\n", code)
 			return printRecordingSync(ctx, svc, stdout, code)
+		}
+
+	case "remove-playlist":
+		pos, svc, err := open(2)
+		if err != nil {
+			return err
+		}
+		if err := svc.AdminRemovePlaylist(ctx, pos[0], pos[1]); err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "playlist removed from %s; the recordings it added stay\n", strings.ToUpper(pos[0]))
+
+	case "playlists":
+		pos, svc, err := open(1)
+		if err != nil {
+			return err
+		}
+		pls, err := svc.AdminPlaylists(ctx, pos[0])
+		if err != nil {
+			return err
+		}
+		if len(pls) == 0 {
+			fmt.Fprintf(stdout, "%s has no playlists\n", strings.ToUpper(pos[0]))
+		}
+		for _, p := range pls {
+			fmt.Fprintf(stdout, "%s  %s\n", service.PlaylistURL(p.PlaylistID), p.Title)
+			if p.LastError != "" {
+				fmt.Fprintf(stdout, "    last sync failed: %s\n", p.LastError)
+			}
 		}
 
 	case "sync-recordings":

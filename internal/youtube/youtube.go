@@ -30,9 +30,15 @@ type Video struct {
 	Live bool
 }
 
-// Source returns a playlist's videos. It is what the recording sync depends on.
+// Playlist is a playlist with its videos.
+type Playlist struct {
+	Title  string
+	Videos []Video
+}
+
+// Source returns a playlist. It is what the recording sync depends on.
 type Source interface {
-	PlaylistVideos(ctx context.Context, playlistID string) ([]Video, error)
+	Playlist(ctx context.Context, playlistID string) (*Playlist, error)
 }
 
 // ErrPlaylistNotFound is returned for a playlist that does not exist or is
@@ -61,9 +67,30 @@ func New(key, base string, timeout time.Duration) *Client {
 	return &Client{key: key, base: strings.TrimRight(base, "/"), http: &http.Client{Timeout: timeout}}
 }
 
-// PlaylistVideos returns the playlist's videos in playlist order. Deleted and
-// private videos are left out.
-func (c *Client) PlaylistVideos(ctx context.Context, playlistID string) ([]Video, error) {
+// Playlist returns the playlist's title and videos, in playlist order.
+// Deleted and private videos are left out.
+func (c *Client) Playlist(ctx context.Context, playlistID string) (*Playlist, error) {
+	var meta struct {
+		Items []struct {
+			Snippet struct {
+				Title string `json:"title"`
+			} `json:"snippet"`
+		} `json:"items"`
+	}
+	if err := c.get(ctx, "playlists", url.Values{"part": {"snippet"}, "id": {playlistID}}, &meta); err != nil {
+		return nil, err
+	}
+	if len(meta.Items) == 0 {
+		return nil, ErrPlaylistNotFound
+	}
+	videos, err := c.playlistVideos(ctx, playlistID)
+	if err != nil {
+		return nil, err
+	}
+	return &Playlist{Title: meta.Items[0].Snippet.Title, Videos: videos}, nil
+}
+
+func (c *Client) playlistVideos(ctx context.Context, playlistID string) ([]Video, error) {
 	var ids []string
 	page := ""
 	for range maxPages {

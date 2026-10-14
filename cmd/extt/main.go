@@ -46,9 +46,11 @@ Commands:
                                           Ukrainian name, e.g. КІУКІ-25-3
   admin set-cist-id <code> <id|none>      Link a group to its CIST timetable
   admin sync-schedule <code>              Load a group's schedule from CIST now
-  admin set-playlist <code> <link|none>   Sync a group's recordings from a YouTube
-                                          playlist (needs EXTT_YOUTUBE_KEY)
-  admin sync-recordings <code>            Add a playlist's new videos now
+  admin add-playlist <code> <link>        Sync a group's recordings from a YouTube
+                                          playlist too (needs EXTT_YOUTUBE_KEY)
+  admin remove-playlist <code> <link|id>  Stop syncing a playlist (its recordings stay)
+  admin playlists <code>                  List a group's playlists
+  admin sync-recordings <code>            Add the playlists' new videos now
   admin feedback [--all]                  Print the open feedback users sent (with
                                           --all, the resolved too)
 

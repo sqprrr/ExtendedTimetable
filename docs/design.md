@@ -98,16 +98,17 @@ extt admin create-group KIUKI-25-3 --cist-id <id>   # prints the invite link
 ### 4.5 Recordings & solutions
 - **Links only, no file uploads.** Recordings (YouTube / Drive / Teams) and solutions (Drive / GitHub, etc.) are stored as links attached to a subject and an optional date.
 - The earlier idea of ≤5 MB ZIP uploads is dropped for now. That keeps the server free of file storage and moderation.
-- **YouTube playlist sync.** The leader or an editor sets the playlist the group's class recordings are uploaded to (on the Recordings page; public or unlisted). `serve` lists it through the YouTube Data API every hour (`EXTT_YOUTUBE_KEY`, `EXTT_YOUTUBE_INTERVAL`; without a key it is off), and the page has "Sync with YouTube" (once per 5 minutes). Each new video becomes a recording:
+- **YouTube playlist sync.** The leader or an editor adds the playlists the group's class recordings are uploaded to (on the Recordings page; public or unlisted; up to 10, e.g. one for lectures and one for practice classes). `serve` lists them through the YouTube Data API every hour (`EXTT_YOUTUBE_KEY`, `EXTT_YOUTUBE_INTERVAL`; without a key it is off), and the page has "Sync with YouTube" (once per 5 minutes). Each new video becomes a recording:
   - subject, lesson type and date come from the title, `… 2026 10 07 Філ ЛК №4`: the date, the subject's short name (or name, ignoring case), ЛК / ПЗ (ПР) / ЛБ (ЛР); no type is a practice class;
   - titles are "Лекція №N" / "Практика №N" / "Лабораторна №N", numbered by date within the subject and type (two of a day by the title's number), so a lecture uploaded late takes its place and the uploaders' mistakes in numbers do not matter; a title changed by hand is kept;
   - videos under 5 minutes (failed recordings) and live streams are skipped; videos whose title has no date or names no subject are listed on the page and retried on every sync;
-  - each video is placed once (`youtube_videos`): a recording someone deletes does not come back. Recordings added by hand with the video's link are taken over, not duplicated.
+  - each video is placed once (`youtube_videos`), also when it is in two playlists: a recording someone deletes does not come back. Recordings added by hand with the video's link are taken over, not duplicated.
+  - a playlist that cannot be read (made private, deleted) keeps its error next to it on the page and does not stop the others. Removing a playlist keeps the recordings it added.
 
 ## 5. Data model (SQLite)
 
 ```
-groups            (id, code, name, cist_group_id, youtube_playlist, created_at)
+groups            (id, code, name, cist_group_id, created_at)
 users             (id, username UNIQUE, password_hash, is_superadmin, locale, created_at)
 memberships       (user_id, group_id, role[student|leader], joined_at)   PK(user_id, group_id), one leader per group
 group_invites     (group_id PK, token UNIQUE, expires_at, created_at)
@@ -120,6 +121,7 @@ homework_links    (id, homework_id, title, url)
 homework_progress (user_id, homework_id, status[not_started|in_progress|done], grade NULL, updated_at)  PK(user_id, homework_id)
 notes             (id, group_id, title, body_md, pinned, created_by, created_at, updated_at)
 resource_links    (id, group_id, subject_id, kind[recording|solution], title, url, date NULL, lesson_type NULL, created_by, created_at)
+youtube_playlists (group_id, playlist_id, title, last_error, added_at)   PK(group_id, playlist_id)
 youtube_videos    (group_id, video_id, resource_id NULL, title_number, published_at)   PK(group_id, video_id); resource NULL = deleted
 youtube_syncs     (group_id PK, last_attempt_at, last_success_at, last_error, added, unmatched)
 schedule_events   (id, group_id, subject_id NULL, cist_event_id, starts_at, ends_at, lesson_type, room, teacher, raw_title, synced_at)
