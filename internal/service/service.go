@@ -112,29 +112,35 @@ func StartOfDay(t time.Time, loc *time.Location) time.Time {
 
 // RunMaintenance periodically removes expired sessions and stale rate-limit
 // buckets, and lets SQLite refresh its query planner's statistics, until
-// ctx is done.
-func (s *Service) RunMaintenance(ctx context.Context, every time.Duration) error {
+// ctx is done. A failed round is logged and the next one runs
+// as usual: one busy database must not stop maintenance for good.
+func (s *Service) RunMaintenance(ctx context.Context, every time.Duration) {
 	t := time.NewTicker(every)
 	defer t.Stop()
 	for {
-		n, err := s.store.DeleteExpiredSessions(ctx, s.now())
-		if err != nil && ctx.Err() == nil {
-			return err
-		}
-		if n > 0 {
-			slog.Debug("expired sessions removed", "count", n)
-		}
-		if err := s.store.Optimize(ctx); err != nil && ctx.Err() == nil {
-			slog.Warn("optimize the database", "err", err)
-		}
-		s.loginByIP.Prune()
-		s.loginByUsername.Prune()
-		s.registerByIP.Prune()
-		s.feedbackByUser.Prune()
+		s.maintain(ctx)
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		case <-t.C:
 		}
 	}
+}
+
+func (s *Service) maintain(ctx context.Context) {
+	defer logPanic(ctx, "maintenance")
+	n, err := s.store.DeleteExpiredSessions(ctx, s.now())
+	if err != nil && ctx.Err() == nil {
+		slog.ErrorContext(ctx, "maintenance: delete expired sessions", "err", err)
+	}
+	if n > 0 {
+		slog.Debug("expired sessions removed", "count", n)
+	}
+	if err := s.store.Optimize(ctx); err != nil && ctx.Err() == nil {
+		slog.WarnContext(ctx, "maintenance: optimize the database", "err", err)
+	}
+	s.loginByIP.Prune()
+	s.loginByUsername.Prune()
+	s.registerByIP.Prune()
+	s.feedbackByUser.Prune()
 }

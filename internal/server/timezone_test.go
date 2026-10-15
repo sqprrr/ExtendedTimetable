@@ -41,7 +41,7 @@ func TestScheduleInTheViewersTimeZone(t *testing.T) {
 		{Start: start, End: start.Add(95 * time.Minute), Subject: "ВМ", Type: "Лк", Room: "287", Groups: "КІУКІ-25-3"},
 	}}
 	e := newScheduleEnvIn(t, src, kyiv)
-	if _, err := e.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3"); err != nil {
+	if _, err := e.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false); err != nil {
 		t.Fatal(err)
 	}
 	stud := e.signUp(t, "stud", store.RoleStudent)

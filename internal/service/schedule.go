@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -15,9 +16,10 @@ import (
 )
 
 // The schedule is a cache of CIST. A sync fetches a window of events around
-// now and replaces that window in the database; when CIST is down or answers
-// with nothing, the previous copy stays and the error is recorded so the
-// pages can say how old the data is.
+// now and replaces that window in the database; when CIST is down, answers
+// with something that is not a timetable, or answers with an empty one while
+// classes are cached, the previous copy stays and the error is recorded so
+// the pages can say how old the data is.
 
 const (
 	// syncPast and syncAhead bound the window a sync replaces.
@@ -41,6 +43,10 @@ var (
 	ErrSyncDisabled = errors.New("schedule sync is turned off on this server")
 	// ErrSyncRunning is returned while another sync of the same group runs.
 	ErrSyncRunning = errors.New("the schedule is being synced right now, try again in a minute")
+	// ErrEmptyExport is the failure recorded when CIST answers with no
+	// classes at all while the cache has some: CIST does that when it is
+	// half down, and taking it at its word would empty the schedule.
+	ErrEmptyExport = errors.New("CIST returned an empty timetable")
 )
 
 // SyncError is a failed fetch from CIST or YouTube. It is recorded in the
@@ -62,9 +68,12 @@ var lessonTypes = map[string]store.LessonType{
 }
 
 // syncGroup fetches the group's events from CIST and replaces the cached
-// window. Failures to fetch are recorded and returned as *SyncError. A valid
-// but empty export (holidays) is a success and empties the window.
-func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.ScheduleSync, error) {
+// window. Failures to fetch are recorded and returned as *SyncError; the
+// cached window stays. An empty export is such a failure while the window
+// has classes (ErrEmptyExport), unless allowEmpty: then it is a success that
+// empties the window, e.g. when CIST really cancelled every class. A sync
+// whose ctx is done is not recorded, since CIST is not to blame.
+func (s *Service) syncGroup(ctx context.Context, g *store.Group, allowEmpty bool) (*store.ScheduleSync, error) {
 	if s.cfg.CIST == nil {
 		return nil, ErrSyncDisabled
 	}
@@ -79,7 +88,19 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 	from, to := now.Add(-syncPast), now.Add(syncAhead)
 	slog.DebugContext(ctx, "schedule sync started", "group", g.Code, "cist_group", *g.CISTGroupID)
 	started := time.Now()
-	events, err := s.cfg.CIST.GroupEvents(ctx, *g.CISTGroupID, from, to)
+	events, err := fetchEvents(ctx, s.cfg.CIST, *g.CISTGroupID, from, to)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	if err == nil && len(events) == 0 && !allowEmpty {
+		cached, cerr := s.store.CountScheduleEvents(ctx, g.ID, from, to)
+		if cerr != nil {
+			return nil, cerr
+		}
+		if cached > 0 {
+			err = fmt.Errorf("%w; keeping the %d classes synced before", ErrEmptyExport, cached)
+		}
+	}
 	metrics.ScheduleSync(err == nil, time.Since(started))
 
 	rec, lerr := s.store.ScheduleSyncFor(ctx, g.ID)
@@ -91,7 +112,7 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 	rec.LastAttemptAt = now
 	if err != nil {
 		slog.WarnContext(ctx, "schedule sync failed", "group", g.Code, "err", err)
-		rec.LastError = truncate(err.Error(), 500)
+		rec.LastError = syncErrorText(err)
 		if serr := s.store.SaveScheduleSync(ctx, rec); serr != nil {
 			return nil, serr
 		}
@@ -122,6 +143,50 @@ func (s *Service) syncGroup(ctx context.Context, g *store.Group) (*store.Schedul
 	}
 	slog.InfoContext(ctx, "schedule synced", "group", g.Code, "events", rec.EventCount)
 	return rec, nil
+}
+
+// fetchEvents asks src for a group's events in [from, to). Whatever it
+// returns is checked before it replaces the cache: a panic (a parser meeting
+// a response it does not expect) is a failed fetch, and events outside the
+// window or ending before they start are dropped, so a sync never stores
+// what the next one would not replace.
+func fetchEvents(ctx context.Context, src cist.Source, cistGroupID int64, from, to time.Time) (events []cist.Event, err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			slog.ErrorContext(ctx, "CIST source panicked", "value", v, "stack", string(debug.Stack()))
+			metrics.Panic()
+			events, err = nil, fmt.Errorf("unexpected response from CIST: %v", v)
+		}
+	}()
+	all, err := src.GroupEvents(ctx, cistGroupID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	events = all[:0:0]
+	for _, e := range all {
+		if !e.Start.Before(from) && e.Start.Before(to) && e.End.After(e.Start) {
+			events = append(events, e)
+		}
+	}
+	if dropped := len(all) - len(events); dropped > 0 {
+		slog.WarnContext(ctx, "CIST events dropped", "cist_group", cistGroupID, "count", dropped)
+	}
+	return events, nil
+}
+
+// syncErrorText is a failed sync's error as the pages show it: on one line,
+// and short.
+func syncErrorText(err error) string {
+	return truncate(strings.ReplaceAll(err.Error(), "\n", "; "), 500)
+}
+
+// logPanic, deferred by background work, logs a panic and stops it there:
+// a panic outside a request would otherwise end the whole server.
+func logPanic(ctx context.Context, what string) {
+	if v := recover(); v != nil {
+		slog.ErrorContext(ctx, "panic in "+what, "value", v, "stack", string(debug.Stack()))
+		metrics.Panic()
+	}
 }
 
 // syncKind tells the group's syncs apart, which may run at the same time.
@@ -244,17 +309,21 @@ func (s *Service) SyncScheduleNow(ctx context.Context, groupID int64) (*store.Sc
 	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
-	return s.syncGroup(ctx, g)
+	// The sync runs to the end even if the leader leaves the page: the CIST
+	// client's timeout bounds it, and a cancelled sync would count against
+	// the cooldown without recording anything.
+	return s.syncGroup(context.WithoutCancel(ctx), g, false)
 }
 
 // AdminSyncSchedule syncs a group's schedule from the admin CLI: no
-// permission check and no cooldown.
-func (s *Service) AdminSyncSchedule(ctx context.Context, groupCode string) (*store.ScheduleSync, error) {
+// permission check and no cooldown. With allowEmpty, an empty export
+// empties the cached window instead of being refused (see syncGroup).
+func (s *Service) AdminSyncSchedule(ctx context.Context, groupCode string, allowEmpty bool) (*store.ScheduleSync, error) {
 	g, err := s.adminGroup(ctx, groupCode)
 	if err != nil {
 		return nil, err
 	}
-	return s.syncGroup(ctx, g)
+	return s.syncGroup(ctx, g, allowEmpty)
 }
 
 // AdminSetCISTID sets (or with nil clears) the CIST timetable id of a group.
@@ -295,15 +364,22 @@ func (s *Service) syncAll(ctx context.Context, fresh time.Duration) {
 		if g.CISTGroupID == nil || ctx.Err() != nil {
 			continue
 		}
-		if rec, err := s.store.ScheduleSyncFor(ctx, g.ID); err == nil && s.now().Sub(rec.LastAttemptAt) < fresh {
-			continue
-		}
-		// syncGroup logs how the fetch went; only other errors are left.
-		_, err := s.syncGroup(ctx, g)
-		var serr *SyncError
-		if err != nil && !errors.As(err, &serr) && !errors.Is(err, ErrSyncRunning) && ctx.Err() == nil {
-			slog.ErrorContext(ctx, "schedule sync", "group", g.Code, "err", err)
-		}
+		s.syncScheduled(ctx, g, fresh)
+	}
+}
+
+// syncScheduled syncs one group for syncAll, unless it was synced less than
+// fresh ago. A panic stops at the group, so the others still sync.
+func (s *Service) syncScheduled(ctx context.Context, g *store.Group, fresh time.Duration) {
+	defer logPanic(ctx, "schedule sync")
+	if rec, err := s.store.ScheduleSyncFor(ctx, g.ID); err == nil && s.now().Sub(rec.LastAttemptAt) < fresh {
+		return
+	}
+	// syncGroup logs how the fetch went; only other errors are left.
+	_, err := s.syncGroup(ctx, g, false)
+	var serr *SyncError
+	if err != nil && !errors.As(err, &serr) && !errors.Is(err, ErrSyncRunning) && ctx.Err() == nil {
+		slog.ErrorContext(ctx, "schedule sync", "group", g.Code, "err", err)
 	}
 }
 

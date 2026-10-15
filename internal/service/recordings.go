@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"log/slog"
 	"regexp"
+	"runtime/debug"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/sqprrr/ExtendedTimetable/internal/metrics"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 	"github.com/sqprrr/ExtendedTimetable/internal/youtube"
 )
@@ -195,7 +197,7 @@ func (s *Service) addPlaylist(ctx context.Context, groupID int64, link string) e
 	if s.cfg.YouTube == nil {
 		return nil
 	}
-	_, err = s.syncRecordings(ctx, g)
+	_, err = s.syncRecordings(context.WithoutCancel(ctx), g)
 	return err
 }
 
@@ -230,7 +232,8 @@ func (s *Service) SyncRecordingsNow(ctx context.Context, groupID int64) (*store.
 	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
-	return s.syncRecordings(ctx, g)
+	// Like SyncScheduleNow: the sync runs to the end if the editor leaves.
+	return s.syncRecordings(context.WithoutCancel(ctx), g)
 }
 
 // AdminAddPlaylist adds a playlist to a group from the admin CLI, and syncs.
@@ -314,16 +317,35 @@ func (s *Service) syncAllRecordings(ctx context.Context, fresh time.Duration) {
 		if ctx.Err() != nil {
 			return
 		}
-		if rec, err := s.store.RecordingSyncFor(ctx, g.ID); err == nil && s.now().Sub(rec.LastAttemptAt) < fresh {
-			continue
-		}
-		_, err := s.syncRecordings(ctx, g)
-		var serr *SyncError
-		if err != nil && !errors.As(err, &serr) && !errors.Is(err, ErrNoPlaylist) &&
-			!errors.Is(err, ErrRecordingSyncRunning) && ctx.Err() == nil {
-			slog.ErrorContext(ctx, "recording sync", "group", g.Code, "err", err)
-		}
+		s.syncRecordingsScheduled(ctx, g, fresh)
 	}
+}
+
+// syncRecordingsScheduled syncs one group for syncAllRecordings, unless it
+// was synced less than fresh ago. A panic stops at the group.
+func (s *Service) syncRecordingsScheduled(ctx context.Context, g *store.Group, fresh time.Duration) {
+	defer logPanic(ctx, "recording sync")
+	if rec, err := s.store.RecordingSyncFor(ctx, g.ID); err == nil && s.now().Sub(rec.LastAttemptAt) < fresh {
+		return
+	}
+	_, err := s.syncRecordings(ctx, g)
+	var serr *SyncError
+	if err != nil && !errors.As(err, &serr) && !errors.Is(err, ErrNoPlaylist) &&
+		!errors.Is(err, ErrRecordingSyncRunning) && ctx.Err() == nil {
+		slog.ErrorContext(ctx, "recording sync", "group", g.Code, "err", err)
+	}
+}
+
+// fetchPlaylist reads a playlist from src; a panic is a failed fetch.
+func fetchPlaylist(ctx context.Context, src youtube.Source, id string) (pl *youtube.Playlist, err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			slog.ErrorContext(ctx, "YouTube source panicked", "value", v, "stack", string(debug.Stack()))
+			metrics.Panic()
+			pl, err = nil, fmt.Errorf("unexpected response from YouTube: %v", v)
+		}
+	}()
+	return src.Playlist(ctx, id)
 }
 
 // syncRecordings adds the new videos of the group's playlists to its
@@ -357,11 +379,14 @@ func (s *Service) syncRecordings(ctx context.Context, g *store.Group) (*store.Re
 	var failures []error
 	seen := map[string]bool{}
 	for _, pl := range pls {
-		got, err := s.cfg.YouTube.Playlist(ctx, pl.PlaylistID)
+		got, err := fetchPlaylist(ctx, s.cfg.YouTube, pl.PlaylistID)
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		pl.LastError = ""
 		if err != nil {
 			slog.WarnContext(ctx, "playlist sync failed", "group", g.Code, "playlist", pl.PlaylistID, "err", err)
-			pl.LastError = truncate(err.Error(), 500)
+			pl.LastError = syncErrorText(err)
 			failures = append(failures, fmt.Errorf("%s: %w", cmp.Or(pl.Title, pl.PlaylistID), err))
 			continue
 		}
@@ -384,7 +409,7 @@ func (s *Service) syncRecordings(ctx context.Context, g *store.Group) (*store.Re
 	rec.LastAttemptAt = now
 	rec.LastError = ""
 	if failed != nil {
-		rec.LastError = truncate(strings.ReplaceAll(failed.Error(), "\n", "; "), 500)
+		rec.LastError = syncErrorText(failed)
 	}
 	if len(failures) == len(pls) {
 		err := s.store.InTx(ctx, func(q *store.Queries) error {

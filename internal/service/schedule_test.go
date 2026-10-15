@@ -20,7 +20,11 @@ type fakeCIST struct {
 	mu     sync.Mutex
 	events []cist.Event
 	err    error
-	calls  int
+	// panic, when set, is what a fetch panics with.
+	panic any
+	// ignoreWindow returns every event, as a broken source might.
+	ignoreWindow bool
+	calls        int
 	// When block is set, a fetch signals started and waits for block.
 	started chan struct{}
 	block   chan struct{}
@@ -37,8 +41,14 @@ func (f *fakeCIST) GroupEvents(_ context.Context, id int64, from, to time.Time) 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
+	if f.panic != nil {
+		panic(f.panic)
+	}
 	if f.err != nil {
 		return nil, f.err
+	}
+	if f.ignoreWindow {
+		return f.events, nil
 	}
 	var out []cist.Event
 	for _, e := range f.events {
@@ -188,7 +198,7 @@ func TestSyncCreatesSubjectsAndLinksClassLinks(t *testing.T) {
 func TestSyncKeepsCacheWhenCISTFails(t *testing.T) {
 	f := setupSchedule(t)
 	f.cist.set([]cist.Event{f.at(0, 9, 30, "ІМ", "Пз"), f.at(1, 9, 30, "ФВ", "Пз")}, nil)
-	if _, err := f.svc.AdminSyncSchedule(context.Background(), "kiuki-25-3"); err != nil {
+	if _, err := f.svc.AdminSyncSchedule(context.Background(), "kiuki-25-3", false); err != nil {
 		t.Fatal(err)
 	}
 	firstSuccess := *f.now
@@ -196,7 +206,7 @@ func TestSyncKeepsCacheWhenCISTFails(t *testing.T) {
 	// CIST goes down an hour later.
 	*f.now = f.now.Add(time.Hour)
 	f.cist.set(nil, errors.New("cist.nure.ua: timeout"))
-	rec, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3")
+	rec, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false)
 	var serr *service.SyncError
 	if !errors.As(err, &serr) || rec == nil || rec.LastError == "" || !rec.LastSuccessAt.Equal(firstSuccess) {
 		t.Fatalf("failed sync: %v %+v", err, rec)
@@ -207,7 +217,7 @@ func TestSyncKeepsCacheWhenCISTFails(t *testing.T) {
 
 	// A good sync replaces the window and clears the error.
 	f.cist.set([]cist.Event{f.at(2, 9, 30, "ІМ", "Пз")}, nil)
-	rec, err = f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3")
+	rec, err = f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false)
 	if err != nil || rec.LastError != "" || rec.EventCount != 1 {
 		t.Fatalf("recovery: %v %+v", err, rec)
 	}
@@ -260,7 +270,7 @@ func TestScheduleRangeAndAccess(t *testing.T) {
 	if _, err := f.svc.Schedule(context.Background(), gid, f.start, f.start.AddDate(0, 0, 7)); !errors.Is(err, service.ErrUnauthenticated) {
 		t.Fatalf("anonymous: %v", err)
 	}
-	if _, err := f.svc.AdminSyncSchedule(context.Background(), "NOPE"); err == nil {
+	if _, err := f.svc.AdminSyncSchedule(context.Background(), "NOPE", false); err == nil {
 		t.Fatal("unknown group should fail")
 	}
 }
@@ -271,26 +281,158 @@ func TestSyncDisabledWithoutSource(t *testing.T) {
 	if err := f.svc.AdminSetCISTID(context.Background(), f.group.Code, &cistID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.svc.AdminSyncSchedule(context.Background(), f.group.Code); !errors.Is(err, service.ErrSyncDisabled) {
+	if _, err := f.svc.AdminSyncSchedule(context.Background(), f.group.Code, false); !errors.Is(err, service.ErrSyncDisabled) {
 		t.Fatalf("got %v", err)
 	}
 }
 
-// A valid export with no classes (holidays) is a success and empties the
-// window, so classes CIST cancelled do not linger.
-func TestEmptyExportClearsWindow(t *testing.T) {
+// CIST answers with an empty export when it is half down. While classes
+// are cached, that is a failed sync that keeps them; the admin can accept it
+// to clear the window when CIST really cancelled every class.
+func TestEmptyExportKeepsCache(t *testing.T) {
 	f := setupSchedule(t)
+	ctx := context.Background()
 	f.cist.set([]cist.Event{f.at(3, 9, 30, "ІМ", "Пз")}, nil)
-	if _, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3"); err != nil {
+	if _, err := f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3", false); err != nil {
 		t.Fatal(err)
 	}
+	firstSuccess := *f.now
+
+	*f.now = f.now.Add(time.Hour)
 	f.cist.set(nil, nil)
-	rec, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3")
+	rec, err := f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3", false)
+	var serr *service.SyncError
+	if !errors.As(err, &serr) || !errors.Is(err, service.ErrEmptyExport) {
+		t.Fatalf("empty export with classes cached: %v", err)
+	}
+	if !strings.Contains(rec.LastError, "empty timetable") || !rec.LastSuccessAt.Equal(firstSuccess) || rec.EventCount != 1 {
+		t.Fatalf("sync status: %+v", rec)
+	}
+	if sch := f.week(t, f.stud); len(sch.Events) != 1 || sch.Sync.LastError == "" {
+		t.Fatalf("the cached class should stay, with the error shown: %+v", sch)
+	}
+
+	rec, err = f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3", true)
 	if err != nil || rec.LastError != "" || rec.EventCount != 0 {
-		t.Fatalf("empty export: %v %+v", err, rec)
+		t.Fatalf("empty export allowed: %v %+v", err, rec)
 	}
 	if sch := f.week(t, f.stud); len(sch.Events) != 0 {
 		t.Fatalf("cancelled class still shown: %+v", sch.Events)
+	}
+
+	// With nothing cached (holidays), an empty export is a plain success.
+	rec, err = f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3", false)
+	if err != nil || rec.LastError != "" {
+		t.Fatalf("empty export with nothing cached: %v %+v", err, rec)
+	}
+}
+
+// A source that panics fails the sync like any other error: the cache stays
+// and the panic does not reach the caller.
+func TestSyncSurvivesPanickingSource(t *testing.T) {
+	f := setupSchedule(t)
+	f.cist.set([]cist.Event{f.at(0, 9, 30, "ІМ", "Пз")}, nil)
+	if _, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false); err != nil {
+		t.Fatal(err)
+	}
+	*f.now = f.now.Add(time.Hour)
+	f.cist.mu.Lock()
+	f.cist.panic = "index out of range"
+	f.cist.mu.Unlock()
+	rec, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false)
+	var serr *service.SyncError
+	if !errors.As(err, &serr) || !strings.Contains(rec.LastError, "index out of range") {
+		t.Fatalf("panicking source: %v %+v", err, rec)
+	}
+	if sch := f.week(t, f.stud); len(sch.Events) != 1 {
+		t.Fatalf("the cached copy should stay: %+v", sch.Events)
+	}
+}
+
+// The background sync keeps running, and the server with it, when a sync
+// panics.
+func TestBackgroundSyncSurvivesPanic(t *testing.T) {
+	f := setupSchedule(t)
+	f.cist.mu.Lock()
+	f.cist.panic = "boom"
+	f.cist.mu.Unlock()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		f.svc.RunScheduleSync(ctx, time.Hour)
+		close(done)
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		f.cist.mu.Lock()
+		calls := f.cist.calls
+		f.cist.mu.Unlock()
+		if calls > 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the background sync never asked CIST")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	cancel()
+	<-done
+	if sch := f.week(t, f.stud); sch.Sync == nil || !strings.Contains(sch.Sync.LastError, "boom") {
+		t.Fatalf("the failure should be recorded: %+v", sch.Sync)
+	}
+}
+
+// Events a source returns outside the window, or that end before they
+// start, are not stored: the next sync would not replace them.
+func TestSyncDropsEventsOutsideWindow(t *testing.T) {
+	f := setupSchedule(t)
+	backwards := f.at(1, 9, 30, "ФВ", "Пз")
+	backwards.End = backwards.Start.Add(-time.Minute)
+	late := f.at(0, 9, 30, "ФВ", "Пз")
+	late.Start, late.End = f.now.AddDate(1, 0, 0), f.now.AddDate(1, 0, 0).Add(time.Hour)
+	f.cist.set([]cist.Event{f.at(0, 9, 30, "ІМ", "Пз"), backwards, late}, nil)
+	f.cist.mu.Lock()
+	f.cist.ignoreWindow = true
+	f.cist.mu.Unlock()
+	rec, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false)
+	if err != nil || rec.EventCount != 1 {
+		t.Fatalf("sync: %v %+v", err, rec)
+	}
+}
+
+// A sync whose caller gave up (the server shutting down) records nothing;
+// a leader's sync runs to the end even if they leave the page.
+func TestCancelledSyncs(t *testing.T) {
+	f := setupSchedule(t)
+	f.cist.set([]cist.Event{f.at(0, 9, 30, "ІМ", "Пз")}, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3", false); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled admin sync: %v", err)
+	}
+	if sch := f.week(t, f.stud); sch.Sync != nil {
+		t.Fatalf("a cancelled sync should not be recorded: %+v", sch.Sync)
+	}
+
+	// The leader closes the page while CIST is answering.
+	f.cist.mu.Lock()
+	f.cist.started, f.cist.block = make(chan struct{}), make(chan struct{})
+	f.cist.mu.Unlock()
+	lead, cancel := context.WithCancel(f.lead)
+	type result struct {
+		rec *store.ScheduleSync
+		err error
+	}
+	done := make(chan result)
+	go func() {
+		rec, err := f.svc.SyncScheduleNow(lead, f.group.ID)
+		done <- result{rec, err}
+	}()
+	<-f.cist.started
+	cancel()
+	close(f.cist.block)
+	if r := <-done; r.err != nil || r.rec.EventCount != 1 {
+		t.Fatalf("leader sync after the page closed: %v %+v", r.err, r.rec)
 	}
 }
 
@@ -299,7 +441,7 @@ func TestLeaderCanRenameAndDeleteSyncedSubjects(t *testing.T) {
 	ctx := context.Background()
 	gid := f.group.ID
 	f.cist.set([]cist.Event{f.at(0, 9, 30, "ІМ", "Пз"), f.at(1, 9, 30, "ФВ", "Пз")}, nil)
-	if _, err := f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3"); err != nil {
+	if _, err := f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3", false); err != nil {
 		t.Fatal(err)
 	}
 	subjects, _ := f.svc.Subjects(f.lead, gid)
@@ -317,7 +459,7 @@ func TestLeaderCanRenameAndDeleteSyncedSubjects(t *testing.T) {
 	}
 
 	*f.now = f.now.Add(time.Hour)
-	if _, err := f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3"); err != nil {
+	if _, err := f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3", false); err != nil {
 		t.Fatal(err)
 	}
 	subjects, _ = f.svc.Subjects(f.lead, gid)
@@ -332,7 +474,7 @@ func TestLeaderCanRenameAndDeleteSyncedSubjects(t *testing.T) {
 	// A new short name still gets a subject.
 	f.cist.set([]cist.Event{f.at(0, 9, 30, "ІМ", "Пз"), f.at(2, 9, 30, "КЕ", "Лк")}, nil)
 	*f.now = f.now.Add(time.Hour)
-	if _, err := f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3"); err != nil {
+	if _, err := f.svc.AdminSyncSchedule(ctx, "KIUKI-25-3", false); err != nil {
 		t.Fatal(err)
 	}
 	if subjects, _ = f.svc.Subjects(f.lead, gid); len(subjects) != 2 {
@@ -346,7 +488,7 @@ func TestLongShortNameSyncsRepeatedly(t *testing.T) {
 	f.cist.set([]cist.Event{f.at(0, 9, 30, long, "Лк")}, nil)
 	for i := range 2 {
 		*f.now = f.now.Add(time.Hour)
-		if _, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3"); err != nil {
+		if _, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false); err != nil {
 			t.Fatalf("sync %d: %v", i+1, err)
 		}
 	}
@@ -361,7 +503,7 @@ func TestUpcomingSkipsEndedClassOfOtherSubgroup(t *testing.T) {
 	short := f.at(3, 8, 0, "ФВ", "Пз")
 	short.End = short.Start.Add(45 * time.Minute) // 08:00–08:45
 	f.cist.set([]cist.Event{long, short}, nil)
-	if _, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3"); err != nil {
+	if _, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false); err != nil {
 		t.Fatal(err)
 	}
 	*f.now = f.start.AddDate(0, 0, 3).Add(9 * time.Hour) // Thursday 09:00
@@ -390,7 +532,7 @@ func TestOneSyncPerGroupAtATime(t *testing.T) {
 
 	done := make(chan error)
 	go func() {
-		_, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3")
+		_, err := f.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false)
 		done <- err
 	}()
 	<-f.cist.started // the background sync is waiting on CIST

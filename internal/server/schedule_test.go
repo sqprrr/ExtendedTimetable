@@ -157,7 +157,7 @@ func TestSchedulePages(t *testing.T) {
 	src.mu.Lock()
 	src.err = errors.New("cist.nure.ua: timeout")
 	src.mu.Unlock()
-	if _, err := e.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3"); err == nil {
+	if _, err := e.svc.AdminSyncSchedule(context.Background(), "KIUKI-25-3", false); err == nil {
 		t.Fatal("expected the sync to fail")
 	}
 	_, body, _ = stud.get(g + "/schedule?week=" + week)
