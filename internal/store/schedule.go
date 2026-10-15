@@ -95,6 +95,16 @@ func (q *Queries) ListScheduleEvents(ctx context.Context, groupID int64, from, t
 		 ORDER BY e.starts_at, e.subject_brief, e.id`, groupID, from.Unix(), to.Unix())
 }
 
+// CountScheduleEvents returns how many of the group's events start in
+// [from, to).
+func (q *Queries) CountScheduleEvents(ctx context.Context, groupID int64, from, to time.Time) (int, error) {
+	var n int
+	err := q.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM schedule_events WHERE group_id = ? AND starts_at >= ? AND starts_at < ?`,
+		groupID, from.Unix(), to.Unix()).Scan(&n)
+	return n, err
+}
+
 // UpcomingScheduleEvents returns the group's first events that have not
 // ended at now: the class in progress or the next one. Several events can
 // share that start time (labs of different subgroups); those that already

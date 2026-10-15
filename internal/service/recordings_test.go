@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -24,11 +25,16 @@ type fakeYouTube struct {
 	// errs makes a playlist (or, under "", every one) fail.
 	errs  map[string]error
 	added int
+	// panics makes a playlist panic when read.
+	panics string
 }
 
 func (f *fakeYouTube) Playlist(_ context.Context, id string) (*youtube.Playlist, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if id == f.panics {
+		panic("unexpected JSON")
+	}
 	if err := cmp.Or(f.errs[id], f.errs[""]); err != nil {
 		return nil, err
 	}
@@ -397,4 +403,28 @@ func TestSyncSeveralPlaylists(t *testing.T) {
 		t.Fatalf("full: %d playlists, CanAdd %v", len(src.Playlists), src.CanAdd)
 	}
 	wantInputError(t, f.svc.AddPlaylist(f.lead, f.group.ID, testPlaylist), "playlist")
+}
+
+// A playlist whose source panics fails on its own; the others still sync.
+func TestRecordingSyncSurvivesPanickingSource(t *testing.T) {
+	f := setupRecordings(t)
+	ctx := context.Background()
+	f.yt.add("aaaaaaaaaa1", "КІУКІ-25 2026 09 16 Філ ЛК №1", time.Hour)
+	for _, pl := range []string{testPlaylist, otherPlaylist} {
+		if err := f.svc.AdminAddPlaylist(ctx, f.group.Code, pl); err != nil {
+			t.Fatal(err)
+		}
+	}
+	*f.now = f.now.Add(time.Hour)
+	f.yt.mu.Lock()
+	f.yt.panics = otherPlaylist
+	f.yt.mu.Unlock()
+	rec, err := f.svc.AdminSyncRecordings(ctx, f.group.Code)
+	var serr *service.SyncError
+	if !errors.As(err, &serr) || !strings.Contains(rec.LastError, "unexpected JSON") {
+		t.Fatalf("panicking playlist: %v %+v", err, rec)
+	}
+	if got := f.recordings(t); len(got) != 1 {
+		t.Fatalf("the other playlist's recording should be there: %v", got)
+	}
 }

@@ -115,7 +115,7 @@ func (c *Client) getFrom(ctx context.Context, u string) ([]byte, error) {
 	start := time.Now()
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, requestError(req.URL.Host, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
@@ -138,6 +138,22 @@ func (c *Client) getFrom(ctx context.Context, u string) ([]byte, error) {
 	}
 	return body, nil
 }
+
+// requestError is a failed request's error without its URL, which is long
+// and ends up on the schedule page: "cist.nure.ua: timed out".
+func requestError(host string, err error) error {
+	var ue *url.Error
+	if !errors.As(err, &ue) {
+		return fmt.Errorf("%s: %w", host, err)
+	}
+	if ue.Timeout() {
+		return fmt.Errorf("%s: %w", host, ErrTimeout)
+	}
+	return fmt.Errorf("%s: %w", host, ue.Err)
+}
+
+// ErrTimeout is returned when a CIST server does not answer in time.
+var ErrTimeout = errors.New("timed out")
 
 // decode converts CIST's windows-1251 text to UTF-8.
 func decode(b []byte) string {
