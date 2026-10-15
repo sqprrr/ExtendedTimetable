@@ -2,6 +2,7 @@ package cist
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -177,5 +178,27 @@ func TestFindGroups(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != (Group{ID: 11881842, Name: "КІУКІ-25-3"}) || got[1].ID != 11881844 {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+// Errors name the server but not the URL, which is long and is shown on the
+// schedule page; a server that does not answer in time is ErrTimeout.
+func TestClientErrorsLeaveOutURL(t *testing.T) {
+	hang := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer hang.Close()
+	reset := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, _, _ := w.(http.Hijacker).Hijack()
+		c.Close()
+	}))
+	defer reset.Close()
+	c := New([]string{hang.URL, reset.URL}, 200*time.Millisecond)
+	_, err := c.GroupEvents(context.Background(), 1, time.Now(), time.Now().Add(time.Hour))
+	if !errors.Is(err, ErrTimeout) {
+		t.Fatalf("want ErrTimeout, got %v", err)
+	}
+	if msg := err.Error(); strings.Contains(msg, "/ias/") || !strings.Contains(msg, strings.TrimPrefix(hang.URL, "http://")+": timed out") {
+		t.Fatalf("message: %s", msg)
 	}
 }

@@ -45,7 +45,10 @@ Commands:
   admin find-cist-group <name>            Look up a group's CIST timetable id by its
                                           Ukrainian name, e.g. КІУКІ-25-3
   admin set-cist-id <code> <id|none>      Link a group to its CIST timetable
-  admin sync-schedule <code>              Load a group's schedule from CIST now
+  admin sync-schedule <code> [--allow-empty]
+                                          Load a group's schedule from CIST now
+                                          (--allow-empty: accept an empty timetable
+                                          and clear the cached classes)
   admin add-playlist <code> <link>        Sync a group's recordings from a YouTube
                                           playlist too (needs EXTT_YOUTUBE_KEY)
   admin remove-playlist <code> <link|id>  Stop syncing a playlist (its recordings stay)

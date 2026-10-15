@@ -192,11 +192,15 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		}
 
 	case "sync-schedule":
+		allowEmpty := fs.Bool("allow-empty", false, "accept an empty timetable from CIST, clearing the cached classes")
 		pos, svc, err := open(1)
 		if err != nil {
 			return err
 		}
-		rec, err := svc.AdminSyncSchedule(ctx, pos[0])
+		rec, err := svc.AdminSyncSchedule(ctx, pos[0], *allowEmpty)
+		if errors.Is(err, service.ErrEmptyExport) {
+			return fmt.Errorf("%w\nIf CIST really has no classes for %s, run again with --allow-empty", err, strings.ToUpper(pos[0]))
+		}
 		if err != nil {
 			return err
 		}

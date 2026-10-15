@@ -55,11 +55,7 @@ func cmdServe(ctx context.Context, args []string) error {
 		return err
 	}
 
-	go func() {
-		if err := svc.RunMaintenance(ctx, time.Hour); err != nil {
-			slog.Error("maintenance stopped", "err", err)
-		}
-	}()
+	go svc.RunMaintenance(ctx, time.Hour)
 	if *cistEvery > 0 {
 		go svc.RunScheduleSync(ctx, *cistEvery)
 	}
