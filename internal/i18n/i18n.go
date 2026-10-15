@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/BurntSushi/toml"
 	goi18n "github.com/nicksnyder/go-i18n/v2/i18n"
@@ -49,7 +51,15 @@ func M(id string, kv ...any) Message {
 type Localizer struct {
 	lang string
 	l    *goi18n.Localizer
+	// memo holds the translations made so far, by memoKey: a page asks
+	// for the same ones on every request, and go-i18n takes long over each.
+	memo     sync.Map
+	memoSize atomic.Int64
 }
+
+// maxMemo bounds the translations a Localizer keeps; most are of fixed
+// messages, but the data of the others (names, counts) varies.
+const maxMemo = 20000
 
 var localizers = sync.OnceValue(func() map[string]*Localizer {
 	bundle := goi18n.NewBundle(language.Ukrainian)
@@ -91,8 +101,9 @@ func (l *Localizer) T(id string, kv ...any) string { return l.Msg(M(id, kv...)) 
 // back as its ID.
 func (l *Localizer) Msg(m Message) string {
 	cfg := &goi18n.LocalizeConfig{MessageID: m.ID}
+	var data map[string]any
 	if m.Data != nil {
-		data := make(map[string]any, len(m.Data))
+		data = make(map[string]any, len(m.Data))
 		for k, v := range m.Data {
 			if inner, ok := v.(Message); ok {
 				v = l.Msg(inner)
@@ -104,12 +115,49 @@ func (l *Localizer) Msg(m Message) string {
 			cfg.PluralCount = c
 		}
 	}
+	key, ok := memoKey(m.ID, data)
+	if ok {
+		if s, ok := l.memo.Load(key); ok {
+			return s.(string)
+		}
+	}
 	s, err := l.l.Localize(cfg)
 	if err != nil {
 		slog.Error("i18n: translate", "lang", l.lang, "id", m.ID, "err", err)
 		return m.ID
 	}
+	if ok && l.memoSize.Load() < maxMemo {
+		if _, loaded := l.memo.LoadOrStore(key, s); !loaded {
+			l.memoSize.Add(1)
+		}
+	}
 	return s
+}
+
+// memoKey identifies a translation: the message and its data, each value
+// with its type, since the plural form of 1 and of 1.5 or "1" may differ.
+// ok is false for data of other types than strings and numbers, which are
+// not memoized.
+func memoKey(id string, data map[string]any) (key string, ok bool) {
+	if len(data) == 0 {
+		return id, true
+	}
+	keys := make([]string, 0, len(data))
+	for k := range data {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	var b strings.Builder
+	b.WriteString(id)
+	for _, k := range keys {
+		switch v := data[k].(type) {
+		case string, int, int64, float64:
+			fmt.Fprintf(&b, "\x00%s\x00%T\x00%v", k, v, v)
+		default:
+			return "", false
+		}
+	}
+	return b.String(), true
 }
 
 type ctxKey struct{}

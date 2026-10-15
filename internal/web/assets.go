@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -25,7 +26,14 @@ type staticAssets struct {
 type staticFile struct {
 	body []byte
 	hash string
+	// gz is body compressed with gzip, for the clients that accept it, or
+	// nil when compressing does not pay (fonts are compressed already).
+	gz []byte
 }
+
+// compressed lists the kinds of files that are kept gzipped: compressing
+// them once here saves nginx doing it on every request.
+var compressed = map[string]bool{".css": true, ".js": true, ".svg": true, ".txt": true}
 
 // assetHashLen is how many hex digits of the SHA-256 go into ?v=.
 const assetHashLen = 12
@@ -73,7 +81,36 @@ func loadStatic(fsys fs.FS) (*staticAssets, error) {
 		}
 		s.files[name] = staticFile{body: body, hash: contentHash(body)}
 	}
+	for name, f := range s.files {
+		if compressed[path.Ext(name)] {
+			f.gz = gzipped(f.body)
+			s.files[name] = f
+		}
+	}
 	return s, nil
+}
+
+func gzipped(b []byte) []byte {
+	var buf bytes.Buffer
+	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	zw.Write(b)
+	zw.Close()
+	return buf.Bytes()
+}
+
+// acceptsGzip reports whether the request's Accept-Encoding allows gzip.
+func acceptsGzip(r *http.Request) bool {
+	for _, h := range r.Header.Values("Accept-Encoding") {
+		for part := range strings.SplitSeq(h, ",") {
+			coding, params, _ := strings.Cut(part, ";")
+			if strings.TrimSpace(coding) != "gzip" {
+				continue
+			}
+			q := strings.ReplaceAll(params, " ", "")
+			return q != "q=0" && q != "q=0.0" && q != "q=0.00" && q != "q=0.000"
+		}
+	}
+	return false
 }
 
 func contentHash(b []byte) string {
@@ -103,6 +140,15 @@ func (s *staticAssets) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Cache-Control", "no-cache")
 	}
-	w.Header().Set("ETag", `"`+f.hash+`"`)
-	http.ServeContent(w, r, r.URL.Path, time.Time{}, bytes.NewReader(f.body))
+	body, etag := f.body, `"`+f.hash+`"`
+	if f.gz != nil {
+		w.Header().Set("Vary", "Accept-Encoding")
+		if acceptsGzip(r) {
+			body, etag = f.gz, `"`+f.hash+`-gz"`
+			w.Header().Set("Content-Encoding", "gzip")
+		}
+	}
+	w.Header().Set("ETag", etag)
+	// The type comes from the name, not from sniffing the (gzipped) body.
+	http.ServeContent(w, r, r.URL.Path, time.Time{}, bytes.NewReader(body))
 }

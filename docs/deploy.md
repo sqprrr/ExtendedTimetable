@@ -138,6 +138,42 @@ Cloudflare's default ("Standard" caching level). Keep it that way, and don't
 add a Cache Rule that ignores the query string or overrides the origin's
 `Cache-Control` for `/static/`.
 
+### A small server
+
+The site is meant to run on a small VPS (one CPU, 512 MB of RAM). It keeps
+what every page needs in memory instead of reading or computing it again:
+
+- the session and account of each signed-in user and the group they look
+  at, until anything is written to the database. A change made with
+  `exttctl admin` (another process) shows within 15 seconds;
+- Markdown rendered to HTML (up to 4 MB), translations and the time zone
+  picker's labels;
+- the database's prepared statements; a page's reads run in one read
+  transaction;
+- stylesheets and scripts gzipped once, at startup.
+
+`extt.service` sets `GOGC=200` and `GOMEMLIMIT=150MiB` for the Go runtime;
+see `deploy/extt.env` to change them. nginx keeps its connections to the
+app open. A server installed before this change needs that added by hand,
+since `install.sh` never overwrites the nginx site:
+
+```nginx
+# above the server block of /etc/nginx/sites-available/extt:
+upstream extt {
+    server 127.0.0.1:8080;
+    keepalive 8;
+}
+
+# in the location / block, instead of proxy_pass http://127.0.0.1:8080;
+proxy_pass http://extt;
+proxy_set_header Connection "";
+```
+
+then `sudo nginx -t && sudo systemctl reload nginx`.
+
+To measure the pages (with a term's worth of content), run
+`EXTT_PERF=1 go test ./internal/server -run TestPerfPages -v`.
+
 ## Monitoring
 
 Prometheus and Grafana run on the same server, listening on loopback only:

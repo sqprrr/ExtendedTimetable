@@ -58,7 +58,7 @@ func (s *Service) HomeGroup(ctx context.Context) (*GroupView, error) {
 	if err != nil || len(v.Memberships) == 0 {
 		return nil, err
 	}
-	g, err := s.store.GroupByID(ctx, v.Memberships[0].GroupID)
+	g, err := s.groupByID(ctx, v.Memberships[0].GroupID)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -71,7 +71,7 @@ func (s *Service) Group(ctx context.Context, code string) (*GroupView, error) {
 	if err != nil {
 		return nil, err
 	}
-	g, err := s.store.GroupByCode(ctx, strings.TrimSpace(code))
+	g, err := s.groupByCode(ctx, strings.TrimSpace(code))
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -79,9 +79,7 @@ func (s *Service) Group(ctx context.Context, code string) (*GroupView, error) {
 		return nil, ErrForbidden
 	}
 	gv := groupView(v, g)
-	if lead, err := s.store.LeaderOf(ctx, g.ID); err == nil {
-		gv.Leader = lead.Username
-	} else if !errors.Is(err, store.ErrNotFound) {
+	if gv.Leader, err = s.leaderOf(ctx, g.ID); err != nil {
 		return nil, err
 	}
 	return gv, nil
