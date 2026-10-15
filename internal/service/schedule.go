@@ -235,7 +235,7 @@ func (s *Service) SyncScheduleNow(ctx context.Context, groupID int64) (*store.Sc
 	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
-	g, err := s.store.GroupByID(ctx, groupID)
+	g, err := s.groupByID(ctx, groupID)
 	if err != nil {
 		return nil, notFound(err)
 	}
@@ -356,7 +356,7 @@ func (s *Service) Schedule(ctx context.Context, groupID int64, from, to time.Tim
 	if !to.After(from) || to.After(from.AddDate(0, 0, maxScheduleDays)) {
 		return nil, inputError("to", "err.schedule_range", "Count", maxScheduleDays)
 	}
-	g, err := s.store.GroupByID(ctx, groupID)
+	g, err := s.groupByID(ctx, groupID)
 	if err != nil {
 		return nil, notFound(err)
 	}

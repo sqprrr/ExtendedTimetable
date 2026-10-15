@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
@@ -100,12 +102,35 @@ func zoneLabel(l *i18n.Localizer, name string) string {
 // zoneOptionLabel is a zone in the picker: "Warsaw (UTC+2)", with its
 // offset at now.
 func zoneOptionLabel(l *i18n.Localizer, name string, now time.Time) string {
-	label, offset := zoneLabel(l, name), utcOffset(now.In(service.LoadTimeZone(name)))
-	if label == offset {
-		return label
+	// Every signed-in page has the picker, so its labels are kept, by the
+	// offset too: it changes when clocks go forward or back.
+	_, off := now.In(service.LoadTimeZone(name)).Zone()
+	key := zoneLabelKey{l.Lang(), name, off}
+	if s, ok := zoneLabels.Load(key); ok {
+		return s.(string)
 	}
-	return l.T("tz.option", "Zone", label, "Offset", offset)
+	label, offset := zoneLabel(l, name), utcOffset(now.In(service.LoadTimeZone(name)))
+	if label != offset {
+		label = l.T("tz.option", "Zone", label, "Offset", offset)
+	}
+	// About 600 zones, each with two offsets at most, in each language.
+	if zoneLabelCount.Load() < 4096 {
+		if _, loaded := zoneLabels.LoadOrStore(key, label); !loaded {
+			zoneLabelCount.Add(1)
+		}
+	}
+	return label
 }
+
+type zoneLabelKey struct {
+	lang, name string
+	offset     int
+}
+
+var (
+	zoneLabels     sync.Map // zoneLabelKey → string
+	zoneLabelCount atomic.Int64
+)
 
 // utcOffset is t's offset from UTC: "UTC+2", "UTC−4", "UTC+5:30", "UTC".
 func utcOffset(t time.Time) string {

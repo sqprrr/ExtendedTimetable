@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"modernc.org/sqlite"
@@ -46,6 +48,90 @@ type Queries struct {
 type Store struct {
 	*Queries
 	db *sql.DB
+	// version counts the writes this process committed; see Version.
+	version *atomic.Uint64
+}
+
+// maxConns bounds the open connections. Each keeps its own page cache, so
+// a few are enough for a small site on a small machine; they are kept open
+// rather than closed and reopened under load, since opening one runs the
+// pragmas and reads the schema again.
+const maxConns = 4
+
+// rootDB is the database handle of a Store's Queries. It runs reads as
+// prepared statements, in the context's snapshot if any (WithSnapshot), and
+// bumps version after every write made outside a transaction (InTx bumps
+// it on commit).
+type rootDB struct {
+	*sql.DB
+	version *atomic.Uint64
+	stmts   *stmtCache
+}
+
+func (d rootDB) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	tx := txFor(ctx)
+	if st := d.stmts.get(ctx, d.DB, query); st != nil {
+		if tx != nil {
+			st = tx.StmtContext(ctx, st)
+		}
+		return st.QueryContext(ctx, args...)
+	}
+	if tx != nil {
+		return tx.QueryContext(ctx, query, args...)
+	}
+	return d.DB.QueryContext(ctx, query, args...)
+}
+
+func (d rootDB) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	tx := txFor(ctx)
+	if st := d.stmts.get(ctx, d.DB, query); st != nil {
+		if tx != nil {
+			st = tx.StmtContext(ctx, st)
+		}
+		return st.QueryRowContext(ctx, args...)
+	}
+	if tx != nil {
+		return tx.QueryRowContext(ctx, query, args...)
+	}
+	return d.DB.QueryRowContext(ctx, query, args...)
+}
+
+func (d rootDB) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	endSnapshot(ctx)
+	res, err := d.DB.ExecContext(ctx, query, args...)
+	d.version.Add(1)
+	return res, err
+}
+
+// stmtCache keeps the reads prepared: SQLite parsing and planning a query
+// again each time it runs costs about as much as running it. Each statement
+// is prepared once per connection, as it is first used on it. The queries
+// are the store's own constants, so there are few of them; maxStmts is a
+// safeguard.
+type stmtCache struct {
+	mu sync.Mutex
+	m  map[string]*sql.Stmt
+}
+
+const maxStmts = 256
+
+// get returns query prepared, or nil if it could not be (it then runs
+// unprepared and reports its own error).
+func (c *stmtCache) get(ctx context.Context, db *sql.DB, query string) *sql.Stmt {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if st, ok := c.m[query]; ok {
+		return st
+	}
+	if len(c.m) >= maxStmts {
+		return nil
+	}
+	st, err := db.PrepareContext(ctx, query)
+	if err != nil {
+		return nil
+	}
+	c.m[query] = st
+	return st
 }
 
 // Open opens (creating if needed) the SQLite database at path.
@@ -55,6 +141,10 @@ func Open(dbPath string) (*Store, error) {
 	q.Add("_pragma", "journal_mode(WAL)")
 	q.Add("_pragma", "busy_timeout(5000)")
 	q.Add("_pragma", "synchronous(NORMAL)")
+	// Read pages through a memory map instead of a system call each, and
+	// keep temporary tables (sorting, GROUP BY) off the disk.
+	q.Add("_pragma", "mmap_size(268435456)")
+	q.Add("_pragma", "temp_store(MEMORY)")
 	q.Set("_txlock", "immediate")
 	db, err := sql.Open("sqlite", "file:"+dbPath+"?"+q.Encode())
 	if err != nil {
@@ -64,7 +154,17 @@ func Open(dbPath string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("open %s: %w", dbPath, err)
 	}
-	return &Store{Queries: &Queries{db: db}, db: db}, nil
+	db.SetMaxOpenConns(maxConns)
+	db.SetMaxIdleConns(maxConns)
+	version := new(atomic.Uint64)
+	return &Store{Queries: &Queries{db: rootDB{db, version, &stmtCache{m: map[string]*sql.Stmt{}}}}, db: db, version: version}, nil
+}
+
+// Optimize lets SQLite refresh the statistics its query planner uses, when
+// they are out of date. It is cheap when there is nothing to do.
+func (s *Store) Optimize(ctx context.Context) error {
+	_, err := s.db.ExecContext(ctx, `PRAGMA optimize`)
+	return err
 }
 
 // Backup writes a consistent copy of the database to path with VACUUM INTO.
@@ -79,11 +179,19 @@ func (s *Store) Backup(ctx context.Context, path string) error {
 	return nil
 }
 
-// Close closes the database.
-func (s *Store) Close() error { return s.db.Close() }
+// Close closes the database, first letting SQLite update the planner's
+// statistics as it recommends.
+func (s *Store) Close() error {
+	_ = s.Optimize(context.Background())
+	return s.db.Close()
+}
 
 // InTx runs fn inside a transaction, committing if fn returns nil.
 func (s *Store) InTx(ctx context.Context, fn func(q *Queries) error) error {
+	// Bumped after the commit: a reader that saw the old Version and then
+	// read the old rows must not cache them under the new one.
+	defer s.version.Add(1)
+	endSnapshot(ctx)
 	return inTx(ctx, s.db, fn)
 }
 
@@ -109,6 +217,7 @@ func inTx(ctx context.Context, db interface {
 // it. Each migration must leave every foreign key valid, which is checked
 // before it commits.
 func (s *Store) Migrate(ctx context.Context, fsys fs.FS) (err error) {
+	defer s.version.Add(1)
 	names, err := fs.Glob(fsys, "*.sql")
 	if err != nil {
 		return err

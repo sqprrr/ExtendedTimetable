@@ -30,7 +30,7 @@ func (s *Service) MyGroups(ctx context.Context) ([]GroupSummary, error) {
 		}
 	} else {
 		for _, m := range v.Memberships {
-			g, err := s.store.GroupByID(ctx, m.GroupID)
+			g, err := s.groupByID(ctx, m.GroupID)
 			if err != nil {
 				return nil, err
 			}

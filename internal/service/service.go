@@ -64,6 +64,8 @@ type Service struct {
 	registerByIP    *auth.Limiter
 	feedbackByUser  *auth.Limiter
 
+	cache caches
+
 	// syncing holds the groups' syncs that are running.
 	syncMu  sync.Mutex
 	syncing map[syncKey]bool
@@ -86,7 +88,16 @@ func New(st *store.Store, cfg Config) *Service {
 		registerByIP:    auth.NewLimiter(10, time.Hour),
 		feedbackByUser:  auth.NewLimiter(10, time.Hour),
 		syncing:         map[syncKey]bool{},
+		cache:           newCaches(),
 	}
+}
+
+// WithSnapshot returns a context whose reads see the database as it was at
+// the first of them, which is cheaper than each one on its own, and the
+// function that ends it. Writes made with the context still work, and the
+// reads after them see them.
+func (s *Service) WithSnapshot(ctx context.Context) (context.Context, func()) {
+	return s.store.WithSnapshot(ctx)
 }
 
 // Now is the service's clock. Transports use it for "today" so they agree
@@ -100,7 +111,8 @@ func StartOfDay(t time.Time, loc *time.Location) time.Time {
 }
 
 // RunMaintenance periodically removes expired sessions and stale rate-limit
-// buckets until ctx is done.
+// buckets, and lets SQLite refresh its query planner's statistics, until
+// ctx is done.
 func (s *Service) RunMaintenance(ctx context.Context, every time.Duration) error {
 	t := time.NewTicker(every)
 	defer t.Stop()
@@ -111,6 +123,9 @@ func (s *Service) RunMaintenance(ctx context.Context, every time.Duration) error
 		}
 		if n > 0 {
 			slog.Debug("expired sessions removed", "count", n)
+		}
+		if err := s.store.Optimize(ctx); err != nil && ctx.Err() == nil {
+			slog.Warn("optimize the database", "err", err)
 		}
 		s.loginByIP.Prune()
 		s.loginByUsername.Prune()

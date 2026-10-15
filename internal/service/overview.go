@@ -53,7 +53,7 @@ func (s *Service) GroupOverview(ctx context.Context, groupID int64) (*Overview, 
 	if err != nil {
 		return nil, err
 	}
-	g, err := s.store.GroupByID(ctx, groupID)
+	g, err := s.groupByID(ctx, groupID)
 	if err != nil {
 		return nil, notFound(err)
 	}
