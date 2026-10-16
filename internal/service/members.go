@@ -90,7 +90,7 @@ func (s *Service) Invite(ctx context.Context, token string) (*InviteView, error)
 	if err != nil {
 		return nil, err
 	}
-	g, err := s.store.GroupByID(ctx, inv.GroupID)
+	g, err := s.groupByID(ctx, inv.GroupID)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (s *Service) Invite(ctx context.Context, token string) (*InviteView, error)
 			if m.GroupID == g.ID {
 				out.Member = true
 			} else if out.OtherGroup == nil {
-				if out.OtherGroup, err = s.store.GroupByID(ctx, m.GroupID); err != nil {
+				if out.OtherGroup, err = s.groupByID(ctx, m.GroupID); err != nil {
 					return nil, err
 				}
 			}

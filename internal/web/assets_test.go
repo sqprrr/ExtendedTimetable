@@ -1,6 +1,7 @@
 package web
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -121,5 +122,47 @@ func TestShippedStylesheetFontsVersioned(t *testing.T) {
 		if !regexp.MustCompile(`^fonts/[\w-]+\.woff2\?v=[0-9a-f]{12}$`).MatchString(m[1]) {
 			t.Errorf("unversioned url in style.css: %s", m[1])
 		}
+	}
+}
+
+func TestStaticGzip(t *testing.T) {
+	css := strings.Repeat("a { color: red }\n", 100)
+	s := testStatic(t, map[string]string{"style.css": css, "fonts/a.woff2": "font"})
+	u, _ := s.url("style.css")
+
+	get := func(name, acceptEncoding string) *http.Response {
+		r := httptest.NewRequest(http.MethodGet, name, nil)
+		if acceptEncoding != "" {
+			r.Header.Set("Accept-Encoding", acceptEncoding)
+		}
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		return w.Result()
+	}
+
+	resp := get(u, "gzip, deflate, br")
+	if resp.Header.Get("Content-Encoding") != "gzip" || resp.Header.Get("Vary") != "Accept-Encoding" {
+		t.Fatalf("gzip client: Content-Encoding %q, Vary %q", resp.Header.Get("Content-Encoding"), resp.Header.Get("Vary"))
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/css") {
+		t.Errorf("Content-Type = %q", ct)
+	}
+	zr, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body, _ := io.ReadAll(zr); string(body) != css {
+		t.Error("the gzipped body is not the stylesheet")
+	}
+
+	for _, ae := range []string{"", "br", "gzip;q=0"} {
+		resp := get(u, ae)
+		body, _ := io.ReadAll(resp.Body)
+		if resp.Header.Get("Content-Encoding") != "" || string(body) != css {
+			t.Errorf("Accept-Encoding %q: want the plain file", ae)
+		}
+	}
+	if resp := get("/static/fonts/a.woff2", "gzip"); resp.Header.Get("Content-Encoding") != "" {
+		t.Error("fonts are compressed already and must be sent as they are")
 	}
 }

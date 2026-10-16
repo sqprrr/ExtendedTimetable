@@ -193,7 +193,7 @@ func (s *Service) addPlaylist(ctx context.Context, groupID int64, link string, c
 	if err != nil {
 		return err
 	}
-	g, err := s.store.GroupByID(ctx, groupID)
+	g, err := s.groupByID(ctx, groupID)
 	if err != nil {
 		return notFound(err)
 	}
@@ -244,7 +244,7 @@ func (s *Service) SyncRecordingsNow(ctx context.Context, groupID int64) (*store.
 	if _, err := canEdit(ctx, groupID); err != nil {
 		return nil, err
 	}
-	g, err := s.store.GroupByID(ctx, groupID)
+	g, err := s.groupByID(ctx, groupID)
 	if err != nil {
 		return nil, notFound(err)
 	}

@@ -45,6 +45,7 @@ func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	h = timeZone(cookies, svc)(h)
 	h = recordUser(h)
 	h = cookies.LoadSession(svc.Authenticate)(h)
+	h = readSnapshot(svc)(h)
 	h = cookies.CSRF(h)
 	h = limitBody(h)
 	h = securityHeaders(h)
@@ -98,6 +99,21 @@ func limitBody(next http.Handler) http.Handler {
 		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		next.ServeHTTP(w, r)
 	})
+}
+
+// readSnapshot runs the reads of a GET request, the session's included, in
+// one read transaction (service.WithSnapshot).
+func readSnapshot(svc *service.Service) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet || r.Method == http.MethodHead {
+				ctx, end := svc.WithSnapshot(r.Context())
+				defer end()
+				r = r.WithContext(ctx)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func securityHeaders(next http.Handler) http.Handler {

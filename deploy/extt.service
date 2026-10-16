@@ -10,6 +10,10 @@ Wants=network-online.target
 Type=simple
 User=extt
 Group=extt
+# The Go runtime: collect garbage half as often (GOGC=200), which saves
+# CPU on a small machine since the app keeps little in memory, but do so
+# more often again as it nears 150 MiB. extt.env may override both.
+Environment=GOGC=200 GOMEMLIMIT=150MiB
 EnvironmentFile=/etc/extt/extt.env
 ExecStart=/usr/local/bin/extt serve
 Restart=on-failure

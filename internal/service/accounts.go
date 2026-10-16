@@ -250,7 +250,15 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 // Authenticate resolves a session token to a context carrying the Viewer.
 // It implements auth.Authenticator.
 func (s *Service) Authenticate(ctx context.Context, token string) (context.Context, error) {
-	sess, err := s.store.SessionByID(ctx, auth.SessionID(token))
+	id := auth.SessionID(token)
+	version, now := s.store.Version(ctx), s.now()
+	// A cached session is used until it is due to be extended, which needs
+	// a write.
+	if c, ok := s.cache.sessions.Get(id, version, now); ok && c.expiresAt.Sub(now) >= s.cfg.SessionTTL/2 {
+		v := c.viewer
+		return WithViewer(ctx, &v), nil
+	}
+	sess, err := s.store.SessionByID(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, auth.ErrNoSession
 	} else if err != nil {
@@ -276,8 +284,9 @@ func (s *Service) Authenticate(ctx context.Context, token string) (context.Conte
 			return nil, err
 		}
 		ctx = auth.WithRenewedSession(ctx, expires)
+		sess.ExpiresAt = expires
 	}
-	return WithViewer(ctx, &Viewer{
+	v := Viewer{
 		UserID:       u.ID,
 		Username:     u.Username,
 		IsSuperadmin: u.IsSuperadmin,
@@ -285,7 +294,10 @@ func (s *Service) Authenticate(ctx context.Context, token string) (context.Conte
 		Theme:        u.Theme,
 		TimeZone:     u.TimeZone,
 		Memberships:  ms,
-	}), nil
+	}
+	// Each request gets a copy, which it may change (SetLocale).
+	s.cache.sessions.Put(id, cachedSession{expiresAt: sess.ExpiresAt, viewer: v}, version, now)
+	return WithViewer(ctx, &v), nil
 }
 
 func (s *Service) createSession(ctx context.Context, userID int64) (*NewSession, error) {
