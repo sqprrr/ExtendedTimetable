@@ -129,6 +129,15 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error)
 		metrics.Login(metrics.RateLimited)
 		return nil, ErrRateLimited
 	}
+	// No account has a longer name. Checked before the name becomes a rate
+	// limiter key, which would keep whatever a client sent (up to the body
+	// limit) in memory until the next prune.
+	if len(username) > maxUsernameLen {
+		auth.BurnPasswordCheck(in.Password)
+		slog.InfoContext(ctx, "login failed", "reason", "unknown username")
+		metrics.Login(metrics.Failure)
+		return nil, ErrInvalidCredentials
+	}
 	if !s.loginByUsername.Allow(username) {
 		slog.WarnContext(ctx, "login rate limited", "by", "username")
 		metrics.Login(metrics.RateLimited)

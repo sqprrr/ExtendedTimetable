@@ -34,6 +34,9 @@ func TestLimiter(t *testing.T) {
 	if !l.Allow("other") {
 		t.Fatal("keys must be independent")
 	}
+	if n := l.Len(); n != 2 {
+		t.Fatalf("Len = %d, want 2", n)
+	}
 	now = now.Add(time.Minute)
 	if !l.Allow("k") {
 		t.Fatal("window should have reset")

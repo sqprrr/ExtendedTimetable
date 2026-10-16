@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
@@ -184,6 +186,24 @@ func TestLogin(t *testing.T) {
 	}
 	if _, err := f.svc.Authenticate(ctx, sess.Token); !errors.Is(err, auth.ErrNoSession) {
 		t.Fatalf("after logout: got %v, want ErrNoSession", err)
+	}
+}
+
+// A name longer than any account's is refused before it is kept as a rate
+// limiter key, so a client cannot fill memory with megabyte-long names.
+func TestLoginRejectsOverlongUsername(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	for i := range 5 {
+		_, err := f.svc.Login(ctx, service.LoginInput{
+			Username: strings.Repeat("a", 100_000) + strconv.Itoa(i), Password: "whatever1", ClientIP: "1",
+		})
+		if !errors.Is(err, service.ErrInvalidCredentials) {
+			t.Fatalf("got %v, want ErrInvalidCredentials", err)
+		}
+	}
+	if n := service.LoginLimiterKeys(f.svc); n != 0 {
+		t.Errorf("login limiter keeps %d keys for overlong names, want 0", n)
 	}
 }
 
