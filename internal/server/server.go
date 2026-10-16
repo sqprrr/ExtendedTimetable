@@ -46,6 +46,7 @@ func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	h = recordUser(h)
 	h = cookies.LoadSession(svc.Authenticate)(h)
 	h = cookies.CSRF(h)
+	h = limitBody(h)
 	h = securityHeaders(h)
 	h = recoverer(h)
 	h = requestLog(cfg.TrustProxy, mux, h)
@@ -79,6 +80,24 @@ func timeZone(cookies auth.Cookies, svc *service.Service) func(http.Handler) htt
 			next.ServeHTTP(w, r.WithContext(svc.WithTimeZone(r.Context(), choice, cookies.DeviceTimeZone(r))))
 		})
 	}
+}
+
+// maxBodyBytes bounds request bodies, like nginx's client_max_body_size:
+// forms and JSON are a few kilobytes, and the CSRF check reads form bodies
+// before anyone is known to be signed in.
+const maxBodyBytes = 1 << 20
+
+// limitBody refuses bodies over maxBodyBytes: at once when the request says
+// its length, else when reading reaches the limit.
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ContentLength > maxBodyBytes {
+			http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		next.ServeHTTP(w, r)
+	})
 }
 
 func securityHeaders(next http.Handler) http.Handler {

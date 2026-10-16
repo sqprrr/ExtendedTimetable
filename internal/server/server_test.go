@@ -226,6 +226,37 @@ func TestPostWithoutCSRFTokenIsRejected(t *testing.T) {
 	}
 }
 
+// Bodies over 1 MB are refused before the CSRF check reads them, so nobody
+// can make the server buffer large uploads without signing in.
+func TestOversizedBodiesAreRefused(t *testing.T) {
+	e := newEnv(t)
+	b := e.browser(t)
+	_, page, _ := b.get("/login")
+	token := csrfRe.FindStringSubmatch(page)[1]
+	big := url.Values{"csrf_token": {token}, "username": {strings.Repeat("a", 2<<20)}, "password": {"x"}}.Encode()
+
+	if code, _, _ := b.post("/login", url.Values{"csrf_token": {token}, "username": {"x"}, "password": {"wrong password"}}); code != http.StatusUnprocessableEntity {
+		t.Fatalf("small body: got %d, want 422", code)
+	}
+	resp, err := b.c.Post(e.srv.URL+"/login", "application/x-www-form-urlencoded", strings.NewReader(big))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Errorf("2 MB body: got %d, want 413", resp.StatusCode)
+	}
+	// Without a length (chunked), reading stops at the limit.
+	resp, err = b.c.Post(e.srv.URL+"/login", "application/x-www-form-urlencoded", io.MultiReader(strings.NewReader(big)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("2 MB chunked body: got %d, want 403 (no token read)", resp.StatusCode)
+	}
+}
+
 func TestLeaderIsAppointedByAdmin(t *testing.T) {
 	e := newEnv(t)
 	b := e.browser(t)
