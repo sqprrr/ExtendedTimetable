@@ -376,6 +376,7 @@ no_resources_lesson = "Для цього типу занять ще нічого
 [err]
 required = "{{.Field}}: обов’язкове поле."
 single_line = "{{.Field}}: має бути в один рядок."
+control_chars = "{{.Field}}: не має містити керувальних символів."
 link_required = "Вкажіть посилання."
 link_invalid = "Посилання має бути повною адресою http:// або https://."
 date_invalid = "Дата має бути у форматі 2026-09-01."

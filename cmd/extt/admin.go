@@ -9,6 +9,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/term"
 
@@ -165,7 +167,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			return fmt.Errorf("no CIST group matches %q (CIST names are in Ukrainian, e.g. КІУКІ-25-3)", pos[0])
 		}
 		for _, g := range groups {
-			fmt.Fprintf(stdout, "%d\t%s\n", g.ID, g.Name)
+			fmt.Fprintf(stdout, "%d\t%s\n", g.ID, printable(g.Name))
 		}
 
 	case "set-cist-id":
@@ -251,9 +253,9 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			fmt.Fprintf(stdout, "%s has no playlists\n", strings.ToUpper(pos[0]))
 		}
 		for _, p := range pls {
-			fmt.Fprintf(stdout, "%s  %s\n", service.PlaylistURL(p.PlaylistID), p.Title)
+			fmt.Fprintf(stdout, "%s  %s\n", service.PlaylistURL(p.PlaylistID), printable(p.Title))
 			if p.LastError != "" {
-				fmt.Fprintf(stdout, "    last sync failed: %s\n", p.LastError)
+				fmt.Fprintf(stdout, "    last sync failed: %s\n", printable(p.LastError))
 			}
 		}
 
@@ -289,7 +291,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			if f.ResolvedAt != nil {
 				fmt.Fprint(stdout, "  [resolved]")
 			}
-			fmt.Fprintf(stdout, "\n  %s\n\n", strings.ReplaceAll(f.Message, "\n", "\n  "))
+			fmt.Fprintf(stdout, "\n  %s\n\n", strings.ReplaceAll(printable(f.Message), "\n", "\n  "))
 		}
 		fmt.Fprintf(stdout, "%d open; read and resolve them at /admin/feedback\n", inbox.Open)
 
@@ -302,6 +304,27 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 
 // cliTime is how the CLI prints a moment, in the server's local time.
 const cliTime = "2006-01-02 15:04"
+
+// printable makes text that users, YouTube or CIST wrote safe to print to
+// the operator's terminal, where control characters are escape sequences
+// that can clear the screen, hide lines, retitle the window or write the
+// clipboard. Those other than newline and tab are shown escaped (\x1b), and
+// invalid UTF-8 as U+FFFD.
+func printable(s string) string {
+	unsafe := func(r rune) bool { return unicode.IsControl(r) && r != '\n' && r != '\t' }
+	if utf8.ValidString(s) && !strings.ContainsFunc(s, unsafe) {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if unsafe(r) {
+			fmt.Fprintf(&b, `\x%02x`, r)
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
 
 // printInvite prints an invite link, in full when the site's address is known.
 func printInvite(w io.Writer, baseURL string, inv *store.Invite) {
@@ -349,7 +372,7 @@ func printRecordingSync(ctx context.Context, svc *service.Service, w io.Writer, 
 	if len(rec.Unmatched) > 0 {
 		fmt.Fprintln(w, "videos left out (no date, or a subject the group does not have):")
 		for _, t := range rec.Unmatched {
-			fmt.Fprintln(w, "  "+t)
+			fmt.Fprintln(w, "  "+printable(t))
 		}
 	}
 	return nil
