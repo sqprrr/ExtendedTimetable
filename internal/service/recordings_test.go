@@ -27,11 +27,14 @@ type fakeYouTube struct {
 	added int
 	// panics makes a playlist panic when read.
 	panics string
+	// reads counts the playlists read, as a stand-in for the API quota.
+	reads int
 }
 
 func (f *fakeYouTube) Playlist(_ context.Context, id string) (*youtube.Playlist, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.reads++
 	if id == f.panics {
 		panic("unexpected JSON")
 	}
@@ -362,6 +365,7 @@ func TestSyncSeveralPlaylists(t *testing.T) {
 		if err := f.svc.AddPlaylist(f.lead, f.group.ID, pl); err != nil {
 			t.Fatal(err)
 		}
+		*f.now = f.now.Add(5 * time.Minute) // past the cooldown, so adding syncs
 	}
 	wantInputError(t, f.svc.AddPlaylist(f.lead, f.group.ID, "https://www.youtube.com/playlist?list="+otherPlaylist), "playlist")
 	recs := f.recordings(t)
@@ -403,6 +407,64 @@ func TestSyncSeveralPlaylists(t *testing.T) {
 		t.Fatalf("full: %d playlists, CanAdd %v", len(src.Playlists), src.CanAdd)
 	}
 	wantInputError(t, f.svc.AddPlaylist(f.lead, f.group.ID, testPlaylist), "playlist")
+}
+
+// Adding a playlist syncs at most once per cooldown, like "Sync with
+// YouTube": adding and removing playlists in a loop must not spend the API
+// quota that every group shares.
+func TestAddingPlaylistsKeepsTheSyncCooldown(t *testing.T) {
+	f := setupRecordings(t)
+	reads := func() int {
+		f.yt.mu.Lock()
+		defer f.yt.mu.Unlock()
+		return f.yt.reads
+	}
+	if err := f.svc.AddPlaylist(f.lead, f.group.ID, testPlaylist); err != nil {
+		t.Fatal(err)
+	}
+	if n := reads(); n != 1 {
+		t.Fatalf("the first playlist: %d reads, want 1", n)
+	}
+	for range 5 {
+		if err := f.svc.RemovePlaylist(f.lead, f.group.ID, testPlaylist); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.svc.AddPlaylist(f.lead, f.group.ID, testPlaylist); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := f.svc.AddPlaylist(f.lead, f.group.ID, otherPlaylist); err != nil {
+		t.Fatal(err)
+	}
+	if n := reads(); n != 1 {
+		t.Fatalf("adding within the cooldown read YouTube: %d reads, want 1", n)
+	}
+	// Both are kept for the next sync.
+	if src, err := f.svc.RecordingsSourceFor(f.lead, f.group.ID); err != nil || len(src.Playlists) != 2 {
+		t.Fatalf("playlists: %+v %v", src, err)
+	}
+
+	*f.now = f.now.Add(5 * time.Minute)
+	if err := f.svc.RemovePlaylist(f.lead, f.group.ID, otherPlaylist); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.AddPlaylist(f.lead, f.group.ID, otherPlaylist); err != nil {
+		t.Fatal(err)
+	}
+	if n := reads(); n != 3 {
+		t.Fatalf("after the cooldown: %d reads, want 3 (both playlists synced)", n)
+	}
+
+	// The server's CLI is not limited.
+	if err := f.svc.AdminRemovePlaylist(context.Background(), f.group.Code, otherPlaylist); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.AdminAddPlaylist(context.Background(), f.group.Code, otherPlaylist); err != nil {
+		t.Fatal(err)
+	}
+	if n := reads(); n != 5 {
+		t.Fatalf("the CLI within the cooldown: %d reads, want 5", n)
+	}
 }
 
 // A playlist whose source panics fails on its own; the others still sync.

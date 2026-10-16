@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
@@ -39,9 +40,14 @@ func (in FeedbackInput) validate() (FeedbackInput, error) {
 	if in.Rating != nil && (*in.Rating < 1 || *in.Rating > 5) {
 		return in, inputError("rating", "err.rating")
 	}
-	in.Message = strings.TrimSpace(strings.ReplaceAll(in.Message, "\r\n", "\n"))
+	in.Message = strings.TrimSpace(strings.NewReplacer("\r\n", "\n", "\r", "\n").Replace(in.Message))
 	if in.Message == "" {
 		return in, inputError("message", "err.required", "Field", i18n.M("field.message"))
+	}
+	// Superadmins also read feedback in a terminal (extt admin feedback),
+	// where control characters are escape sequences.
+	if strings.ContainsFunc(in.Message, func(r rune) bool { return unicode.IsControl(r) && r != '\n' && r != '\t' }) {
+		return in, inputError("message", "err.control_chars", "Field", i18n.M("field.message"))
 	}
 	if utf8.RuneCountInString(in.Message) > maxFeedbackLen {
 		return in, inputError("message", "err.too_long", "Field", i18n.M("field.message"), "Count", maxFeedbackLen)

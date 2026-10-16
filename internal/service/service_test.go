@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
@@ -187,20 +189,90 @@ func TestLogin(t *testing.T) {
 	}
 }
 
+// A name longer than any account's is refused before it is kept as a rate
+// limiter key, so a client cannot fill memory with megabyte-long names.
+func TestLoginRejectsOverlongUsername(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	for i := range 5 {
+		_, err := f.svc.Login(ctx, service.LoginInput{
+			Username: strings.Repeat("a", 100_000) + strconv.Itoa(i), Password: "whatever1", ClientIP: "1",
+		})
+		if !errors.Is(err, service.ErrInvalidCredentials) {
+			t.Fatalf("got %v, want ErrInvalidCredentials", err)
+		}
+	}
+	if n := service.LoginLimiterKeys(f.svc); n != 0 {
+		t.Errorf("login limiter keeps %d keys for overlong names, want 0", n)
+	}
+}
+
 func TestLoginRateLimitPerUsername(t *testing.T) {
 	f := setup(t)
 	f.register(t, "erin")
 	ctx := context.Background()
+	login := func(password, ip string) error {
+		_, err := f.svc.Login(ctx, service.LoginInput{Username: "erin", Password: password, ClientIP: ip})
+		return err
+	}
 	var err error
-	for i := range 11 {
-		_, err = f.svc.Login(ctx, service.LoginInput{Username: "erin", Password: "nope-nope", ClientIP: string(rune('a' + i))})
+	for range 11 {
+		err = login("nope-nope", "198.51.100.1")
 	}
 	if !errors.Is(err, service.ErrRateLimited) {
-		t.Fatalf("11th attempt: got %v, want ErrRateLimited", err)
+		t.Fatalf("11th attempt from one address: got %v, want ErrRateLimited", err)
 	}
-	// Even the right password is refused while limited.
-	if _, err := f.svc.Login(ctx, service.LoginInput{Username: "erin", Password: "correct horse", ClientIP: "z"}); !errors.Is(err, service.ErrRateLimited) {
-		t.Fatalf("got %v, want ErrRateLimited", err)
+	// Even the right password is refused from there while limited...
+	if err := login("correct horse", "198.51.100.1"); !errors.Is(err, service.ErrRateLimited) {
+		t.Fatalf("right password from the guessing address: got %v, want ErrRateLimited", err)
+	}
+	// ...but whoever guessed does not lock the owner out elsewhere.
+	if err := login("correct horse", "203.0.113.9"); err != nil {
+		t.Fatalf("right password from another address: got %v, want a session", err)
+	}
+}
+
+// Guessing one password from many networks at once still stops, at a
+// higher limit (100 per 15 minutes) that then holds for everyone.
+func TestLoginRateLimitPerUsernameOverall(t *testing.T) {
+	f := setup(t)
+	f.register(t, "erin")
+	ctx := context.Background()
+	for i := range 100 {
+		ip := "198.51.100." + strconv.Itoa(i/10)
+		if _, err := f.svc.Login(ctx, service.LoginInput{Username: "erin", Password: "nope-nope", ClientIP: ip}); !errors.Is(err, service.ErrInvalidCredentials) {
+			t.Fatalf("attempt %d from %s: got %v, want ErrInvalidCredentials", i+1, ip, err)
+		}
+	}
+	if _, err := f.svc.Login(ctx, service.LoginInput{Username: "erin", Password: "correct horse", ClientIP: "203.0.113.9"}); !errors.Is(err, service.ErrRateLimited) {
+		t.Fatalf("after 100 attempts: got %v, want ErrRateLimited", err)
+	}
+}
+
+// Addresses of one IPv6 /64 share their limits: a client usually has the
+// whole /64 and could otherwise use a new address for every attempt.
+func TestRateLimitsCountIPv6By64(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	for i := range 30 {
+		ip := "2001:db8:1:2::" + strconv.FormatInt(int64(i+1), 16)
+		user := "nobody" + strconv.Itoa(i)
+		if _, err := f.svc.Login(ctx, service.LoginInput{Username: user, Password: "whatever1", ClientIP: ip}); !errors.Is(err, service.ErrInvalidCredentials) {
+			t.Fatalf("attempt %d: got %v, want ErrInvalidCredentials", i+1, err)
+		}
+	}
+	if _, err := f.svc.Login(ctx, service.LoginInput{Username: "someone", Password: "whatever1", ClientIP: "2001:db8:1:2:ffff::1"}); !errors.Is(err, service.ErrRateLimited) {
+		t.Fatalf("31st login from the same /64: got %v, want ErrRateLimited", err)
+	}
+	if _, err := f.svc.Login(ctx, service.LoginInput{Username: "someone", Password: "whatever1", ClientIP: "2001:db8:1:3::1"}); !errors.Is(err, service.ErrInvalidCredentials) {
+		t.Fatalf("login from another /64: got %v, want ErrInvalidCredentials", err)
+	}
+
+	for i := range 10 {
+		f.svc.Register(ctx, service.RegisterInput{Username: "x", ClientIP: "2001:db8:5::" + strconv.Itoa(i+1)})
+	}
+	if _, err := f.svc.Register(ctx, service.RegisterInput{Username: "x", ClientIP: "2001:db8:5::ff"}); !errors.Is(err, service.ErrRateLimited) {
+		t.Fatalf("11th registration from the same /64: got %v, want ErrRateLimited", err)
 	}
 }
 

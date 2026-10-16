@@ -226,6 +226,37 @@ func TestPostWithoutCSRFTokenIsRejected(t *testing.T) {
 	}
 }
 
+// Bodies over 1 MB are refused before the CSRF check reads them, so nobody
+// can make the server buffer large uploads without signing in.
+func TestOversizedBodiesAreRefused(t *testing.T) {
+	e := newEnv(t)
+	b := e.browser(t)
+	_, page, _ := b.get("/login")
+	token := csrfRe.FindStringSubmatch(page)[1]
+	big := url.Values{"csrf_token": {token}, "username": {strings.Repeat("a", 2<<20)}, "password": {"x"}}.Encode()
+
+	if code, _, _ := b.post("/login", url.Values{"csrf_token": {token}, "username": {"x"}, "password": {"wrong password"}}); code != http.StatusUnprocessableEntity {
+		t.Fatalf("small body: got %d, want 422", code)
+	}
+	resp, err := b.c.Post(e.srv.URL+"/login", "application/x-www-form-urlencoded", strings.NewReader(big))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusRequestEntityTooLarge {
+		t.Errorf("2 MB body: got %d, want 413", resp.StatusCode)
+	}
+	// Without a length (chunked), reading stops at the limit.
+	resp, err = b.c.Post(e.srv.URL+"/login", "application/x-www-form-urlencoded", io.MultiReader(strings.NewReader(big)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("2 MB chunked body: got %d, want 403 (no token read)", resp.StatusCode)
+	}
+}
+
 func TestLeaderIsAppointedByAdmin(t *testing.T) {
 	e := newEnv(t)
 	b := e.browser(t)
@@ -295,6 +326,18 @@ func TestSecurityHeadersAndCookies(t *testing.T) {
 	}
 	if code, _, _ := b.get("/static/style.css"); code != http.StatusOK {
 		t.Errorf("static asset: %d", code)
+	}
+
+	// Signed-in pages and API answers are kept by no cache; static files
+	// keep their own caching (TestVersionedStaticAssets).
+	b.register("KIUKI-25-3", "carol")
+	for _, path := range []string{"/login", "/", "/g/KIUKI-25-3/homework", "/api/v1/me"} {
+		if _, _, h := b.get(path); h.Get("Cache-Control") != "no-store" {
+			t.Errorf("%s: Cache-Control = %q, want no-store", path, h.Get("Cache-Control"))
+		}
+	}
+	if _, _, h := b.get("/static/style.css"); h.Get("Cache-Control") != "no-cache" {
+		t.Errorf("unversioned static file: Cache-Control = %q, want no-cache", h.Get("Cache-Control"))
 	}
 }
 

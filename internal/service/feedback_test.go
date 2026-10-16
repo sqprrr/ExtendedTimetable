@@ -47,6 +47,9 @@ func TestFeedback(t *testing.T) {
 		"rating":   {Kind: store.FeedbackReview, Rating: ptr(int64(6)), Message: "x"},
 		"empty":    {Kind: store.FeedbackIdea, Message: "  \n "},
 		"too long": {Kind: store.FeedbackIdea, Message: strings.Repeat("я", 4001)},
+		// Escape sequences for the terminal that `extt admin feedback` prints to.
+		"escape":     {Kind: store.FeedbackBug, Message: "all fixed\x1b[2J\x1b[H"},
+		"C1 control": {Kind: store.FeedbackBug, Message: "all fixed\u009b2J"},
 	} {
 		var ie *service.InputError
 		if _, err := f.svc.SendFeedback(alice, in); !errors.As(err, &ie) {
@@ -85,6 +88,17 @@ func TestFeedback(t *testing.T) {
 	}
 	if err := f.svc.DeleteFeedback(root, review.ID); !errors.Is(err, service.ErrNotFound) {
 		t.Errorf("deleting twice: %v", err)
+	}
+}
+
+// Control characters are refused (above), but not the whitespace people
+// type: tabs stay, and a lone carriage return is a line break.
+func TestFeedbackKeepsTabsAndLineBreaks(t *testing.T) {
+	f := setup(t)
+	alice := f.as(t, f.register(t, "alice"))
+	idea, err := f.svc.SendFeedback(alice, service.FeedbackInput{Kind: store.FeedbackIdea, Message: "a\tb\rc\r\nd"})
+	if err != nil || idea.Message != "a\tb\nc\nd" {
+		t.Fatalf("got %v %q", err, idea.Message)
 	}
 }
 

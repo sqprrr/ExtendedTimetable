@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 )
@@ -176,4 +177,23 @@ func ClientIP(r *http.Request, trustProxy bool) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// ClientNetwork is the key that rate limits count a client address under:
+// its /64 for IPv6, since one subscriber usually gets a whole /64 and could
+// otherwise use a fresh address for every attempt; the address itself for
+// IPv4, and anything that is not an address as it is.
+func ClientNetwork(ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return ip
+	}
+	if addr = addr.Unmap(); addr.Is4() {
+		return addr.String()
+	}
+	p, err := addr.WithZone("").Prefix(64)
+	if err != nil {
+		return ip
+	}
+	return p.String()
 }

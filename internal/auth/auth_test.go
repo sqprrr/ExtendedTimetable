@@ -34,6 +34,9 @@ func TestLimiter(t *testing.T) {
 	if !l.Allow("other") {
 		t.Fatal("keys must be independent")
 	}
+	if n := l.Len(); n != 2 {
+		t.Fatalf("Len = %d, want 2", n)
+	}
 	now = now.Add(time.Minute)
 	if !l.Allow("k") {
 		t.Fatal("window should have reset")
@@ -113,5 +116,22 @@ func TestClientIP(t *testing.T) {
 	}
 	if got := ClientIP(r, true); got != "203.0.113.7" {
 		t.Errorf("trusted: %q", got)
+	}
+}
+
+func TestClientNetwork(t *testing.T) {
+	for _, c := range []struct{ ip, want string }{
+		{"203.0.113.7", "203.0.113.7"},
+		{"::ffff:203.0.113.7", "203.0.113.7"},
+		{"2001:db8:1:2:3:4:5:6", "2001:db8:1:2::/64"},
+		{"2001:db8:1:2::ffff", "2001:db8:1:2::/64"},
+		{"2001:db8:1:3::1", "2001:db8:1:3::/64"},
+		{"fe80::1%eth0", "fe80::/64"},
+		{"not an address", "not an address"},
+		{"", ""},
+	} {
+		if got := ClientNetwork(c.ip); got != c.want {
+			t.Errorf("ClientNetwork(%q) = %q, want %q", c.ip, got, c.want)
+		}
 	}
 }

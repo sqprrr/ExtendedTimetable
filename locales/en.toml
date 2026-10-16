@@ -375,6 +375,7 @@ no_resources_lesson = "Nothing for this lesson type yet."
 [err]
 required = "{{.Field}} is required."
 single_line = "{{.Field}} must be a single line."
+control_chars = "{{.Field}} must not contain control characters."
 link_required = "Link is required."
 link_invalid = "Link must be a full http:// or https:// address."
 date_invalid = "Date must look like 2026-09-01."

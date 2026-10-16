@@ -138,6 +138,11 @@ Cloudflare's default ("Standard" caching level). Keep it that way, and don't
 add a Cache Rule that ignores the query string or overrides the origin's
 `Cache-Control` for `/static/`.
 
+Everything else (pages, `/api/`) is sent with `Cache-Control: no-store`:
+it is one user's own (grades, invite links, the CSRF token). Never add a
+"Cache Everything" rule outside `/static/`, or one user's pages could be
+served to another.
+
 ### A small server
 
 The site is meant to run on a small VPS (one CPU, 512 MB of RAM). It keeps
@@ -314,6 +319,28 @@ proxy_set_header X-Request-ID $request_id;
 ```
 
 then `sudo nginx -t && sudo systemctl reload nginx`.
+
+nginx leaves invite links (`/join/<token>`) out of its access log, since
+anyone who reads a token can join the group: requests for them, and those
+whose `Referer` names one (the invite page's files, the page after joining).
+A server installed before this change logs them; add these lines by hand:
+
+```nginx
+# at the top of /etc/nginx/sites-available/extt, before the server block:
+map "$uri $http_referer" $extt_access_log {
+    ~/join/  0;
+    default  1;
+}
+
+# in the server block:
+access_log /var/log/nginx/access.log combined if=$extt_access_log;
+```
+
+then `sudo nginx -t && sudo systemctl reload nginx`. The tokens already
+logged stop working once each group's link is replaced (Members → new
+link); or remove them with
+`sudo sed -i '/\/join\//d' /var/log/nginx/access.log /var/log/nginx/access.log.1`
+and delete the older, gzipped `access.log.*.gz`.
 
 journald keeps logs by its own system-wide limits. To keep about four weeks,
 create `/etc/systemd/journald.conf.d/retention.conf`:

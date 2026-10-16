@@ -158,16 +158,20 @@ func (s *Service) RecordingsSourceFor(ctx context.Context, groupID int64) (*Reco
 }
 
 // AddPlaylist adds a playlist to the group from a link or id, and syncs the
-// group's playlists right away. A failed fetch is returned as *SyncError
-// after the playlist is saved.
+// group's playlists right away unless they were synced within the cooldown:
+// then the next sync picks it up. Otherwise adding and removing playlists
+// would sync without limit and spend the API quota every group shares. A
+// failed fetch is returned as *SyncError after the playlist is saved.
 func (s *Service) AddPlaylist(ctx context.Context, groupID int64, link string) error {
 	if _, err := canEdit(ctx, groupID); err != nil {
 		return err
 	}
-	return s.addPlaylist(ctx, groupID, link)
+	return s.addPlaylist(ctx, groupID, link, true)
 }
 
-func (s *Service) addPlaylist(ctx context.Context, groupID int64, link string) error {
+// addPlaylist saves a playlist and syncs the group; with cooldown, only if
+// the group was not synced within recordingSyncCooldown.
+func (s *Service) addPlaylist(ctx context.Context, groupID int64, link string, cooldown bool) error {
 	id, ok := youtube.PlaylistID(link)
 	if !ok {
 		return inputError("playlist", "err.playlist")
@@ -197,8 +201,25 @@ func (s *Service) addPlaylist(ctx context.Context, groupID int64, link string) e
 	if s.cfg.YouTube == nil {
 		return nil
 	}
+	if cooldown {
+		if wait, err := s.recordingSyncCoolingDown(ctx, groupID); err != nil || wait {
+			return err
+		}
+	}
 	_, err = s.syncRecordings(context.WithoutCancel(ctx), g)
 	return err
+}
+
+// recordingSyncCoolingDown reports whether the group's playlists were
+// synced less than recordingSyncCooldown ago.
+func (s *Service) recordingSyncCoolingDown(ctx context.Context, groupID int64) (bool, error) {
+	rec, err := s.store.RecordingSyncFor(ctx, groupID)
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return s.now().Sub(rec.LastAttemptAt) < recordingSyncCooldown, nil
 }
 
 // RemovePlaylist stops syncing a playlist. The recordings it added stay.
@@ -227,10 +248,10 @@ func (s *Service) SyncRecordingsNow(ctx context.Context, groupID int64) (*store.
 	if err != nil {
 		return nil, notFound(err)
 	}
-	if rec, err := s.store.RecordingSyncFor(ctx, groupID); err == nil && s.now().Sub(rec.LastAttemptAt) < recordingSyncCooldown {
-		return nil, ErrRecordingSyncTooSoon
-	} else if err != nil && !errors.Is(err, store.ErrNotFound) {
+	if wait, err := s.recordingSyncCoolingDown(ctx, groupID); err != nil {
 		return nil, err
+	} else if wait {
+		return nil, ErrRecordingSyncTooSoon
 	}
 	// Like SyncScheduleNow: the sync runs to the end if the editor leaves.
 	return s.syncRecordings(context.WithoutCancel(ctx), g)
@@ -242,7 +263,7 @@ func (s *Service) AdminAddPlaylist(ctx context.Context, groupCode, link string) 
 	if err != nil {
 		return err
 	}
-	return s.addPlaylist(ctx, g.ID, link)
+	return s.addPlaylist(ctx, g.ID, link, false)
 }
 
 // AdminRemovePlaylist removes a group's playlist, given by link or id, from

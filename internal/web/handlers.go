@@ -163,8 +163,11 @@ func backPath(r *http.Request) string {
 
 // isLocalPath reports whether p is a path on this site, so redirecting to it
 // cannot send the user elsewhere ("//evil.example" or "/\\evil.example").
+// Browsers drop tabs and line breaks from a URL, so "/\t/evil.example" is
+// "//evil.example" to them: control characters are refused too.
 func isLocalPath(p string) bool {
-	return strings.HasPrefix(p, "/") && !strings.HasPrefix(p, "//") && !strings.HasPrefix(p, "/\\")
+	return strings.HasPrefix(p, "/") && !strings.HasPrefix(p, "//") && !strings.HasPrefix(p, "/\\") &&
+		!strings.ContainsFunc(p, func(r rune) bool { return r < 0x20 || r == 0x7f })
 }
 
 func (h *Handler) formError(w http.ResponseWriter, r *http.Request, page string, form formValues, err error) {

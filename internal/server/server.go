@@ -47,6 +47,7 @@ func New(svc *service.Service, cfg Config) (http.Handler, error) {
 	h = cookies.LoadSession(svc.Authenticate)(h)
 	h = readSnapshot(svc)(h)
 	h = cookies.CSRF(h)
+	h = limitBody(h)
 	h = securityHeaders(h)
 	h = recoverer(h)
 	h = requestLog(cfg.TrustProxy, mux, h)
@@ -82,6 +83,24 @@ func timeZone(cookies auth.Cookies, svc *service.Service) func(http.Handler) htt
 	}
 }
 
+// maxBodyBytes bounds request bodies, like nginx's client_max_body_size:
+// forms and JSON are a few kilobytes, and the CSRF check reads form bodies
+// before anyone is known to be signed in.
+const maxBodyBytes = 1 << 20
+
+// limitBody refuses bodies over maxBodyBytes: at once when the request says
+// its length, else when reading reaches the limit.
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ContentLength > maxBodyBytes {
+			http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		next.ServeHTTP(w, r)
+	})
+}
+
 // readSnapshot runs the reads of a GET request, the session's included, in
 // one read transaction (service.WithSnapshot).
 func readSnapshot(svc *service.Service) func(http.Handler) http.Handler {
@@ -105,6 +124,10 @@ func securityHeaders(next http.Handler) http.Handler {
 		hd.Set("X-Content-Type-Options", "nosniff")
 		hd.Set("X-Frame-Options", "DENY")
 		hd.Set("Referrer-Policy", "same-origin")
+		// Pages and API answers are a user's own (grades, invite links, the
+		// CSRF token), so no cache may keep them, not even a shared cache set
+		// to cache everything. Static files set their own Cache-Control.
+		hd.Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
 }

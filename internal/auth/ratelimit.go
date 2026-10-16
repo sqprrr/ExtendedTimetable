@@ -47,6 +47,14 @@ func (l *Limiter) Reset(key string) {
 	delete(l.buckets, key)
 }
 
+// Len returns how many keys the limiter holds; expired ones count until
+// the next Prune.
+func (l *Limiter) Len() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return len(l.buckets)
+}
+
 // Prune drops expired buckets. Call it periodically to bound memory.
 func (l *Limiter) Prune() {
 	l.mu.Lock()
