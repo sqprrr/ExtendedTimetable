@@ -59,10 +59,14 @@ type Service struct {
 	cfg   Config
 	now   func() time.Time
 
-	loginByIP       *auth.Limiter
-	loginByUsername *auth.Limiter
-	registerByIP    *auth.Limiter
-	feedbackByUser  *auth.Limiter
+	// Login attempts are limited per client network (auth.ClientNetwork),
+	// per username from one network, and per username overall. The last is
+	// set high: whoever reaches it locks the account's owner out too.
+	loginByIP        *auth.Limiter
+	loginByUserAndIP *auth.Limiter
+	loginByUsername  *auth.Limiter
+	registerByIP     *auth.Limiter
+	feedbackByUser   *auth.Limiter
 
 	// syncing holds the groups' syncs that are running.
 	syncMu  sync.Mutex
@@ -78,14 +82,15 @@ func New(st *store.Store, cfg Config) *Service {
 		cfg.Location = time.UTC
 	}
 	return &Service{
-		store:           st,
-		cfg:             cfg,
-		now:             time.Now,
-		loginByIP:       auth.NewLimiter(30, 15*time.Minute),
-		loginByUsername: auth.NewLimiter(10, 15*time.Minute),
-		registerByIP:    auth.NewLimiter(10, time.Hour),
-		feedbackByUser:  auth.NewLimiter(10, time.Hour),
-		syncing:         map[syncKey]bool{},
+		store:            st,
+		cfg:              cfg,
+		now:              time.Now,
+		loginByIP:        auth.NewLimiter(30, 15*time.Minute),
+		loginByUserAndIP: auth.NewLimiter(10, 15*time.Minute),
+		loginByUsername:  auth.NewLimiter(100, 15*time.Minute),
+		registerByIP:     auth.NewLimiter(10, time.Hour),
+		feedbackByUser:   auth.NewLimiter(10, time.Hour),
+		syncing:          map[syncKey]bool{},
 	}
 }
 
@@ -125,6 +130,7 @@ func (s *Service) maintain(ctx context.Context) {
 		slog.Debug("expired sessions removed", "count", n)
 	}
 	s.loginByIP.Prune()
+	s.loginByUserAndIP.Prune()
 	s.loginByUsername.Prune()
 	s.registerByIP.Prune()
 	s.feedbackByUser.Prune()

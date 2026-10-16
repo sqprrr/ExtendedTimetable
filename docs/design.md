@@ -184,7 +184,7 @@ docs/
 
 - Cookies: `HttpOnly`, `Secure`, `SameSite=Lax`.
 - CSRF tokens on all state-changing forms and htmx requests.
-- Login rate limiting (per IP + per username).
+- Login rate limiting: per client network (an IPv4 address or an IPv6 /64), per username from one network (so guessing from elsewhere does not lock the owner out), and a higher limit per username overall.
 - Authorization enforced in the service layer, never only in templates.
 - Markdown output sanitized.
 - Users can only ever read or write their own `homework_progress` rows.

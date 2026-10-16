@@ -54,7 +54,7 @@ type RegisterInput struct {
 // Register creates an account through a group's invite link, makes it a
 // student of that group and signs the user in.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, error) {
-	if !s.registerByIP.Allow(in.ClientIP) {
+	if !s.registerByIP.Allow(auth.ClientNetwork(in.ClientIP)) {
 		slog.WarnContext(ctx, "registration rate limited")
 		metrics.Registration(metrics.RateLimited)
 		return nil, ErrRateLimited
@@ -124,7 +124,8 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error)
 	// What was typed as a username is logged only once it is known to be an
 	// account: people sometimes type their password into that field.
 	username := strings.ToLower(strings.TrimSpace(in.Username))
-	if !s.loginByIP.Allow(in.ClientIP) {
+	network := auth.ClientNetwork(in.ClientIP)
+	if !s.loginByIP.Allow(network) {
 		slog.WarnContext(ctx, "login rate limited", "by", "ip")
 		metrics.Login(metrics.RateLimited)
 		return nil, ErrRateLimited
@@ -137,6 +138,15 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error)
 		slog.InfoContext(ctx, "login failed", "reason", "unknown username")
 		metrics.Login(metrics.Failure)
 		return nil, ErrInvalidCredentials
+	}
+	// Guessing one account's password is limited per network, so whoever
+	// guesses from elsewhere does not lock its owner out; the overall limit
+	// stops guessing from many networks at once.
+	userAndIP := username + " " + network
+	if !s.loginByUserAndIP.Allow(userAndIP) {
+		slog.WarnContext(ctx, "login rate limited", "by", "username_and_ip")
+		metrics.Login(metrics.RateLimited)
+		return nil, ErrRateLimited
 	}
 	if !s.loginByUsername.Allow(username) {
 		slog.WarnContext(ctx, "login rate limited", "by", "username")
@@ -157,7 +167,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error)
 		metrics.Login(metrics.Failure)
 		return nil, ErrInvalidCredentials
 	}
-	s.loginByUsername.Reset(username)
+	s.loginByUserAndIP.Reset(userAndIP)
 	slog.InfoContext(ctx, "login", "username", u.Username)
 	metrics.Login(metrics.Success)
 	sess, err := s.createSession(ctx, u.ID)
