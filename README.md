@@ -78,7 +78,7 @@ notes, and a private homework tracker per student. See
 
 ## Quick start (local)
 
-Requires Go 1.26+.
+Requires Go 1.26.9+ (an older Go 1.21+ downloads it on its own: `go.mod` asks for it).
 
 ```sh
 go build -o extt ./cmd/extt
