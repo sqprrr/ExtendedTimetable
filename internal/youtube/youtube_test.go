@@ -11,6 +11,44 @@ import (
 	"time"
 )
 
+// The key is sent in a header, so a redirect to another host must not be
+// followed: the HTTP client would send the key along.
+func TestRedirectsToOtherHostsAreRefused(t *testing.T) {
+	var leaked bool
+	other := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		leaked = leaked || r.Header.Get("X-Goog-Api-Key") != ""
+		fmt.Fprint(w, `{"items":[]}`)
+	}))
+	defer other.Close()
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/playlists":
+			http.Redirect(w, r, other.URL+"/playlists?"+r.URL.RawQuery, http.StatusFound)
+		case "/v1/playlists":
+			http.Redirect(w, r, "/v2/playlists?"+r.URL.RawQuery, http.StatusMovedPermanently)
+		case "/v2/playlists":
+			fmt.Fprint(w, `{"items":[]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer api.Close()
+
+	_, err := New("secret-key", api.URL, time.Second).Playlist(context.Background(), "PLx")
+	if err == nil || !strings.Contains(err.Error(), "refused") {
+		t.Fatalf("got %v, want the redirect refused", err)
+	}
+	if leaked {
+		t.Fatal("the API key was sent to the other host")
+	}
+
+	// A redirect on the same host is still followed.
+	c := New("secret-key", api.URL+"/v1", time.Second)
+	if _, err := c.Playlist(context.Background(), "PLx"); !errors.Is(err, ErrPlaylistNotFound) {
+		t.Fatalf("same-host redirect: got %v, want ErrPlaylistNotFound (empty items)", err)
+	}
+}
+
 func TestPlaylistVideos(t *testing.T) {
 	// Two pages of playlist items; v3 is deleted (videos does not return it).
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

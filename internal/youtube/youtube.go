@@ -64,7 +64,21 @@ func New(key, base string, timeout time.Duration) *Client {
 	if base == "" {
 		base = DefaultBaseURL
 	}
-	return &Client{key: key, base: strings.TrimRight(base, "/"), http: &http.Client{Timeout: timeout}}
+	return &Client{key: key, base: strings.TrimRight(base, "/"), http: &http.Client{Timeout: timeout, CheckRedirect: sameHost}}
+}
+
+// sameHost follows redirects only to the scheme and host the request went
+// to. The key travels in a header, which the HTTP client would otherwise
+// send on to any host a redirect names: it drops only Authorization and
+// Cookie.
+func sameHost(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if req.URL.Scheme != via[0].URL.Scheme || req.URL.Host != via[0].URL.Host {
+		return fmt.Errorf("redirect to another host (%s) refused", req.URL.Host)
+	}
+	return nil
 }
 
 // Playlist returns the playlist's title and videos, in playlist order.
