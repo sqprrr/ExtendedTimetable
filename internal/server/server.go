@@ -108,6 +108,10 @@ func securityHeaders(next http.Handler) http.Handler {
 		hd.Set("X-Content-Type-Options", "nosniff")
 		hd.Set("X-Frame-Options", "DENY")
 		hd.Set("Referrer-Policy", "same-origin")
+		// Pages and API answers are a user's own (grades, invite links, the
+		// CSRF token), so no cache may keep them, not even a shared cache set
+		// to cache everything. Static files set their own Cache-Control.
+		hd.Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
 }

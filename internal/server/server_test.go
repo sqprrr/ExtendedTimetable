@@ -327,6 +327,18 @@ func TestSecurityHeadersAndCookies(t *testing.T) {
 	if code, _, _ := b.get("/static/style.css"); code != http.StatusOK {
 		t.Errorf("static asset: %d", code)
 	}
+
+	// Signed-in pages and API answers are kept by no cache; static files
+	// keep their own caching (TestVersionedStaticAssets).
+	b.register("KIUKI-25-3", "carol")
+	for _, path := range []string{"/login", "/", "/g/KIUKI-25-3/homework", "/api/v1/me"} {
+		if _, _, h := b.get(path); h.Get("Cache-Control") != "no-store" {
+			t.Errorf("%s: Cache-Control = %q, want no-store", path, h.Get("Cache-Control"))
+		}
+	}
+	if _, _, h := b.get("/static/style.css"); h.Get("Cache-Control") != "no-cache" {
+		t.Errorf("unversioned static file: Cache-Control = %q, want no-cache", h.Get("Cache-Control"))
+	}
 }
 
 // Pages link to static files by content hash, and those URLs may be cached

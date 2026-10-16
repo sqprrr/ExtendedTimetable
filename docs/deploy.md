@@ -138,6 +138,11 @@ Cloudflare's default ("Standard" caching level). Keep it that way, and don't
 add a Cache Rule that ignores the query string or overrides the origin's
 `Cache-Control` for `/static/`.
 
+Everything else (pages, `/api/`) is sent with `Cache-Control: no-store`:
+it is one user's own (grades, invite links, the CSRF token). Never add a
+"Cache Everything" rule outside `/static/`, or one user's pages could be
+served to another.
+
 ## Monitoring
 
 Prometheus and Grafana run on the same server, listening on loopback only:
