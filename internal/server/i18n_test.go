@@ -53,8 +53,10 @@ func TestLanguageSwitchForVisitors(t *testing.T) {
 		t.Fatal("the cookie should switch the site to English")
 	}
 
-	// The switch only returns to pages on this site.
-	for _, back := range []string{"https://evil.example/", "//evil.example/", `/\evil.example`, ""} {
+	// The switch only returns to pages on this site. Browsers drop tabs and
+	// line breaks from URLs, so "/\t/evil.example" would be "//evil.example".
+	for _, back := range []string{"https://evil.example/", "//evil.example/", `/\evil.example`, "",
+		"/\t/evil.example", "/\n/evil.example", "/\r\n/evil.example", "/\t\\evil.example", "/\x7f/evil.example"} {
 		code, _, h := b.submit("/login", "/lang", url.Values{"lang": {"uk"}, "back": {back}})
 		if code != http.StatusSeeOther || h.Get("Location") != "/" {
 			t.Fatalf("back=%q: %d %s", back, code, h.Get("Location"))
