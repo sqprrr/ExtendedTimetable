@@ -57,6 +57,13 @@ func (s *Service) validInvite(ctx context.Context, q *store.Queries, token strin
 	if !s.now().Before(inv.ExpiresAt) {
 		return nil, ErrInviteInvalid
 	}
+	// Visitors share the demo accounts, so nobody joins the demo group: its
+	// link is not shown to its leader, and refused here all the same.
+	if s.cfg.DemoGroup != "" {
+		if id, ok := s.demoGroupID(ctx); ok && id == inv.GroupID {
+			return nil, ErrInviteInvalid
+		}
+	}
 	return inv, nil
 }
 
@@ -115,6 +122,9 @@ func (s *Service) JoinGroup(ctx context.Context, token string) (*store.Group, er
 	v, err := requireViewer(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if v.IsDemo {
+		return nil, ErrDemo
 	}
 	var g *store.Group
 	err = s.store.InTx(ctx, func(q *store.Queries) error {
@@ -194,6 +204,9 @@ func (s *Service) ClaimLeadership(ctx context.Context, groupID int64) error {
 	if err != nil {
 		return err
 	}
+	if v.IsDemo {
+		return ErrDemo
+	}
 	role, ok := v.RoleIn(groupID)
 	if !ok {
 		return ErrForbidden
@@ -227,6 +240,9 @@ func (s *Service) ResignLeadership(ctx context.Context, groupID int64) error {
 	if err != nil {
 		return err
 	}
+	if v.IsDemo {
+		return ErrDemo
+	}
 	if role, _ := v.RoleIn(groupID); role != store.RoleLeader {
 		return ErrForbidden
 	}
@@ -248,6 +264,9 @@ func (s *Service) LeaveGroup(ctx context.Context, groupID int64) error {
 	v, err := requireViewer(ctx)
 	if err != nil {
 		return err
+	}
+	if v.IsDemo {
+		return ErrDemo
 	}
 	role, ok := v.RoleIn(groupID)
 	if !ok {
@@ -287,6 +306,17 @@ func (s *Service) RemoveMember(ctx context.Context, groupID, userID int64) error
 		}
 		if m.Role == store.RoleLeader && !v.IsSuperadmin {
 			return ErrForbidden
+		}
+		// Visitors share the demo accounts: removing one would leave it
+		// without its group until the night.
+		if id, ok := s.demoGroupID(ctx); ok && id == groupID {
+			u, err := q.UserByID(ctx, userID)
+			if err != nil {
+				return err
+			}
+			if s.isDemoUser(u.Username) {
+				return ErrDemo
+			}
 		}
 		if err := q.DeleteMembership(ctx, userID, groupID); err != nil {
 			return err
@@ -445,13 +475,32 @@ type CreateGroupInput struct {
 	Name string
 	// CISTGroupID links the group to its CIST timetable; nil for none.
 	CISTGroupID *int64
+	// RequestID is the group request the group is made for, which is
+	// marked resolved with it; nil for none.
+	RequestID *int64
 }
 
 // CreateGroup creates a group with its first invite link. Superadmins only.
+// A group linked to CIST gets its timetable, and with it its subjects, right
+// away rather than at the next scheduled sync, so its leader starts with a
+// filled group; if CIST does not answer in time, the scheduled sync will.
 func (s *Service) CreateGroup(ctx context.Context, in CreateGroupInput) (*store.Group, error) {
 	v, err := requireSuperadmin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return s.createGroup(ctx, in, actorOf(v))
+	g, err := s.createGroup(ctx, in, actorOf(v))
+	if err != nil {
+		return nil, err
+	}
+	if g.CISTGroupID != nil && s.cfg.CIST != nil {
+		sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), firstSyncTimeout)
+		defer cancel()
+		s.syncScheduled(sctx, g, 0)
+	}
+	return g, nil
 }
+
+// firstSyncTimeout bounds the schedule sync of a group just created, which
+// the superadmin waits for.
+const firstSyncTimeout = 15 * time.Second

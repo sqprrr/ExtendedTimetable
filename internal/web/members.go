@@ -10,6 +10,7 @@ import (
 	"github.com/sqprrr/ExtendedTimetable/internal/auth"
 	"github.com/sqprrr/ExtendedTimetable/internal/i18n"
 	"github.com/sqprrr/ExtendedTimetable/internal/service"
+	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
 // registerMemberRoutes adds the invite pages, the members page with its
@@ -202,6 +203,13 @@ func (h *Handler) showMembers(w http.ResponseWriter, r *http.Request, g *service
 			h.renderError(w, r, err)
 			return
 		}
+		// Just made for a group request: whom to send the invite link to.
+		if raw := r.URL.Query().Get("request"); raw != "" {
+			if d.FromRequest, err = h.groupRequestParam(r, raw); err != nil && !errors.Is(err, service.ErrNotFound) {
+				h.renderError(w, r, err)
+				return
+			}
+		}
 	}
 	h.render(w, r, status, "members", d)
 }
@@ -248,8 +256,33 @@ func (h *Handler) leaveGroup(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// adminGroups shows the groups panel; with ?request=<id>, its new-group
+// form is filled in from that group request.
 func (h *Handler) adminGroups(w http.ResponseWriter, r *http.Request) {
-	h.showAdminGroups(w, r, http.StatusOK, pageData{})
+	d := pageData{}
+	if raw := r.URL.Query().Get("request"); raw != "" {
+		gr, err := h.groupRequestParam(r, raw)
+		if err != nil {
+			h.renderError(w, r, err)
+			return
+		}
+		in := service.GroupFromRequest(gr)
+		d.FromRequest = gr
+		d.Fields = map[string]string{"code": in.Code, "name": in.Name, "request_id": raw}
+		if in.CISTGroupID != nil {
+			d.Fields["cist_id"] = strconv.FormatInt(*in.CISTGroupID, 10)
+		}
+	}
+	h.showAdminGroups(w, r, http.StatusOK, d)
+}
+
+// groupRequestParam is the group request a query or form value names.
+func (h *Handler) groupRequestParam(r *http.Request, raw string) (*store.GroupRequest, error) {
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return nil, service.ErrNotFound
+	}
+	return h.svc.GroupRequest(r.Context(), id)
 }
 
 func (h *Handler) showAdminGroups(w http.ResponseWriter, r *http.Request, status int, d pageData) {
@@ -266,7 +299,8 @@ func (h *Handler) showAdminGroups(w http.ResponseWriter, r *http.Request, status
 }
 
 // createGroup creates a group from the panel and opens its members page,
-// which shows the new invite link.
+// which shows the new invite link (and, for a group made for a request,
+// whom to send it to).
 func (h *Handler) createGroup(w http.ResponseWriter, r *http.Request) {
 	in := service.CreateGroupInput{Code: r.PostFormValue("code"), Name: r.PostFormValue("name")}
 	var err error
@@ -277,10 +311,27 @@ func (h *Handler) createGroup(w http.ResponseWriter, r *http.Request) {
 		}
 		in.CISTGroupID = &id
 	}
+	// A request deleted since the form was filled in is left out: the
+	// group is made all the same.
+	var fromRequest *store.GroupRequest
+	if raw := r.PostFormValue("request_id"); raw != "" && err == nil {
+		gr, rerr := h.groupRequestParam(r, raw)
+		if rerr != nil && !errors.Is(rerr, service.ErrNotFound) {
+			h.renderError(w, r, rerr)
+			return
+		}
+		if fromRequest = gr; gr != nil {
+			in.RequestID = &gr.ID
+		}
+	}
 	if err == nil {
 		g, cerr := h.svc.CreateGroup(r.Context(), in)
 		if cerr == nil {
-			http.Redirect(w, r, "/g/"+g.Code+"/members", http.StatusSeeOther)
+			to := "/g/" + g.Code + "/members"
+			if fromRequest != nil {
+				to += "?request=" + strconv.FormatInt(fromRequest.ID, 10)
+			}
+			http.Redirect(w, r, to, http.StatusSeeOther)
 			return
 		}
 		err = cerr
@@ -292,6 +343,7 @@ func (h *Handler) createGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	fields := map[string]string{
 		"code": r.PostFormValue("code"), "name": r.PostFormValue("name"), "cist_id": r.PostFormValue("cist_id"),
+		"request_id": r.PostFormValue("request_id"),
 	}
-	h.showAdminGroups(w, r, status, pageData{Fields: fields, Error: msg})
+	h.showAdminGroups(w, r, status, pageData{Fields: fields, Error: msg, FromRequest: fromRequest})
 }

@@ -31,8 +31,10 @@
   <section class="card" aria-labelledby="admin-new-group">
     <div class="card-head"><h2 id="admin-new-group">{{t "admin.new_group"}}</h2></div>
     {{with .Error}}<div class="alert alert-danger form-alert" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+    {{with .FromRequest}}<div class="alert form-alert" role="status">{{icon "inbox"}}<div>{{t "request.filling" "Group" .GroupName "University" .University "Nick" .Telegram}}</div></div>{{end}}
     <form class="form" method="post" action="/admin/groups">
       <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+      {{with index .Fields "request_id"}}<input type="hidden" name="request_id" value="{{.}}">{{end}}
       <div class="form-row">
         <label class="field">
           <span class="field-label">{{t "admin.group_code"}}</span>

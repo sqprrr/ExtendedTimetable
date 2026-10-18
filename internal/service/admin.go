@@ -75,6 +75,13 @@ func (s *Service) createGroup(ctx context.Context, in CreateGroupInput, actor *i
 		if _, err := s.newInvite(ctx, q, g.ID); err != nil {
 			return err
 		}
+		// A request deleted meanwhile is no reason not to make the group.
+		if in.RequestID != nil {
+			now := s.now()
+			if err := q.SetGroupRequestResolved(ctx, *in.RequestID, &now); err != nil && !errors.Is(err, store.ErrNotFound) {
+				return err
+			}
+		}
 		return s.logEvent(ctx, q, g.ID, store.LogGroupCreated, actor, nil)
 	})
 	if err != nil {

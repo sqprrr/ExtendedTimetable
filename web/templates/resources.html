@@ -158,6 +158,8 @@
     </label>
     <button type="submit" class="btn btn-primary">{{icon "plus"}}{{t "action.add"}}</button>
   </form>
+  {{else if .Demo}}
+  <p class="field-hint">{{t "playlist.demo"}}</p>
   {{else}}
   <p class="field-hint">{{t "playlist.limit" "N" maxPlaylists}}</p>
   {{end}}

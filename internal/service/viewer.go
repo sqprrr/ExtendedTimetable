@@ -19,6 +19,8 @@ type Viewer struct {
 	// TimeZoneAuto), or "" if they have not.
 	TimeZone    string
 	Memberships []store.Membership
+	// IsDemo is true for the demo account that visitors share (demo.go).
+	IsDemo bool
 }
 
 // RoleIn returns the viewer's role in a group, if they are a member.

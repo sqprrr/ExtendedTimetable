@@ -131,8 +131,10 @@ type RecordingsSource struct {
 	Enabled bool
 	// Sync is nil until the first sync attempt.
 	Sync *store.RecordingSync
-	// CanAdd is false once the group has MaxPlaylists.
+	// CanAdd is false once the group has MaxPlaylists, and for the demo.
 	CanAdd bool
+	// Demo is true for the demo accounts, which may not add playlists.
+	Demo bool
 }
 
 // PlaylistURL is a playlist's link on YouTube.
@@ -141,14 +143,15 @@ func PlaylistURL(id string) string { return "https://www.youtube.com/playlist?li
 // RecordingsSourceFor returns the group's playlists and how their last sync
 // went (leader, editors and superadmins).
 func (s *Service) RecordingsSourceFor(ctx context.Context, groupID int64) (*RecordingsSource, error) {
-	if _, err := canEdit(ctx, groupID); err != nil {
+	v, err := canEdit(ctx, groupID)
+	if err != nil {
 		return nil, err
 	}
 	pls, err := s.store.ListYouTubePlaylists(ctx, groupID)
 	if err != nil {
 		return nil, err
 	}
-	src := &RecordingsSource{Playlists: pls, Enabled: s.cfg.YouTube != nil, CanAdd: len(pls) < MaxPlaylists}
+	src := &RecordingsSource{Playlists: pls, Enabled: s.cfg.YouTube != nil, CanAdd: len(pls) < MaxPlaylists && !v.IsDemo, Demo: v.IsDemo}
 	if src.Sync, err = s.store.RecordingSyncFor(ctx, groupID); errors.Is(err, store.ErrNotFound) {
 		src.Sync = nil
 	} else if err != nil {
@@ -163,8 +166,13 @@ func (s *Service) RecordingsSourceFor(ctx context.Context, groupID int64) (*Reco
 // would sync without limit and spend the API quota every group shares. A
 // failed fetch is returned as *SyncError after the playlist is saved.
 func (s *Service) AddPlaylist(ctx context.Context, groupID int64, link string) error {
-	if _, err := canEdit(ctx, groupID); err != nil {
+	v, err := canEdit(ctx, groupID)
+	if err != nil {
 		return err
+	}
+	// Each playlist is synced hourly on the site's one YouTube quota.
+	if v.IsDemo {
+		return ErrDemo
 	}
 	return s.addPlaylist(ctx, groupID, link, true)
 }

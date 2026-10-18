@@ -56,6 +56,12 @@ Commands:
   admin sync-recordings <code>            Add the playlists' new videos now
   admin feedback [--all]                  Print the open feedback users sent (with
                                           --all, the resolved too)
+  admin requests [--all]                  Print the open requests for the site for a
+                                          group (with --all, the resolved too)
+  admin demo-reset <code>                 Make a group the demo: the accounts demo
+                                          (leader) and demo-student (made with
+                                          random passwords, printed once) and
+                                          made-up content, replacing the group's own
 
 Every command accepts --db PATH (default $EXTT_DB or ./extt.db).
 Commands that take a password prompt for it, or read one line from stdin
@@ -76,6 +82,8 @@ Environment:
                       prints only the path)
   EXTT_METRICS_ADDR   address serve exposes Prometheus metrics on, at
                       /metrics, e.g. 127.0.0.1:9101 (default: off)
+  EXTT_DEMO_GROUP     code of the demo group, which serve resets on start and
+                      nightly (default: none)
   EXTT_LOG_LEVEL      debug, info, warn or error      (default info)
   EXTT_LOG_FORMAT     text or json                    (default text)
 
@@ -182,9 +190,11 @@ func openStore(ctx context.Context, path string) (*store.Store, error) {
 // mirror next, so a sync takes at most about twice this.
 const cistTimeout = 12 * time.Second
 
-// newService returns the service; loc is the time zone of "today" (UTC if nil).
-func newService(st *store.Store, loc *time.Location) *service.Service {
-	cfg := service.Config{CIST: cist.New(nil, cistTimeout), Location: loc}
+// newService returns the service; loc is the time zone of "today" (UTC if
+// nil), demoGroup the demo group's code ("" for none).
+func newService(st *store.Store, loc *time.Location, demoGroup string) *service.Service {
+	c := cist.New(nil, cistTimeout)
+	cfg := service.Config{CIST: c, CISTGroups: c, Location: loc, DemoGroup: demoGroup}
 	// The key is read from the environment only: a flag would show it in
 	// the process list.
 	if key := os.Getenv("EXTT_YOUTUBE_KEY"); key != "" {

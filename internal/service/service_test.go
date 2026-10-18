@@ -29,6 +29,12 @@ type fixture struct {
 
 func setup(t *testing.T) *fixture {
 	t.Helper()
+	return setupWith(t, service.Config{})
+}
+
+// setupWith is setup with a service configured by cfg.
+func setupWith(t *testing.T, cfg service.Config) *fixture {
+	t.Helper()
 	ctx := context.Background()
 	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
@@ -38,7 +44,7 @@ func setup(t *testing.T) *fixture {
 	if err := st.Migrate(ctx, migrations.FS); err != nil {
 		t.Fatal(err)
 	}
-	svc := service.New(st, service.Config{})
+	svc := service.New(st, cfg)
 	g, err := svc.AdminCreateGroup(ctx, "kiuki-25-3", "", nil)
 	if err != nil {
 		t.Fatal(err)
