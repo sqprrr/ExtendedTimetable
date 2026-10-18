@@ -108,6 +108,8 @@ func New(svc *service.Service, cfg Config) (*Handler, error) {
 // Register adds the HTML routes to mux.
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.Handle("GET /static/", h.static)
+	mux.Handle("GET /favicon.ico", h.static.at("favicon.ico"))
+	mux.Handle("GET /apple-touch-icon.png", h.static.at("apple-touch-icon.png"))
 
 	mux.HandleFunc("GET /{$}", h.home)
 	mux.HandleFunc("GET /login", h.loginForm)
