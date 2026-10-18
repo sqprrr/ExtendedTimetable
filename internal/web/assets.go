@@ -35,6 +35,10 @@ type staticFile struct {
 // them once here saves nginx doing it on every request.
 var compressed = map[string]bool{".css": true, ".js": true, ".svg": true, ".txt": true}
 
+// contentTypes are the types Go's own table lacks, which then depend on
+// the server's /etc/mime.types.
+var contentTypes = map[string]string{".ico": "image/x-icon"}
+
 // assetHashLen is how many hex digits of the SHA-256 go into ?v=.
 const assetHashLen = 12
 
@@ -130,7 +134,22 @@ func (s *staticAssets) url(name string) (string, error) {
 
 // ServeHTTP serves a static file below /static/.
 func (s *staticAssets) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	f, ok := s.files[strings.TrimPrefix(r.URL.Path, "/static/")]
+	s.serve(w, r, strings.TrimPrefix(r.URL.Path, "/static/"))
+}
+
+// at serves the static file name at a fixed path outside /static/, such as
+// /favicon.ico, which browsers and bots ask for without being told to.
+func (s *staticAssets) at(name string) http.Handler {
+	if _, ok := s.files[name]; !ok {
+		panic("unknown static asset " + name)
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.serve(w, r, name)
+	})
+}
+
+func (s *staticAssets) serve(w http.ResponseWriter, r *http.Request, name string) {
+	f, ok := s.files[name]
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -150,5 +169,8 @@ func (s *staticAssets) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("ETag", etag)
 	// The type comes from the name, not from sniffing the (gzipped) body.
-	http.ServeContent(w, r, r.URL.Path, time.Time{}, bytes.NewReader(body))
+	if t, ok := contentTypes[path.Ext(name)]; ok {
+		w.Header().Set("Content-Type", t)
+	}
+	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(body))
 }

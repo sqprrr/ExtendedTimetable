@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    @media (prefers-color-scheme: dark) {
+      .tile { fill: #0d1220 }
+      .blocks { fill: #86a5ff }
+    }
+  </style>
+  <rect class="tile" width="32" height="32" rx="7" fill="#2f5bd0"/>
+  <path class="blocks" fill="#fff" d="
+    M8 6h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z
+    M8 22h4a2 2 0 0 1 0 4H8a2 2 0 0 1 0-4z
+    M20 6h4a2 2 0 0 1 0 4h-4a2 2 0 0 1 0-4z"/>
+  <path fill="#ffc940" d="
+    M20 14h4a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z"/>
+</svg>
