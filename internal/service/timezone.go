@@ -128,6 +128,9 @@ func (s *Service) SetTimeZone(ctx context.Context, tz string) error {
 	if !IsTimeZoneChoice(tz) {
 		return inputError("time_zone", "err.time_zone")
 	}
+	if v.IsDemo {
+		return nil // as in SetLocale
+	}
 	if err := s.store.SetTimeZone(ctx, v.UserID, tz); err != nil {
 		return err
 	}

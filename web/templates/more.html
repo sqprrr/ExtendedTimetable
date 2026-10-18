@@ -27,6 +27,7 @@
       <li><a class="row-link" href="/feedback">{{icon "message-square"}}<span>{{t "nav.feedback"}}</span>{{icon "chevron-right"}}</a></li>
       {{if .Viewer.IsSuperadmin}}<li><a class="row-link" href="/admin/groups">{{icon "users"}}<span>{{t "nav.admin_groups"}}</span>{{icon "chevron-right"}}</a></li>{{end}}
       {{if .Viewer.IsSuperadmin}}<li><a class="row-link" href="/admin/feedback">{{icon "list-checks"}}<span>{{t "feedback.inbox"}}</span>{{icon "chevron-right"}}</a></li>{{end}}
+      {{if .Viewer.IsSuperadmin}}<li><a class="row-link" href="/admin/requests">{{icon "inbox"}}<span>{{t "request.inbox"}}</span>{{icon "chevron-right"}}</a></li>{{end}}
     </ul>
   </section>
   <section class="card" aria-labelledby="more-settings">

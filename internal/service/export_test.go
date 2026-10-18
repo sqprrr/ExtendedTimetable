@@ -10,3 +10,12 @@ func LoginLimiterKeys(s *Service) int { return s.loginByUserAndIP.Len() + s.logi
 
 // ParseRecordingTitle reads a video title as the playlist sync does.
 var ParseRecordingTitle = parseRecordingTitle
+
+// TelegramUsername reads the Telegram field of the group request form.
+var TelegramUsername = telegramUsername
+
+// GroupCode spells a group's name as a group code.
+var GroupCode = groupCode
+
+// NextDemoReset is when the demo group is next reset.
+var NextDemoReset = nextDemoReset

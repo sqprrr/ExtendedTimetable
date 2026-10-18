@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,9 +46,14 @@ type Config struct {
 	SessionTTL time.Duration
 	// CIST is where schedules come from; nil turns schedule sync off.
 	CIST cist.Source
+	// CISTGroups finds the CIST group a group request names; nil leaves
+	// requests without one.
+	CISTGroups cist.GroupFinder
 	// YouTube is where playlists of recordings come from; nil turns their
 	// sync off.
 	YouTube youtube.Source
+	// DemoGroup is the code of the demo group (see demo.go); "" for none.
+	DemoGroup string
 	// Location is the site's time zone: the default for users who have not
 	// chosen one and whose device does not say; UTC if nil.
 	Location *time.Location
@@ -67,6 +73,10 @@ type Service struct {
 	loginByUsername  *auth.Limiter
 	registerByIP     *auth.Limiter
 	feedbackByUser   *auth.Limiter
+	// Group requests come from visitors: limited per client network and,
+	// against a flood from many addresses, overall.
+	groupRequestByIP *auth.Limiter
+	groupRequestAll  *auth.Limiter
 
 	cache caches
 
@@ -83,6 +93,9 @@ func New(st *store.Store, cfg Config) *Service {
 	if cfg.Location == nil {
 		cfg.Location = time.UTC
 	}
+	// Group codes are upper case; a stray space in the settings file must
+	// not make the demo group a different one in different places.
+	cfg.DemoGroup = strings.ToUpper(strings.TrimSpace(cfg.DemoGroup))
 	return &Service{
 		store:            st,
 		cfg:              cfg,
@@ -92,6 +105,8 @@ func New(st *store.Store, cfg Config) *Service {
 		loginByUsername:  auth.NewLimiter(100, 15*time.Minute),
 		registerByIP:     auth.NewLimiter(10, time.Hour),
 		feedbackByUser:   auth.NewLimiter(10, time.Hour),
+		groupRequestByIP: auth.NewLimiter(5, time.Hour),
+		groupRequestAll:  auth.NewLimiter(30, time.Hour),
 		syncing:          map[syncKey]bool{},
 		cache:            newCaches(),
 	}
@@ -149,4 +164,6 @@ func (s *Service) maintain(ctx context.Context) {
 	s.loginByUsername.Prune()
 	s.registerByIP.Prune()
 	s.feedbackByUser.Prune()
+	s.groupRequestByIP.Prune()
+	s.groupRequestAll.Prune()
 }

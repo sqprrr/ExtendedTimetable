@@ -168,16 +168,29 @@ func TestFindGroups(t *testing.T) {
 	const groups = `{"university":{"short_name":"ХНУРЕ","faculties":[{"id":1,"directions":[
 		{"id":2,"groups":[{"id":11881842,"name":"КІУКІ-25-3"},{"id":5,"name":"ПЗПІ-25-1"}],
 		 "specialities":[{"id":3,"groups":[{"id":11881842,"name":"КІУКІ-25-3"},{"id":11881844,"name":"КІУКІ-25-4"}]}]}]}]}}`
+	var hits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
 		w.Write(cp1251(t, groups))
 	}))
 	defer srv.Close()
-	got, err := New([]string{srv.URL}, time.Second).FindGroups(context.Background(), "кіукі-25")
+	c := New([]string{srv.URL}, time.Second)
+	now := time.Now()
+	c.now = func() time.Time { return now }
+	got, err := c.FindGroups(context.Background(), "кіукі-25")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 2 || got[0] != (Group{ID: 11881842, Name: "КІУКІ-25-3"}) || got[1].ID != 11881844 {
 		t.Fatalf("got %+v", got)
+	}
+	// The list is kept for a while: another lookup does not ask CIST.
+	if got, err := c.FindGroups(context.Background(), "ПЗПІ"); err != nil || len(got) != 1 || hits.Load() != 1 {
+		t.Fatalf("cached lookup: %v %+v, %d requests", err, got, hits.Load())
+	}
+	now = now.Add(groupsTTL)
+	if _, err := c.FindGroups(context.Background(), "ПЗПІ"); err != nil || hits.Load() != 2 {
+		t.Fatalf("stale list: %v, %d requests", err, hits.Load())
 	}
 }
 

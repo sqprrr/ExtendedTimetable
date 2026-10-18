@@ -51,6 +51,22 @@ function setUpAutosubmit(root) {
 }
 if (window.htmx) htmx.onLoad(setUpAutosubmit);
 else setUpAutosubmit(document);
+
+// A select with data-other-field (the university on the group request form)
+// shows the field it names only while "other" is chosen. Without JavaScript
+// the field is always there.
+function setUpOtherFields(root) {
+  for (const select of root.querySelectorAll("select[data-other-field]")) {
+    const field = document.getElementById(select.dataset.otherField);
+    if (!field || select.dataset.ready) continue;
+    select.dataset.ready = "1";
+    const update = () => { field.hidden = select.value !== "other"; };
+    select.addEventListener("change", update);
+    update();
+  }
+}
+if (window.htmx) htmx.onLoad(setUpOtherFields);
+else setUpOtherFields(document);
 // Back/forward can restore a page with the fields still disabled.
 window.addEventListener("pageshow", () => {
   for (const el of document.querySelectorAll("form[data-autosubmit] [name]")) el.disabled = false;

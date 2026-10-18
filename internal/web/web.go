@@ -67,7 +67,7 @@ type Config struct {
 var pages = []string{
 	"home", "login", "join", "error",
 	"group", "subjects", "subject", "links", "homework", "homework_detail", "notes", "resources", "schedule",
-	"members", "feedback", "feedback_inbox", "admin_groups", "more",
+	"members", "feedback", "feedback_inbox", "admin_groups", "more", "request", "request_inbox",
 }
 
 // New parses the templates and returns a Handler.
@@ -121,6 +121,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	h.registerGroupRoutes(mux)
 	h.registerMemberRoutes(mux)
 	h.registerFeedbackRoutes(mux)
+	h.registerGroupRequestRoutes(mux)
 }
 
 // pageData is passed to every template.
@@ -157,7 +158,8 @@ type pageData struct {
 	// Group pages.
 	Group *service.GroupView
 	// Section is the current page in the navigation: a group section
-	// ("overview", "homework", …), or "home", "feedback", "inbox", "more".
+	// ("overview", "homework", …), or "home", "feedback", "inbox", "more",
+	// "request" (the group request form), "requests" (the list of them).
 	Section string
 	// Fields fills the create or edit form of a group section.
 	Fields map[string]string
@@ -199,7 +201,14 @@ type pageData struct {
 	Feedback []*store.Feedback
 	// FeedbackOpen counts the unresolved feedback (superadmins only).
 	FeedbackOpen int
-	// ShowAll shows resolved feedback in the inbox too.
+	// GroupRequests lists the group requests for superadmins;
+	// GroupRequestsOpen counts the unresolved ones.
+	GroupRequests     []*store.GroupRequest
+	GroupRequestsOpen int
+	// FromRequest is the group request the groups panel's form is filled in
+	// from, or the one the group on the members page was just made for.
+	FromRequest *store.GroupRequest
+	// ShowAll shows resolved feedback or group requests too.
 	ShowAll bool
 	// Notice is a confirmation shown at the top of the page.
 	Notice string
@@ -377,6 +386,8 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		"feedbackKinds": func() []store.FeedbackKind { return service.FeedbackKinds },
 		"feedbackKind":  func(k store.FeedbackKind) string { return label(l, "feedback.kind.", string(k)) },
 		"ratings":       func() []int64 { return []int64{5, 4, 3, 2, 1} },
+		"universities":  func() []string { return service.Universities },
+		"otherUniv":     func() string { return service.UniversityOther },
 		"logEvent":      func(e store.LogEvent) string { return label(l, "log.", string(e)) },
 		"stars": func(n int64) string {
 			n = max(0, min(n, 5))
@@ -560,6 +571,7 @@ var knownErrors = []struct {
 	{service.ErrInviteInvalid, i18n.M("err.invite_invalid"), http.StatusNotFound},
 	{service.ErrLeaderTaken, i18n.M("err.leader_taken"), http.StatusConflict},
 	{service.ErrLeaderMustResign, i18n.M("err.leader_must_resign"), http.StatusConflict},
+	{service.ErrDemo, i18n.M("err.demo"), http.StatusForbidden},
 }
 
 // userMessage turns expected service errors into a translated form error

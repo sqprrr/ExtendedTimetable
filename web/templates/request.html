@@ -1,0 +1,54 @@
+{{define "title"}}{{t "request.title"}}{{end}}
+{{define "mainClass"}}page-request{{end}}
+{{define "content"}}
+<section class="card auth-card">
+  <div>
+    <h1>{{t "request.title"}}</h1>
+    <p class="small-text">{{t "request.intro"}}</p>
+  </div>
+  {{with .Notice}}
+  <div class="alert alert-success" role="status">{{icon "circle-check"}}<div>{{.}}</div></div>
+  {{else}}
+  {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+  <form class="form" method="post" action="/request">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <label class="field">
+      <span class="field-label">{{t "field.university"}}</span>
+      {{/* app.js shows the field for another university only while
+         "Other" is chosen; without JavaScript it is always there. */}}
+      <select class="select" name="university" data-other-field="other-university" required>
+        {{range universities}}
+        <option value="{{.}}"{{if eq . (index $.Fields "university")}} selected{{end}}>{{.}}</option>
+        {{end}}
+        <option value="{{otherUniv}}"{{if eq otherUniv (index .Fields "university")}} selected{{end}}>{{t "request.other_choice"}}</option>
+      </select>
+    </label>
+    <label class="field" id="other-university">
+      <span class="field-label">{{t "request.other_university"}}</span>
+      <input class="input" name="other_university" value="{{index .Fields "other_university"}}" maxlength="200">
+      <span class="field-hint">{{t "request.other_university_hint"}}</span>
+    </label>
+    <label class="field">
+      <span class="field-label">{{t "field.group"}}</span>
+      <input class="input" name="group" value="{{index .Fields "group"}}" maxlength="50" spellcheck="false" required>
+      <span class="field-hint">{{t "request.group_hint"}}</span>
+    </label>
+    <label class="field">
+      <span class="field-label">{{t "field.telegram"}}</span>
+      <input class="input" name="telegram" value="{{index .Fields "telegram"}}" placeholder="@username" maxlength="64" autocapitalize="none" autocomplete="off" spellcheck="false" required>
+      <span class="field-hint">{{t "request.telegram_hint"}}</span>
+    </label>
+    <label class="field">
+      <span class="field-label">{{t "field.comment"}} <span class="optional">· {{t "form.optional_label"}}</span></span>
+      <textarea class="textarea" name="comment" rows="4" maxlength="2000">{{index .Fields "comment"}}</textarea>
+    </label>
+    {{/* The honeypot (trapField): hidden from people and screen readers;
+       bots fill it in. Nothing autofill knows in its name or label. */}}
+    <div class="trap" aria-hidden="true">
+      <label>Leave empty <input name="extt_hp" tabindex="-1" autocomplete="off"></label>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">{{icon "send"}}{{t "request.send"}}</button>
+  </form>
+  {{end}}
+</section>
+{{end}}

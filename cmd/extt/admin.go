@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -37,15 +38,21 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			st.Close()
 		}
 	}()
+	// Dates the CLI makes (the demo's deadlines) and prints are in the
+	// site's time zone, as the server's are.
+	loc, locErr := time.LoadLocation(envOr("EXTT_TZ", "Europe/Kyiv"))
 	open := func(positional int) ([]string, *service.Service, error) {
 		pos, err := parseArgs(fs, args, positional)
 		if err != nil {
 			return nil, nil, err
 		}
+		if locErr != nil {
+			return nil, nil, fmt.Errorf("EXTT_TZ: %w", locErr)
+		}
 		if st, err = openStore(ctx, *dbPath); err != nil {
 			return nil, nil, err
 		}
-		return pos, newService(st, nil), nil
+		return pos, newService(st, loc, ""), nil
 	}
 
 	switch sub {
@@ -83,7 +90,16 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			return err
 		}
 		fmt.Fprintf(stdout, "group %s created; share its invite link:\n", g.Code)
-		printInvite(stdout, *baseURL, inv)
+		printInvite(stdout, *baseURL, inv, loc)
+		// Load the timetable, and with it the subjects, now rather than at
+		// the server's next sync; a failure only delays that.
+		if cistGroup != nil {
+			if rec, err := svc.AdminSyncSchedule(ctx, g.Code, false); err != nil {
+				fmt.Fprintf(stdout, "schedule not loaded yet (%s); the server will retry\n", printable(err.Error()))
+			} else {
+				fmt.Fprintf(stdout, "%d classes loaded from CIST\n", rec.EventCount)
+			}
+		}
 
 	case "invite-link":
 		regenerate := fs.Bool("regenerate", false, "replace the link first; the old one stops working")
@@ -95,7 +111,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		if err != nil {
 			return err
 		}
-		printInvite(stdout, *baseURL, inv)
+		printInvite(stdout, *baseURL, inv, loc)
 
 	case "group-log":
 		limit := fs.Int("limit", 50, "how many entries to print")
@@ -112,7 +128,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			if e.ActorID == nil {
 				actor = "(server CLI)"
 			}
-			fmt.Fprintf(stdout, "%s  %-18s  by %s", e.CreatedAt.Local().Format(cliTime), e.Event, actor)
+			fmt.Fprintf(stdout, "%s  %-18s  by %s", e.CreatedAt.In(loc).Format(cliTime), e.Event, actor)
 			if e.UserID != nil {
 				fmt.Fprintf(stdout, "  user %s", e.UserName)
 			}
@@ -284,7 +300,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 			if author == "" {
 				author = "(deleted account)"
 			}
-			fmt.Fprintf(stdout, "#%d  %s  %s  %s", f.ID, f.CreatedAt.Local().Format(cliTime), author, f.Kind)
+			fmt.Fprintf(stdout, "#%d  %s  %s  %s", f.ID, f.CreatedAt.In(loc).Format(cliTime), author, f.Kind)
 			if f.Rating != nil {
 				fmt.Fprintf(stdout, " %d/5", *f.Rating)
 			}
@@ -295,6 +311,54 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 		}
 		fmt.Fprintf(stdout, "%d open; read and resolve them at /admin/feedback\n", inbox.Open)
 
+	case "demo-reset":
+		pos, svc, err := open(1)
+		if err != nil {
+			return err
+		}
+		passwords, err := svc.ResetDemo(ctx, pos[0])
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "%s is the demo group: %s is its leader, %s a student\n",
+			strings.ToUpper(pos[0]), service.DemoUsername, service.DemoStudentUsername)
+		for _, name := range service.DemoAccounts {
+			if pw, ok := passwords[name]; ok {
+				fmt.Fprintf(stdout, "%s password: %s\n", name, pw)
+			}
+		}
+		if len(passwords) > 0 {
+			fmt.Fprintln(stdout, "give them to the leaders who ask; change one with `admin reset-password <username>`")
+		}
+		fmt.Fprintln(stdout, "set EXTT_DEMO_GROUP for the server to reset the group every night")
+
+	case "requests":
+		all := fs.Bool("all", false, "include resolved requests")
+		_, svc, err := open(0)
+		if err != nil {
+			return err
+		}
+		inbox, err := svc.AdminGroupRequests(ctx, !*all)
+		if err != nil {
+			return err
+		}
+		for _, gr := range inbox.Items {
+			fmt.Fprintf(stdout, "#%d  %s  %s  %s  https://t.me/%s", gr.ID, gr.CreatedAt.In(loc).Format(cliTime),
+				printable(gr.GroupName), printable(gr.University), gr.Telegram)
+			if gr.CISTID != nil {
+				fmt.Fprintf(stdout, "  CIST %d (%s)", *gr.CISTID, printable(gr.CISTName))
+			}
+			if gr.ResolvedAt != nil {
+				fmt.Fprint(stdout, "  [resolved]")
+			}
+			fmt.Fprintln(stdout)
+			if gr.Comment != "" {
+				fmt.Fprintf(stdout, "  %s\n", strings.ReplaceAll(printable(gr.Comment), "\n", "\n  "))
+			}
+			fmt.Fprintln(stdout)
+		}
+		fmt.Fprintf(stdout, "%d open; read and resolve them at /admin/requests\n", inbox.Open)
+
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		return fmt.Errorf("admin: unknown subcommand %q", sub)
@@ -302,7 +366,7 @@ func cmdAdmin(ctx context.Context, args []string, stdin io.Reader, stdout io.Wri
 	return nil
 }
 
-// cliTime is how the CLI prints a moment, in the server's local time.
+// cliTime is how the CLI prints a moment, in the site's time zone.
 const cliTime = "2006-01-02 15:04"
 
 // printable makes text that users, YouTube or CIST wrote safe to print to
@@ -327,9 +391,9 @@ func printable(s string) string {
 }
 
 // printInvite prints an invite link, in full when the site's address is known.
-func printInvite(w io.Writer, baseURL string, inv *store.Invite) {
+func printInvite(w io.Writer, baseURL string, inv *store.Invite, loc *time.Location) {
 	fmt.Fprintf(w, "%s/join/%s\n", strings.TrimRight(baseURL, "/"), inv.Token)
-	fmt.Fprintf(w, "valid until %s\n", inv.ExpiresAt.Local().Format(cliTime))
+	fmt.Fprintf(w, "valid until %s\n", inv.ExpiresAt.In(loc).Format(cliTime))
 	if baseURL == "" {
 		fmt.Fprintln(w, "(set EXTT_BASE_URL or --base-url to print the full address)")
 	}
