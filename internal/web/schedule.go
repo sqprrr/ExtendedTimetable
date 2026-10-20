@@ -59,12 +59,10 @@ type classItem struct {
 // weekStart returns Monday 00:00 of the week containing the ?week= date
 // (YYYY-MM-DD), or of the current week when it is missing or invalid.
 func weekStart(param string, now time.Time, loc *time.Location) time.Time {
-	day := service.StartOfDay(now, loc)
 	if d, err := time.ParseInLocation(time.DateOnly, param, loc); err == nil {
-		day = d
+		now = d
 	}
-	offset := (int(day.Weekday()) + 6) % 7 // Monday = 0
-	return day.AddDate(0, 0, -offset)
+	return service.StartOfWeek(now, loc)
 }
 
 func (h *Handler) schedulePage(w http.ResponseWriter, r *http.Request) {

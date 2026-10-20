@@ -140,10 +140,13 @@ type pageData struct {
 	// NavGroup is the group the navigation leads to: the page's group, else
 	// the viewer's first group. It is nil for visitors and users in no group.
 	NavGroup *service.GroupView
-	Error    string
-	Status   string
-	Form     formValues
-	Groups   []service.GroupSummary
+	// NavHomeworkDue is the count next to Homework in the sidebar: what the
+	// viewer has to hand in to NavGroup by the end of the week.
+	NavHomeworkDue int
+	Error          string
+	Status         string
+	Form           formValues
+	Groups         []service.GroupSummary
 
 	// JoinInvite is the invite page's link; nil when the link is dead.
 	JoinInvite *service.InviteView
@@ -488,6 +491,13 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 				slog.WarnContext(r.Context(), "navigation group", "err", err)
 			}
 			data.NavGroup = g
+		}
+		if data.NavGroup != nil {
+			n, err := h.svc.HomeworkDue(r.Context(), data.NavGroup.ID)
+			if err != nil {
+				slog.WarnContext(r.Context(), "navigation homework count", "err", err)
+			}
+			data.NavHomeworkDue = n
 		}
 	}
 	var buf bytes.Buffer

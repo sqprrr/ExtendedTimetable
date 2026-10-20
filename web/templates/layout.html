@@ -68,7 +68,8 @@
     {{$g := print "/g/" .Code}}
     <a class="nav-item" href="{{$g}}"{{current $.Section "overview"}}>{{icon "house"}}<span>{{t "nav.today"}}</span></a>
     <a class="nav-item" href="{{$g}}/schedule"{{current $.Section "schedule"}}>{{icon "calendar-days"}}<span>{{t "nav.schedule"}}</span></a>
-    <a class="nav-item" href="{{$g}}/homework"{{current $.Section "homework"}}>{{icon "list-checks"}}<span>{{t "nav.homework"}}</span></a>
+    <a class="nav-item" href="{{$g}}/homework"{{current $.Section "homework"}}>{{icon "list-checks"}}<span>{{t "nav.homework"}}</span>
+      {{- with $.NavHomeworkDue}}{{$due := t "nav.homework_due" "Count" .}}<span class="count" title="{{$due}}" aria-hidden="true">{{.}}</span><span class="sr-only">, {{$due}}</span>{{end}}</a>
     <div class="nav-label">{{t "nav.group"}}</div>
     <a class="nav-item" href="{{$g}}/notes"{{current $.Section "notes"}}>{{icon "megaphone"}}<span>{{t "nav.notes"}}</span></a>
     <a class="nav-item" href="{{$g}}/links"{{current $.Section "links"}}>{{icon "link"}}<span>{{t "nav.links"}}</span></a>

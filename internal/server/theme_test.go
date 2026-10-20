@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -203,6 +204,46 @@ func TestAPITheme(t *testing.T) {
 	}
 	if code, out := me(http.MethodPut, `{"theme": "neon"}`); code != http.StatusUnprocessableEntity || out["code"] != "err.theme" {
 		t.Fatalf("PUT bad theme: %d %v", code, out)
+	}
+}
+
+// The sidebar's Homework item counts what the viewer has to hand in by the
+// end of the week, overdue included, on every page; the bottom bar has no
+// count.
+func TestNavHomeworkCount(t *testing.T) {
+	e := newEnv(t)
+	lead := e.signUp(t, "lead", store.RoleLeader)
+	stud := e.signUp(t, "stud", store.RoleStudent)
+	setupHomework(t, e, lead) // no deadline: not counted
+	const g = "/g/KIUKI-25-3"
+	_, body, _ := lead.get(g + "/homework/new")
+	sub := subjectOptionRe.FindStringSubmatch(body)
+	due := time.Now().UTC().Add(-time.Hour).Format("2006-01-02T15:04")
+	if code, _, _ := lead.submit(g+"/homework", g+"/homework", url.Values{"subject_id": {sub[1]}, "title": {"Late lab"}, "due_at": {due}}); code != http.StatusSeeOther {
+		t.Fatalf("create homework: %d", code)
+	}
+
+	count := `<span class="count" title="to hand in by the end of the week: 1" aria-hidden="true">1</span><span class="sr-only">, to hand in by the end of the week: 1</span></a>`
+	_, body, _ = stud.get(g + "/notes")
+	if !strings.Contains(body, `<span>Homework</span>`+count) {
+		t.Fatal("sidebar: no count of 1 next to Homework")
+	}
+	if strings.Count(body, `class="count"`) != 1 {
+		t.Error("the count belongs in the sidebar only")
+	}
+
+	_, body, _ = stud.get(g + "/homework")
+	m := regexp.MustCompile(`<a class="row-title" href="(` + g + `/homework/\d+)"[^>]*>Late lab<`).FindStringSubmatch(body)
+	if m == nil {
+		t.Fatal("no Late lab")
+	}
+	stud.submit(g+"/homework", m[1]+"/progress", url.Values{"view": {"item"}, "from": {"list"}, "status": {"done"}})
+	if _, body, _ := stud.get(g + "/notes"); strings.Contains(body, `class="count"`) {
+		t.Error("done homework should leave the count")
+	}
+	// The leader has not handed it in.
+	if _, body, _ := lead.get(g + "/notes"); !strings.Contains(body, count) {
+		t.Error("the leader's own count should still be 1")
 	}
 }
 

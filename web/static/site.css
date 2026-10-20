@@ -77,6 +77,9 @@ form.inline { display: inline; margin: 0; }
 }
 
 /* Shell */
+/* The top bar keeps its height on a page shorter than the screen; the page
+   takes the rest. From 768px the sidebar and the page share the first row. */
+.app { grid-template-rows: auto 1fr; }
 .group-switch .group-code { justify-self: start; }
 a.group-code { text-decoration: none; }
 a.group-code:hover { color: var(--text); }

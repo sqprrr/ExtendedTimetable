@@ -561,6 +561,10 @@ oct = "October"
 nov = "November"
 dec = "December"
 
+[nav.homework_due]
+one = "to hand in by the end of the week: {{.Count}}"
+other = "to hand in by the end of the week: {{.Count}}"
+
 [today.now_left]
 one = "Now · {{.Count}} min left"
 other = "Now · {{.Count}} min left"
