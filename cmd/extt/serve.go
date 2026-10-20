@@ -26,6 +26,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	cistEvery := fs.Duration("cist-interval", envDuration("EXTT_CIST_INTERVAL", 6*time.Hour), "how often to sync schedules from CIST (0 turns it off)")
 	youtubeEvery := fs.Duration("youtube-interval", envDuration("EXTT_YOUTUBE_INTERVAL", time.Hour), "how often to sync recordings from YouTube playlists (0 turns it off; needs EXTT_YOUTUBE_KEY)")
 	baseURL := baseURLFlag(fs)
+	demoGroup := fs.String("demo-group", envOr("EXTT_DEMO_GROUP", ""), "code of the demo group, reset on start and every night (empty: no demo)")
 	metricsAddr := fs.String("metrics-addr", envOr("EXTT_METRICS_ADDR", ""), "listen address for Prometheus metrics at /metrics; keep it on loopback (empty turns it off)")
 	logLevel := fs.String("log-level", envOr("EXTT_LOG_LEVEL", "info"), "debug, info, warn or error")
 	logFormat := fs.String("log-format", envOr("EXTT_LOG_FORMAT", "text"), "text or json")
@@ -49,7 +50,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	}
 	defer st.Close()
 
-	svc := newService(st, loc)
+	svc := newService(st, loc, *demoGroup)
 	handler, err := server.New(svc, server.Config{SecureCookies: *secure, TrustProxy: *trustProxy, BaseURL: *baseURL})
 	if err != nil {
 		return err
@@ -59,6 +60,7 @@ func cmdServe(ctx context.Context, args []string) error {
 	if *cistEvery > 0 {
 		go svc.RunScheduleSync(ctx, *cistEvery)
 	}
+	go svc.RunDemoReset(ctx)
 	youtubeOn := *youtubeEvery > 0 && os.Getenv("EXTT_YOUTUBE_KEY") != ""
 	if youtubeOn {
 		go svc.RunRecordingSync(ctx, *youtubeEvery)

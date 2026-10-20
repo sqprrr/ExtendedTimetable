@@ -58,7 +58,7 @@ func requestLog(trustProxy bool, mux *http.ServeMux, next http.Handler) http.Han
 			switch {
 			case status >= 500:
 				level = slog.LevelError
-			case path == "/healthz" || strings.HasPrefix(path, "/static/"):
+			case path == "/healthz" || path == "/favicon.ico" || path == "/apple-touch-icon.png" || strings.HasPrefix(path, "/static/"):
 				level = slog.LevelDebug
 			}
 			slog.LogAttrs(ctx, level, "request",

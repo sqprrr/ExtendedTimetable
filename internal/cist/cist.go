@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	_ "time/tzdata" // CIST times are in Kyiv; do not depend on the host's zoneinfo
@@ -54,6 +55,12 @@ type Source interface {
 	GroupEvents(ctx context.Context, cistGroupID int64, from, to time.Time) ([]Event, error)
 }
 
+// GroupFinder looks CIST groups up by name. It is how the group request
+// form finds the CIST id of the group asked for.
+type GroupFinder interface {
+	FindGroups(ctx context.Context, query string) ([]Group, error)
+}
+
 // DefaultBaseURLs are the CIST servers, tried in order. cist2 is a mirror
 // that often answers when the main server does not.
 var DefaultBaseURLs = []string{"https://cist.nure.ua", "https://cist2.nure.ua"}
@@ -65,7 +72,18 @@ type Client struct {
 	kyiv     *time.Location
 	// preferred is the index of the server that answered last, tried first.
 	preferred atomic.Int32
+	// now is the clock the group list is cached by.
+	now func() time.Time
+
+	// groups is CIST's list of groups, kept for groupsTTL: it is a few
+	// hundred kilobytes and changes a few times a year.
+	groupsMu sync.Mutex
+	groups   []Group
+	groupsAt time.Time
 }
+
+// groupsTTL is how long the list of groups is kept.
+const groupsTTL = 6 * time.Hour
 
 // New returns a client for the given servers (DefaultBaseURLs if empty).
 // timeout bounds each request to one server.
@@ -77,7 +95,7 @@ func New(baseURLs []string, timeout time.Duration) *Client {
 	if err != nil {
 		panic(err) // embedded by time/tzdata
 	}
-	return &Client{baseURLs: baseURLs, http: &http.Client{Timeout: timeout}, kyiv: kyiv}
+	return &Client{baseURLs: baseURLs, http: &http.Client{Timeout: timeout}, kyiv: kyiv, now: time.Now}
 }
 
 // maxBody bounds a CIST response; a semester of one group is about 40 KB.
@@ -270,8 +288,31 @@ func parseTitle(title string) (subject, typ, room, groups string, err error) {
 }
 
 // FindGroups returns the CIST groups whose name contains query, ignoring
-// case. It is how an admin looks up a group's CIST id.
+// case. It is how an admin, or the group request form, looks up a group's
+// CIST id.
 func (c *Client) FindGroups(ctx context.Context, query string) ([]Group, error) {
+	groups, err := c.allGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+	query = strings.ToLower(strings.TrimSpace(query))
+	var out []Group
+	for _, g := range groups {
+		if strings.Contains(strings.ToLower(g.Name), query) {
+			out = append(out, g)
+		}
+	}
+	return out, nil
+}
+
+// allGroups returns CIST's list of groups, from the cache while it is
+// fresh. A failure is not cached: the next call asks CIST again.
+func (c *Client) allGroups(ctx context.Context) ([]Group, error) {
+	c.groupsMu.Lock()
+	defer c.groupsMu.Unlock()
+	if c.groups != nil && c.now().Sub(c.groupsAt) < groupsTTL {
+		return c.groups, nil
+	}
 	body, err := c.get(ctx, "/ias/app/tt/P_API_GROUP_JSON")
 	if err != nil {
 		return nil, fmt.Errorf("cist: groups: %w", err)
@@ -295,12 +336,11 @@ func (c *Client) FindGroups(ctx context.Context, query string) ([]Group, error) 
 	if err := json.Unmarshal([]byte(decode(body)), &data); err != nil {
 		return nil, fmt.Errorf("cist: groups: %w", err)
 	}
-	query = strings.ToLower(strings.TrimSpace(query))
 	seen := map[int64]bool{}
-	var out []Group
+	out := []Group{}
 	add := func(gs []group) {
 		for _, g := range gs {
-			if !seen[g.ID] && strings.Contains(strings.ToLower(g.Name), query) {
+			if !seen[g.ID] {
 				seen[g.ID] = true
 				out = append(out, Group{ID: g.ID, Name: g.Name})
 			}
@@ -314,5 +354,6 @@ func (c *Client) FindGroups(ctx context.Context, query string) ([]Group, error) 
 			}
 		}
 	}
+	c.groups, c.groupsAt = out, c.now()
 	return out, nil
 }

@@ -173,3 +173,19 @@ func TestStaticGzip(t *testing.T) {
 		t.Error("fonts are compressed already and must be sent as they are")
 	}
 }
+
+// Browsers and bots ask for /favicon.ico without a link to it.
+func TestStaticAt(t *testing.T) {
+	s := testStatic(t, map[string]string{"favicon.ico": "\x00\x00\x01\x00icon"})
+	w := httptest.NewRecorder()
+	s.at("favicon.ico").ServeHTTP(w, httptest.NewRequest("GET", "/favicon.ico", nil))
+	if w.Code != 200 || w.Body.String() != "\x00\x00\x01\x00icon" {
+		t.Fatalf("/favicon.ico: %d %q", w.Code, w.Body)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "image/x-icon" {
+		t.Errorf("Content-Type = %q", ct)
+	}
+	if cc := w.Header().Get("Cache-Control"); cc != "no-cache" {
+		t.Errorf("Cache-Control = %q", cc)
+	}
+}

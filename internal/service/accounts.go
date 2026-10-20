@@ -63,6 +63,10 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*NewSession, 
 	if err != nil {
 		return nil, err
 	}
+	// The demo account's name is kept for it, even before it is made.
+	if s.isDemoUser(username) {
+		return nil, ErrUsernameTaken
+	}
 	if err := validatePassword(in.Password); err != nil {
 		return nil, err
 	}
@@ -148,7 +152,10 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (*NewSession, error)
 		metrics.Login(metrics.RateLimited)
 		return nil, ErrRateLimited
 	}
-	if !s.loginByUsername.Allow(username) {
+	// The demo accounts' names are public and shared by every visitor, so
+	// anyone could use up this limit and lock them all out. Their passwords
+	// are random (72 bits), which the limits per network keep out of reach.
+	if !s.isDemoAccount(ctx, username) && !s.loginByUsername.Allow(username) {
 		slog.WarnContext(ctx, "login rate limited", "by", "username")
 		metrics.Login(metrics.RateLimited)
 		return nil, ErrRateLimited
@@ -189,6 +196,11 @@ func (s *Service) SetLocale(ctx context.Context, locale string) error {
 	if !i18n.IsSupported(locale) {
 		return inputError("locale", "err.locale")
 	}
+	// Visitors share the demo account: the choice stays in each one's
+	// browser (the cookie).
+	if v.IsDemo {
+		return nil
+	}
 	if err := s.store.SetLocale(ctx, v.UserID, locale); err != nil {
 		return err
 	}
@@ -223,6 +235,9 @@ func (s *Service) SetTheme(ctx context.Context, theme string) error {
 	}
 	if !IsTheme(theme) {
 		return inputError("theme", "err.theme")
+	}
+	if v.IsDemo {
+		return nil // as in SetLocale
 	}
 	if err := s.store.SetTheme(ctx, v.UserID, theme); err != nil {
 		return err
@@ -294,6 +309,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (context.Conte
 		Theme:        u.Theme,
 		TimeZone:     u.TimeZone,
 		Memberships:  ms,
+		IsDemo:       s.isDemoMember(ctx, u.Username, ms),
 	}
 	// Each request gets a copy, which it may change (SetLocale).
 	s.cache.sessions.Put(id, cachedSession{expiresAt: sess.ExpiresAt, viewer: v}, version, now)

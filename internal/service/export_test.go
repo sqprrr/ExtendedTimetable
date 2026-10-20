@@ -16,3 +16,12 @@ var (
 	PickNowClass = nowClass
 	LaterToday   = laterToday
 )
+
+// TelegramUsername reads the Telegram field of the group request form.
+var TelegramUsername = telegramUsername
+
+// GroupCode spells a group's name as a group code.
+var GroupCode = groupCode
+
+// NextDemoReset is when the demo group is next reset.
+var NextDemoReset = nextDemoReset

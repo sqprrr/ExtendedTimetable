@@ -37,6 +37,21 @@ notes, and a private homework tracker per student. See
   what they sent and whether it was resolved. Superadmins read, resolve and
   delete feedback at `/admin/feedback`, or print it on the server with
   `extt admin feedback`.
+- **Group requests:** anyone can ask for the site for their group at
+  `/request` (linked from the login page): university, group, Telegram
+  username and a comment. For ХНУРЕ the form finds the group's CIST id.
+  Superadmins read and resolve requests at `/admin/requests`, or print them
+  with `extt admin requests`; **Create group** fills the new-group form in
+  from a request, resolves it, loads the timetable from CIST at once, and
+  shows whom to send the invite link to.
+- **Demo group:** `extt admin demo-reset <code>` makes a group the demo: the
+  accounts `demo`, its leader, and `demo-student`, a student, with random
+  passwords it prints once (the superadmin gives them to the leaders who
+  ask; the site never shows them), and made-up homework, notes, links and
+  recordings. With `EXTT_DEMO_GROUP` set, the server resets the group on
+  start and every night, undoing whatever visitors changed. The accounts
+  cannot give up the leader role, leave the group, be removed or keep
+  settings, and nobody can join the demo group.
 - **Invite links:** groups are joined only through their invite link,
   `/join/<token>`, where a visitor creates an account or logs in. A user is
   in one group at most. A link works for 10 days or until it is replaced; it
@@ -112,7 +127,7 @@ server:
 
 Run `./extt help` for all commands. Other admin commands: `demote`,
 `group-log <code>`, `add-playlist <code> <link>`, `remove-playlist <code> <link|id>`, `playlists <code>`, `sync-recordings <code>`, `reset-password`, `set-cist-id <code> <id|none>` (link an
-existing group to CIST), `feedback [--all]` (print the feedback users sent). `./extt backup <file>` writes a consistent copy of the database, also
+existing group to CIST), `feedback [--all]` (print the feedback users sent), `requests [--all]` (print the requests for groups), `demo-reset <code>` (make a group the demo). `./extt backup <file>` writes a consistent copy of the database, also
 while the server runs.
 
 ## Deployment

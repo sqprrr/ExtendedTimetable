@@ -1,0 +1,53 @@
+{{define "title"}}{{t "request.inbox"}}{{end}}
+{{define "mainClass"}}page-inbox{{end}}
+{{define "content"}}
+<header class="page-head">
+  <div><h1>{{t "request.inbox"}}</h1></div>
+  <nav class="segmented" aria-label="{{t "request.inbox"}}">
+    <a href="/admin/requests"{{if not .ShowAll}} aria-current="page"{{end}}>{{t "request.show_open" "N" .GroupRequestsOpen}}</a>
+    <a href="/admin/requests?show=all"{{if .ShowAll}} aria-current="page"{{end}}>{{t "request.show_all"}}</a>
+  </nav>
+</header>
+{{with .GroupRequests}}
+<section class="card card-flush" aria-label="{{t "request.inbox"}}">
+  <ul class="rows">
+    {{range .}}
+    <li class="feedback{{if .ResolvedAt}} resolved{{end}}">
+      <p class="feedback-author"><strong>{{.GroupName}}</strong> · {{.University}}</p>
+      <div class="meta feedback-head">
+        <a class="meta-item" href="https://t.me/{{.Telegram}}" target="_blank" rel="noopener noreferrer">{{icon "send"}}@{{.Telegram}}</a>
+        <span class="meta-item">{{if .CISTID}}{{icon "calendar-days"}}{{t "request.cist" "Name" .CISTName "ID" .CISTID}}{{else}}{{t "request.no_cist"}}{{end}}</span>
+        <span class="meta-item">{{when .CreatedAt}}</span>
+        {{if .ResolvedAt}}<span class="badge badge-success">{{icon "circle-check"}}{{t "request.resolved"}}</span>{{end}}
+      </div>
+      {{with .Comment}}<p class="feedback-message">{{.}}</p>{{end}}
+      <div class="btn-row">
+        {{if not .ResolvedAt}}<a class="btn btn-primary btn-sm" href="/admin/groups?request={{.ID}}">{{icon "plus"}}{{t "request.create_group"}}</a>{{end}}
+        <form method="post" action="/admin/requests/{{.ID}}/resolve" class="inline">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          {{if $.ShowAll}}<input type="hidden" name="show" value="all">{{end}}
+          {{if .ResolvedAt}}
+          <button type="submit" name="resolved" value="0" class="btn btn-secondary btn-sm">{{t "request.reopen"}}</button>
+          {{else}}
+          <button type="submit" name="resolved" value="1" class="btn btn-secondary btn-sm">{{icon "circle-check"}}{{t "request.resolve"}}</button>
+          {{end}}
+        </form>
+        <form method="post" action="/admin/requests/{{.ID}}/delete" class="inline" data-confirm="{{t "request.confirm_delete"}}">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          {{if $.ShowAll}}<input type="hidden" name="show" value="all">{{end}}
+          <button type="submit" class="btn btn-danger btn-sm">{{icon "trash-2"}}{{t "action.delete"}}</button>
+        </form>
+      </div>
+    </li>
+    {{end}}
+  </ul>
+</section>
+{{else}}
+<section class="card">
+  <div class="empty">
+    <span class="glyph">{{icon "inbox"}}</span>
+    <h3>{{if .ShowAll}}{{t "request.inbox_empty"}}{{else}}{{t "request.inbox_clear"}}{{end}}</h3>
+  </div>
+</section>
+{{end}}
+{{end}}

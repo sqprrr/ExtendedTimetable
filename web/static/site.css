@@ -260,6 +260,10 @@ li.feedback { display: grid; gap: var(--space-8); padding: var(--space-12) 0; }
 .feedback-author { font-size: 14px; line-height: 20px; }
 .feedback-message { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 68ch; }
 li.feedback.resolved .feedback-message { color: var(--text-secondary); }
+/* The group request form: as narrow as the sign-in card when signed in too;
+   its honeypot field is off-screen (people never reach it, bots fill it in). */
+.page-request .auth-card { max-width: 440px; }
+.trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .stars { color: var(--warning); letter-spacing: 0.1em; }
 /* Running text with links in it (.meta is a flex row, which spaces links out). */
 .small-text { font-size: 13px; line-height: 18px; color: var(--text-secondary); }

@@ -7,6 +7,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{template "title" .}} · ExtendedTimetable</title>
+  <link rel="icon" href="{{asset "favicon.ico"}}" sizes="32x32">
+  <link rel="icon" href="{{asset "favicon.svg"}}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{asset "apple-touch-icon.png"}}">
   {{/* The design system's tokens and components, the site's own pieces,
      then the Halloween layer, which does nothing outside its themes. */}}
   <link rel="stylesheet" href="{{asset "tokens.css"}}">
@@ -85,6 +88,7 @@
     {{if .Viewer.IsSuperadmin}}
     <a class="nav-item" href="/admin/groups"{{current .Section "admin_groups"}}>{{icon "users"}}<span>{{t "nav.admin_groups"}}</span></a>
     <a class="nav-item" href="/admin/feedback"{{current .Section "inbox"}}>{{icon "list-checks"}}<span>{{t "feedback.inbox"}}</span></a>
+    <a class="nav-item" href="/admin/requests"{{current .Section "requests"}}>{{icon "inbox"}}<span>{{t "request.inbox"}}</span></a>
     {{end}}
     <div class="user-line">
       <span>{{.Viewer.Username}}{{with viewerRole .Viewer .NavGroup}} · {{.}}{{end}}</span>
@@ -126,11 +130,11 @@
   <a href="{{$g}}"{{current $.Section "overview"}}>{{icon "house"}}<span>{{t "nav.today"}}</span></a>
   <a href="{{$g}}/schedule"{{current $.Section "schedule"}}>{{icon "calendar-days"}}<span>{{t "nav.schedule"}}</span></a>
   <a href="{{$g}}/homework"{{current $.Section "homework"}}>{{icon "list-checks"}}<span>{{t "nav.homework_short"}}</span></a>
-  <a href="{{$g}}/more"{{current $.Section "more" "notes" "links" "resources" "subjects" "members" "feedback" "inbox" "admin_groups" "home"}}>{{icon "menu"}}<span>{{t "nav.more"}}</span></a>
+  <a href="{{$g}}/more"{{current $.Section "more" "notes" "links" "resources" "subjects" "members" "feedback" "inbox" "admin_groups" "home" "request" "requests"}}>{{icon "menu"}}<span>{{t "nav.more"}}</span></a>
   {{else}}
   <a href="/"{{current $.Section "home"}}>{{icon "house"}}<span>{{t "nav.my_groups"}}</span></a>
   <a href="/feedback"{{current $.Section "feedback"}}>{{icon "message-square"}}<span>{{t "nav.feedback"}}</span></a>
-  <a href="/more"{{current $.Section "more" "inbox" "admin_groups"}}>{{icon "menu"}}<span>{{t "nav.more"}}</span></a>
+  <a href="/more"{{current $.Section "more" "inbox" "admin_groups" "request" "requests"}}>{{icon "menu"}}<span>{{t "nav.more"}}</span></a>
   {{end}}
 </nav>
 {{end}}

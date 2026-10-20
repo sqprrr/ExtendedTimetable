@@ -279,6 +279,49 @@ sudo exttctl admin remove-playlist KIUKI-25-3 'https://youtube.com/playlist?list
 sudo exttctl admin sync-recordings KIUKI-25-3   # add new videos now
 ```
 
+## Group requests and the demo
+
+Visitors ask for the site for their group at `/request`; superadmins see
+the requests at `/admin/requests` (or `sudo exttctl admin requests`), where
+**Create group** opens the groups panel filled in from the request. The new
+group's timetable loads from CIST at once, and its members page shows the
+invite link and the Telegram account to send it to.
+
+A demo group lets a group leader try the site before asking for it. Make a
+group for it, linked to a real CIST timetable so its schedule is not empty,
+then name it in the settings:
+
+```sh
+sudo exttctl admin create-group DEMO --cist-id 11881842 --name "Демо-група"
+sudo exttctl admin demo-reset DEMO      # prints the demo accounts' passwords
+sudo nano /etc/extt/extt.env            # EXTT_DEMO_GROUP=DEMO
+sudo systemctl restart extt
+```
+
+`demo-reset` makes two accounts with random passwords and prints them
+once: `demo`, the group's leader, to try what a leader does, and
+`demo-student`, a student, to see (and show the group) what students see.
+Give them to the leaders who ask (the site never shows them), and change
+one with `sudo exttctl admin reset-password demo` (or `demo-student`) when
+it has gone round too far. Run `demo-reset` before setting
+`EXTT_DEMO_GROUP`: a server that makes the accounts itself prints no
+passwords. Only a group with nobody but the demo accounts in it can be the
+demo: `demo-reset`, and the server's reset, refuse a real group, so a
+mistyped code cannot wipe it.
+
+The server resets the group on start and every night at 04:00: whatever
+visitors changed is deleted (homework, notes, class links, recordings,
+playlists, subjects), the timetable and its subjects come again from CIST,
+and made-up homework, notes, class links and recordings, dated around that
+day, are added; the passwords stay. The leader account tries everything a
+leader does, including making `demo-student` an editor until the night;
+neither account can give up the leader role, leave the group, join another
+or be removed, nor add YouTube playlists; the invite link is hidden and
+nobody can join the demo group; and the accounts' language, theme and time zone stay in each
+visitor's browser. Visitors share the accounts, so what one adds the others
+see until the night. While a demo is set, nobody can register as `demo` or
+`demo-student`.
+
 ## Day to day
 
 ```sh

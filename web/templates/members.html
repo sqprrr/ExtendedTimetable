@@ -10,6 +10,7 @@
 </header>
 <div class="section-gap">
   {{with .Error}}<div class="alert alert-danger" role="alert">{{icon "triangle-alert"}}<div>{{.}}</div></div>{{end}}
+  {{with .FromRequest}}<div class="alert alert-success" role="status">{{icon "send"}}<div>{{th "request.created" "Nick" .Telegram}}</div></div>{{end}}
 
   <section class="card" aria-labelledby="members-leader">
     <div class="card-head"><h2 id="members-leader">{{t "members.leader"}}</h2></div>
@@ -20,13 +21,13 @@
       <p class="text-secondary">{{t "members.no_leader"}}</p>
       {{end}}
       <div class="btn-row">
-        {{if and (not .Group.Leader) (or (eq .Group.Role "student") (eq .Group.Role "editor"))}}
+        {{if and (not .Group.Leader) (or (eq .Group.Role "student") (eq .Group.Role "editor")) (not .Viewer.IsDemo)}}
         <form method="post" action="{{$g}}/leader/claim" class="inline" data-confirm="{{t "members.confirm_claim"}}">
           <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
           <button type="submit" class="btn btn-primary">{{t "members.claim"}}</button>
         </form>
         {{end}}
-        {{if eq .Group.Role "leader"}}
+        {{if and (eq .Group.Role "leader") (not .Viewer.IsDemo)}}
         <form method="post" action="{{$g}}/leader/resign" class="inline" data-confirm="{{t "members.confirm_resign"}}">
           <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
           <button type="submit" class="btn btn-secondary">{{t "members.resign"}}</button>
@@ -55,7 +56,8 @@
     </div>
   </section>
 
-  {{with .Invite}}
+  {{/* Nobody joins the demo group, so its leader gets no link to share. */}}
+  {{with and (not .Viewer.IsDemo) .Invite}}
   <section class="card" aria-labelledby="members-invite">
     <div class="card-head"><h2 id="members-invite">{{t "members.invite"}}</h2></div>
     <div class="stack">
@@ -115,7 +117,7 @@
   </section>
   {{if and .Group.CanManage .Members}}<p class="small-text">{{t "members.editor_hint"}} {{t "members.remove_hint"}}</p>{{end}}
 
-  {{if .Group.Role}}
+  {{if and .Group.Role (not .Viewer.IsDemo)}}
   <section class="card" aria-labelledby="members-leave">
     <div class="card-head"><h2 id="members-leave">{{t "members.leave"}}</h2></div>
     <div class="stack">
