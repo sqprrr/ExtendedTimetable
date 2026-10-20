@@ -84,9 +84,10 @@
 {{end}}
 
 {{/* homeworkFilters narrows the list by subject and, for a viewer with a
-   tracker, by their own status: one-tap chips in a plain GET form, so the
-   filter is in the URL. app.js submits it when a choice changes; the
-   button is for browsers without JavaScript. */}}
+   tracker, by their own status (with how many of each): one-tap chips in a
+   plain GET form, so the filter is in the URL. The first chip of each row
+   resets it. app.js submits the form when a choice changes; the button is
+   for browsers without JavaScript. */}}
 {{define "homeworkFilters"}}
 {{$f := .HomeworkFilter}}
 <form class="filters" method="get" action="/g/{{.Group.Code}}/homework" data-autosubmit aria-label="{{t "hw.filters"}}">
@@ -102,13 +103,10 @@
     <legend class="sr-only">{{t "hw.status"}}</legend>
     <label class="chip"><input type="radio" name="status" value=""{{if not $f.Status}} checked{{end}}>{{t "hw.all_statuses"}}</label>
     {{range statuses}}
-    <label class="chip"><input type="radio" name="status" value="{{.}}"{{if eq . $f.Status}} checked{{end}}>{{statusLabel .}}</label>
+    <label class="chip"><input type="radio" name="status" value="{{.}}"{{if eq . $f.Status}} checked{{end}}>{{statusLabel .}} <span class="count">{{index $.HomeworkCounts .}}</span></label>
     {{end}}
   </fieldset>
   {{end}}
-  <div class="btn-row">
-    <button type="submit" class="btn btn-secondary btn-sm">{{t "hw.filter"}}</button>
-    {{if or $f.SubjectID $f.Status}}<a class="btn btn-ghost btn-sm" href="/g/{{.Group.Code}}/homework">{{t "hw.reset_filters"}}</a>{{end}}
-  </div>
+  <noscript><div class="btn-row"><button type="submit" class="btn btn-secondary btn-sm">{{t "hw.filter"}}</button></div></noscript>
 </form>
 {{end}}

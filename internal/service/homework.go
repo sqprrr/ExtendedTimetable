@@ -92,28 +92,40 @@ func (f HomeworkFilter) match(h *Homework) bool {
 // HomeworkList lists the group's assignments that pass f by due date, those
 // without a deadline last. An unknown status in f is an input error.
 func (s *Service) HomeworkList(ctx context.Context, groupID int64, f HomeworkFilter) ([]*Homework, error) {
+	list, _, err := s.HomeworkListWithCounts(ctx, groupID, f)
+	return list, err
+}
+
+// HomeworkListWithCounts is HomeworkList with, for the status filter, how
+// many of the assignments of f's subject the viewer has in each status;
+// the counts are empty for a viewer without a tracker in the group.
+func (s *Service) HomeworkListWithCounts(ctx context.Context, groupID int64, f HomeworkFilter) ([]*Homework, map[store.ProgressStatus]int, error) {
 	v, err := canView(ctx, groupID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if f.Status != "" && !validStatus(f.Status) {
-		return nil, inputError("status", "err.status")
+		return nil, nil, inputError("status", "err.status")
 	}
 	hws, err := s.store.ListHomework(ctx, groupID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	views, err := s.homeworkViews(ctx, v, groupID, hws)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	counts := map[store.ProgressStatus]int{}
 	out := views[:0]
 	for _, h := range views {
+		if h.Tracked && (HomeworkFilter{SubjectID: f.SubjectID}).match(h) {
+			counts[h.Status]++
+		}
 		if f.match(h) {
 			out = append(out, h)
 		}
 	}
-	return out, nil
+	return out, counts, nil
 }
 
 // homeworkViews adds the viewer's progress to a list of the group's assignments.

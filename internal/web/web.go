@@ -175,8 +175,10 @@ type pageData struct {
 	Subjects     []*store.Subject
 	ClassLinks   []*store.ClassLink
 	HomeworkList []*service.Homework
-	// HomeworkFilter is the homework list's subject and status filter.
+	// HomeworkFilter is the homework list's subject and status filter;
+	// HomeworkCounts counts the viewer's statuses for its status chips.
 	HomeworkFilter service.HomeworkFilter
+	HomeworkCounts map[store.ProgressStatus]int
 	// ListFilter narrows the class links and the recordings; ClassLinks and
 	// Resources hold what passes it, out of ClassLinksTotal and ResourcesTotal.
 	ListFilter      listFilter

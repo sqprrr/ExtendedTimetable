@@ -160,6 +160,10 @@ progress.bar::-moz-progress-bar { background: var(--hue, var(--accent)); border-
 [data-theme^="halloween"] .now-time progress.bar::-moz-progress-bar { background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, var(--halloween-candy) 8px 16px); }
 
 /* Rows */
+/* A long subject name ("Об'єктно-орієнтоване програмування") wraps in a
+   row's meta line instead of widening the row's text past its column. */
+.rows .main { grid-template-columns: minmax(0, 1fr); }
+.rows .meta .subject { white-space: normal; }
 .row-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }
 .row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-6); }
 .class-row .no-link { font-size: 13px; line-height: 22px; color: var(--text-tertiary); white-space: nowrap; }
@@ -203,6 +207,10 @@ progress.bar::-moz-progress-bar { background: var(--hue, var(--accent)); border-
 .back-link:hover { color: var(--text); }
 .back-link .icon { width: 16px; height: 16px; }
 .page-head .meta.subtitle { margin-top: var(--space-6); }
+/* An item's page (an assignment): its row menu stays at the top right,
+   beside the title, on phones too. */
+.page-head:has(> details.menu) > div:first-child { flex: 1 1 0; min-width: 0; }
+.page-head > details.menu { align-self: flex-start; }
 
 /* Homework */
 .filters { display: grid; gap: var(--space-8); }

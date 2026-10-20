@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"testing"
 	"time"
@@ -151,5 +152,45 @@ func TestHomeworkDue(t *testing.T) {
 	// Visitors are turned away like everywhere else.
 	if _, err := f.svc.HomeworkDue(ctx, gid); err == nil {
 		t.Error("visitor: want an error")
+	}
+}
+
+// The status chips count the viewer's statuses among the assignments of the
+// chosen subject, whatever status is chosen.
+func TestHomeworkStatusCounts(t *testing.T) {
+	f := setup(t)
+	lead := f.leader(t, "lead")
+	stud := f.as(t, f.register(t, "stud"))
+	gid := f.group.ID
+	physics, maths := f.subject(t, lead, "Physics").ID, f.subject(t, lead, "Maths").ID
+	lab := f.homework(t, lead, physics, "Lab", nil, nil)
+	f.homework(t, lead, physics, "Essay", nil, nil)
+	sums := f.homework(t, lead, maths, "Sums", nil, nil)
+	for id, st := range map[int64]store.ProgressStatus{lab.ID: store.StatusDone, sums.ID: store.StatusInProgress} {
+		if _, err := f.svc.UpdateProgress(stud, gid, id, service.ProgressInput{Status: status(st)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, c := range []struct {
+		filter service.HomeworkFilter
+		items  int
+		counts map[store.ProgressStatus]int
+	}{
+		{service.HomeworkFilter{}, 3, map[store.ProgressStatus]int{store.StatusNotStarted: 1, store.StatusInProgress: 1, store.StatusDone: 1}},
+		{service.HomeworkFilter{Status: store.StatusDone}, 1, map[store.ProgressStatus]int{store.StatusNotStarted: 1, store.StatusInProgress: 1, store.StatusDone: 1}},
+		{service.HomeworkFilter{SubjectID: physics}, 2, map[store.ProgressStatus]int{store.StatusNotStarted: 1, store.StatusDone: 1}},
+		{service.HomeworkFilter{SubjectID: physics, Status: store.StatusInProgress}, 0, map[store.ProgressStatus]int{store.StatusNotStarted: 1, store.StatusDone: 1}},
+	} {
+		list, counts, err := f.svc.HomeworkListWithCounts(stud, gid, c.filter)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(list) != c.items || !maps.Equal(counts, c.counts) {
+			t.Errorf("%+v: %d items, counts %v; want %d, %v", c.filter, len(list), counts, c.items, c.counts)
+		}
+	}
+	if _, _, err := f.svc.HomeworkListWithCounts(stud, gid, service.HomeworkFilter{Status: "finished"}); err == nil {
+		t.Error("an unknown status should be an input error")
 	}
 }
