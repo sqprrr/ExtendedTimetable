@@ -23,7 +23,7 @@
     <label class="chip"><input type="radio" name="lesson_type" value="{{.}}"{{if eq . $f.LessonType}} checked{{end}}>{{lessonLabel .}}</label>
     {{end}}
   </fieldset>
-  {{template "filterButtons" (filterButtons $f.Active (print $g "/links"))}}
+  {{template "filterButtons" .}}
 </form>
 {{end}}
 {{with .ClassLinks}}

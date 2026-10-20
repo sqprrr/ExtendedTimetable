@@ -346,3 +346,25 @@ func TestListFilters(t *testing.T) {
 	check(g+"/resources?subject_id="+ids["Physics"], []string{"Phys recording"}, []string{"Chem solution"})
 	check(g+"/resources?subject_id="+ids["Physics"]+"&kind=solution", []string{"Nothing matches these filters."}, []string{"Phys recording", "Chem solution"})
 }
+
+// Notes say who posted them, with their role in the group, on the notes
+// page and on Today; leaders get the row menu beside the title.
+func TestNoteByline(t *testing.T) {
+	e := newEnv(t)
+	lead := e.signUp(t, "lead", store.RoleLeader)
+	stud := e.signUp(t, "stud", store.RoleStudent)
+	const g = "/g/KIUKI-25-3"
+	if code, _, _ := lead.submit(g+"/notes", g+"/notes", url.Values{"title": {"Exam moved"}, "body": {"To *Friday*"}, "pinned": {"on"}}); code != http.StatusSeeOther {
+		t.Fatalf("create note: %d", code)
+	}
+	byline := regexp.MustCompile(`<div class="meta">lead, leader · \d{1,2} [A-Z][a-z]{2}</div>`)
+	for _, path := range []string{g + "/notes", g} {
+		if _, body, _ := stud.get(path); !byline.MatchString(body) {
+			t.Errorf("%s: no byline like %s", path, byline)
+		}
+	}
+	_, body, _ := lead.get(g + "/notes")
+	if !strings.Contains(body, `<div class="note-title">`) || !strings.Contains(body, `<div class="note-menu">`) {
+		t.Error("the leader's notes should have a title block and a menu")
+	}
+}

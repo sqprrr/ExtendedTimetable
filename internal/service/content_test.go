@@ -400,3 +400,63 @@ func TestSubjectHue(t *testing.T) {
 		t.Errorf("an empty hue should go back to the default, got %q", got.Hue)
 	}
 }
+
+// Notes name their author and the author's current role in the group: none
+// for a superadmin outside it or someone who has left.
+func TestNoteAuthors(t *testing.T) {
+	f := setup(t)
+	ctx := context.Background()
+	leadSess := f.register(t, "lead")
+	if err := f.svc.AdminSetLeader(ctx, "lead", f.group.Code); err != nil {
+		t.Fatal(err)
+	}
+	lead := f.as(t, leadSess)
+	gid := f.group.ID
+	if _, err := f.svc.CreateNote(lead, gid, service.NoteInput{Title: "From the leader"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.AdminCreateSuperadmin(ctx, "root", "correct horse"); err != nil {
+		t.Fatal(err)
+	}
+	sess, err := f.svc.Login(ctx, service.LoginInput{Username: "root", Password: "correct horse", ClientIP: "r"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.CreateNote(f.as(t, sess), gid, service.NoteInput{Title: "From the admin"}); err != nil {
+		t.Fatal(err)
+	}
+	authors := func() map[string]string {
+		t.Helper()
+		notes, err := f.svc.Notes(lead, gid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]string{}
+		for _, n := range notes {
+			out[n.Title] = n.AuthorName + "/" + string(n.AuthorRole)
+		}
+		return out
+	}
+	if got := authors(); got["From the leader"] != "lead/leader" || got["From the admin"] != "root/" {
+		t.Fatalf("authors: %v", got)
+	}
+	// The leader steps down and leaves: the note keeps the name, not the role.
+	if err := f.svc.AdminRemoveLeader(ctx, "lead", f.group.Code); err != nil {
+		t.Fatal(err)
+	}
+	if got := authors(); got["From the leader"] != "lead/student" {
+		t.Fatalf("after stepping down: %v", got)
+	}
+	if err := f.svc.LeaveGroup(f.as(t, leadSess), gid); err != nil {
+		t.Fatal(err)
+	}
+	notes, err := f.svc.Notes(f.as(t, sess), gid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range notes {
+		if n.Title == "From the leader" && (n.AuthorName != "lead" || n.AuthorRole != "") {
+			t.Errorf("after leaving: %q/%q", n.AuthorName, n.AuthorRole)
+		}
+	}
+}

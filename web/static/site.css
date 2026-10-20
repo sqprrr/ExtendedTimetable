@@ -215,6 +215,8 @@ progress.bar::-moz-progress-bar { background: var(--hue, var(--accent)); border-
 /* Homework */
 .filters { display: grid; gap: var(--space-8); }
 fieldset.chips { border: 0; min-width: 0; }
+/* A subject in a chip takes the chip's colour: a selected chip is inverted. */
+.chip .subject { color: inherit; }
 .row-end { display: flex; align-items: flex-start; gap: var(--space-4); }
 .row-end .points { line-height: 22px; }
 .row-end details.menu { margin: -4px 0; }
@@ -229,6 +231,15 @@ details.group[open] > summary .icon { transform: rotate(180deg); }
 
 /* Section pages */
 .note-head .note-menu { margin-left: auto; }
+/* A note with a menu: the badge and title wrap on the left, the menu stays
+   at the top right. */
+.note-head:has(> .note-menu) { flex-wrap: nowrap; align-items: flex-start; }
+.note-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); flex: 1; min-width: 0; }
+/* Class links on narrow phones: the subject gets the row, Join goes under it. */
+@media (max-width: 479.98px) {
+  .page-links .link-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-8); }
+  .page-links .link-row .row-end { justify-content: flex-start; }
+}
 .link-row .row-end { align-items: center; }
 .subject-name { display: inline-flex; align-items: center; gap: var(--space-8); }
 .subject-name .subject { gap: 0; }
@@ -241,7 +252,7 @@ fieldset.field > legend { padding: 0; margin-bottom: var(--space-6); }
 .group-card { display: grid; gap: var(--space-12); justify-items: start; }
 .group-card .card-head { width: 100%; margin: 0; }
 .auth-card { display: grid; gap: var(--space-20); }
-.auth-card h1 { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; }
+.auth-card h1 { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
 .page-error .empty h1 { font-size: 20px; line-height: 28px; font-weight: 600; }
 .form-alert { margin-bottom: var(--space-16); }
 li.feedback { display: grid; gap: var(--space-8); padding: var(--space-12) 0; }

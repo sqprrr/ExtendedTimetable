@@ -15,11 +15,13 @@
   {{range .Notes}}
   <article class="card note" id="note-{{.ID}}" aria-labelledby="note-{{.ID}}-title">
     <div class="note-head">
-      {{if .Pinned}}<span class="badge badge-accent">{{icon "pin"}}{{t "notes.pinned"}}</span>{{end}}
-      <h2 id="note-{{.ID}}-title">{{.Title}}</h2>
+      <div class="note-title">
+        {{if .Pinned}}<span class="badge badge-accent">{{icon "pin"}}{{t "notes.pinned"}}</span>{{end}}
+        <h2 id="note-{{.ID}}-title">{{.Title}}</h2>
+      </div>
       {{if $.Group.CanEdit}}<div class="note-menu">{{template "rowMenu" (rowMenu (print $g "/notes/" .ID) (t "notes.confirm_delete") $.CSRFToken)}}</div>{{end}}
     </div>
-    <div class="meta">{{shortDate .CreatedAt}}</div>
+    <div class="meta">{{template "noteByline" .}}</div>
     <div class="md">{{markdown .BodyMD}}</div>
   </article>
   {{else}}

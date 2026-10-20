@@ -242,13 +242,6 @@ type hwItem struct {
 	Manage bool
 }
 
-// filterButtons is what the filterButtons template renders: whether a list
-// filter is on, and the list's URL without it.
-type filterButtons struct {
-	Active bool
-	URL    string
-}
-
 // playlistCard is what the playlist template renders.
 type playlistCard struct {
 	Code string
@@ -302,7 +295,6 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		"playlistCard": func(d pageData, src *service.RecordingsSource) playlistCard {
 			return playlistCard{Code: d.Group.Code, CSRF: d.CSRFToken, Src: src, Input: d.PlaylistInput}
 		},
-		"filterButtons": func(active bool, url string) filterButtons { return filterButtons{Active: active, URL: url} },
 		"resourceKinds": func() []store.ResourceKind { return service.ResourceKinds },
 		"statuses":      func() []store.ProgressStatus { return service.Statuses },
 		"nextStatus":    service.NextStatus,
