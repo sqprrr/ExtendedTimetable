@@ -14,7 +14,7 @@ func TestUkrainianByDefault(t *testing.T) {
 	b := e.browserIn(t, "")
 
 	code, body, h := b.get("/login")
-	if code != http.StatusOK || !strings.Contains(body, `<html lang="uk">`) || !strings.Contains(body, "<h1>Вхід</h1>") {
+	if code != http.StatusOK || !strings.Contains(body, `<html lang="uk" `) || !strings.Contains(body, "<h1>Вхід</h1>") {
 		t.Fatalf("login page should be Ukrainian by default: %d\n%s", code, body)
 	}
 	if h.Get("Content-Language") != "uk" {
@@ -49,7 +49,7 @@ func TestLanguageSwitchForVisitors(t *testing.T) {
 	if code != http.StatusSeeOther || h.Get("Location") != "/login?x=1" {
 		t.Fatalf("switch: %d %s", code, h.Get("Location"))
 	}
-	if _, body, _ := b.get("/login"); !strings.Contains(body, `<html lang="en">`) || !strings.Contains(body, "<h1>Log in</h1>") {
+	if _, body, _ := b.get("/login"); !strings.Contains(body, `<html lang="en" `) || !strings.Contains(body, "<h1>Log in</h1>") {
 		t.Fatal("the cookie should switch the site to English")
 	}
 
@@ -65,7 +65,7 @@ func TestLanguageSwitchForVisitors(t *testing.T) {
 
 	// An unknown language falls back to Ukrainian.
 	b.submit("/login", "/lang", url.Values{"lang": {"de"}, "back": {"/login"}})
-	if _, body, _ := b.get("/login"); !strings.Contains(body, `<html lang="uk">`) {
+	if _, body, _ := b.get("/login"); !strings.Contains(body, `<html lang="uk" `) {
 		t.Fatal("unknown language should fall back to Ukrainian")
 	}
 }

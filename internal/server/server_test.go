@@ -324,7 +324,7 @@ func TestSecurityHeadersAndCookies(t *testing.T) {
 			t.Errorf("cookie %s: HttpOnly=%v Secure=%v SameSite=%v", c.Name, c.HttpOnly, c.Secure, c.SameSite)
 		}
 	}
-	if code, _, _ := b.get("/static/style.css"); code != http.StatusOK {
+	if code, _, _ := b.get("/static/site.css"); code != http.StatusOK {
 		t.Errorf("static asset: %d", code)
 	}
 
@@ -336,7 +336,7 @@ func TestSecurityHeadersAndCookies(t *testing.T) {
 			t.Errorf("%s: Cache-Control = %q, want no-store", path, h.Get("Cache-Control"))
 		}
 	}
-	if _, _, h := b.get("/static/style.css"); h.Get("Cache-Control") != "no-cache" {
+	if _, _, h := b.get("/static/site.css"); h.Get("Cache-Control") != "no-cache" {
 		t.Errorf("unversioned static file: Cache-Control = %q, want no-cache", h.Get("Cache-Control"))
 	}
 }
@@ -350,7 +350,7 @@ func TestVersionedStaticAssets(t *testing.T) {
 	if csp := hdr.Get("Content-Security-Policy"); !strings.HasPrefix(csp, "default-src 'self';") || strings.Contains(csp, "unsafe-inline") {
 		t.Errorf("CSP = %q", csp)
 	}
-	for _, name := range []string{"style.css", "app.js", "htmx.min.js"} {
+	for _, name := range []string{"tokens.css", "bundle.css", "site.css", "halloween.css", "app.js", "htmx.min.js"} {
 		m := regexp.MustCompile(`"(/static/` + regexp.QuoteMeta(name) + `\?v=[0-9a-f]{12})"`).FindStringSubmatch(body)
 		if m == nil {
 			t.Errorf("%s is not linked by a versioned URL", name)
@@ -361,7 +361,7 @@ func TestVersionedStaticAssets(t *testing.T) {
 			t.Errorf("%s: %d, Cache-Control = %q", m[1], code, h.Get("Cache-Control"))
 		}
 	}
-	if strings.Contains(body, `"/static/style.css"`) {
+	if strings.Contains(body, `"/static/site.css"`) {
 		t.Error("an unversioned static URL is still on the page")
 	}
 }

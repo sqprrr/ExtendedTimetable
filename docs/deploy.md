@@ -126,8 +126,8 @@ the address each request came to.
 
 No cache purge is needed after a deploy, in Cloudflare or anywhere else.
 Pages link to every stylesheet, script and font by a hash of its content
-(`/static/style.css?v=3f9a1c0b2e4d`; fonts are versioned inside
-`style.css`), so a deploy that changes a file also changes its URL. The app
+(`/static/site.css?v=3f9a1c0b2e4d`; fonts are versioned inside
+`site.css`), so a deploy that changes a file also changes its URL. The app
 sends `Cache-Control: public, max-age=31536000, immutable` for a URL with the
 current hash, and `no-cache` (with an `ETag`, so the check is a cheap 304)
 for an unversioned URL or one with an old hash. A page cached before the

@@ -107,21 +107,28 @@ func TestStaticCacheHeaders(t *testing.T) {
 	}
 }
 
-// The real stylesheet loads only versioned fonts.
+// The real stylesheets load only versioned fonts (site.css has them all)
+// and inline data: images.
 func TestShippedStylesheetFontsVersioned(t *testing.T) {
 	s, err := loadStatic(assets.Static)
 	if err != nil {
 		t.Fatal(err)
 	}
-	css := string(s.files["style.css"].body)
-	refs := regexp.MustCompile(`url\("([^"]+)"\)`).FindAllStringSubmatch(css, -1)
-	if len(refs) == 0 {
-		t.Fatal("style.css loads no fonts")
-	}
-	for _, m := range refs {
-		if !regexp.MustCompile(`^fonts/[\w-]+\.woff2\?v=[0-9a-f]{12}$`).MatchString(m[1]) {
-			t.Errorf("unversioned url in style.css: %s", m[1])
+	fonts := 0
+	for _, name := range stylesheets {
+		css := string(s.files[name].body)
+		for _, m := range regexp.MustCompile(`url\("([^"]+)"\)`).FindAllStringSubmatch(css, -1) {
+			switch {
+			case strings.HasPrefix(m[1], "data:image/svg+xml,"):
+			case regexp.MustCompile(`^fonts/[\w-]+\.woff2\?v=[0-9a-f]{12}$`).MatchString(m[1]):
+				fonts++
+			default:
+				t.Errorf("unversioned url in %s: %s", name, m[1])
+			}
 		}
+	}
+	if fonts != 4 {
+		t.Errorf("the stylesheets load %d fonts, want Onest and JetBrains Mono in Latin and Cyrillic", fonts)
 	}
 }
 

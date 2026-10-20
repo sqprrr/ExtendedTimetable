@@ -51,6 +51,9 @@ type Config struct {
 	// Location is the site's time zone: the default for users who have not
 	// chosen one and whose device does not say; UTC if nil.
 	Location *time.Location
+	// Halloween is when the pages wear the Halloween themes;
+	// HalloweenSeason if zero.
+	Halloween Season
 }
 
 // Service is the entry point for all domain operations.
@@ -58,6 +61,8 @@ type Service struct {
 	store *store.Store
 	cfg   Config
 	now   func() time.Time
+	// halloween is cfg.Halloween as moments.
+	halloween span
 
 	// Login attempts are limited per client network (auth.ClientNetwork),
 	// per username from one network, and per username overall. The last is
@@ -83,10 +88,19 @@ func New(st *store.Store, cfg Config) *Service {
 	if cfg.Location == nil {
 		cfg.Location = time.UTC
 	}
+	if cfg.Halloween == (Season{}) {
+		cfg.Halloween = HalloweenSeason
+	}
+	halloween, err := cfg.Halloween.span()
+	if err != nil {
+		// The season is written in code (HalloweenSeason) or by a test.
+		panic(err)
+	}
 	return &Service{
 		store:            st,
 		cfg:              cfg,
 		now:              time.Now,
+		halloween:        halloween,
 		loginByIP:        auth.NewLimiter(30, 15*time.Minute),
 		loginByUserAndIP: auth.NewLimiter(10, 15*time.Minute),
 		loginByUsername:  auth.NewLimiter(100, 15*time.Minute),

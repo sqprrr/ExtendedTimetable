@@ -6,7 +6,9 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/sqprrr/ExtendedTimetable/internal/service"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
 )
 
@@ -19,11 +21,28 @@ func htmlTag(body string) string {
 	return body[i : i+strings.Index(body[i:], ">")+1]
 }
 
+// offSeason and inSeason pin the Halloween season, so that the theme tests
+// do not depend on the day they run.
+var offSeason = service.Season{From: "2001-10-20", To: "2001-11-02", Zone: "Europe/Kyiv"}
+
+func inSeason() service.Season {
+	now := time.Now().UTC()
+	return service.Season{From: now.AddDate(0, 0, -1).Format(time.DateOnly), To: now.AddDate(0, 0, 1).Format(time.DateOnly), Zone: "UTC"}
+}
+
+// The page is always drawn in a data-theme; "system" gets the light one,
+// which tokens.css darkens when the device asks.
+const (
+	systemTheme = `data-theme="light" data-theme-choice="system"`
+	lightTheme  = `data-theme="light" data-theme-choice="light"`
+	darkTheme   = `data-theme="dark" data-theme-choice="dark"`
+)
+
 func TestThemeFollowsTheDeviceByDefault(t *testing.T) {
-	e := newEnv(t)
+	e := newEnvWith(t, service.Config{Halloween: offSeason})
 	b := e.browser(t)
 	_, body, _ := b.get("/login")
-	if tag := htmlTag(body); strings.Contains(tag, "data-theme") {
+	if tag := htmlTag(body); !strings.Contains(tag, systemTheme) {
 		t.Fatalf("no choice should leave the theme to the device: %s", tag)
 	}
 	// The switch offers all three, the device's pressed.
@@ -39,7 +58,7 @@ func TestThemeFollowsTheDeviceByDefault(t *testing.T) {
 }
 
 func TestThemeSwitchForVisitors(t *testing.T) {
-	e := newEnv(t)
+	e := newEnvWith(t, service.Config{Halloween: offSeason})
 	b := e.browser(t)
 
 	code, _, h := b.submit("/login", "/theme", url.Values{"theme": {"dark"}, "back": {"/register"}})
@@ -47,7 +66,7 @@ func TestThemeSwitchForVisitors(t *testing.T) {
 		t.Fatalf("switch: %d %s", code, h.Get("Location"))
 	}
 	_, body, _ := b.get("/login")
-	if tag := htmlTag(body); !strings.Contains(tag, `data-theme="dark"`) {
+	if tag := htmlTag(body); !strings.Contains(tag, darkTheme) {
 		t.Fatalf("the cookie should switch the site to dark: %s", tag)
 	}
 	if !strings.Contains(body, `value="dark" aria-pressed="true"`) {
@@ -56,8 +75,8 @@ func TestThemeSwitchForVisitors(t *testing.T) {
 
 	// "system" hands the choice back to the device.
 	b.submit("/login", "/theme", url.Values{"theme": {"system"}, "back": {"/login"}})
-	if _, body, _ := b.get("/login"); strings.Contains(htmlTag(body), "data-theme") {
-		t.Fatal("system should drop data-theme")
+	if _, body, _ := b.get("/login"); !strings.Contains(htmlTag(body), systemTheme) {
+		t.Fatalf("system should follow the device: %s", htmlTag(body))
 	}
 
 	// Unknown themes fall back to the device's; the switch only returns to
@@ -66,13 +85,13 @@ func TestThemeSwitchForVisitors(t *testing.T) {
 	if code != http.StatusSeeOther || h.Get("Location") != "/" {
 		t.Fatalf("bad back: %d %s", code, h.Get("Location"))
 	}
-	if _, body, _ := b.get("/login"); strings.Contains(htmlTag(body), "data-theme") {
-		t.Fatal("an unknown theme should fall back to the device's")
+	if _, body, _ := b.get("/login"); !strings.Contains(htmlTag(body), systemTheme) {
+		t.Fatalf("an unknown theme should fall back to the device's: %s", htmlTag(body))
 	}
 }
 
 func TestThemeIsKeptInTheAccount(t *testing.T) {
-	e := newEnv(t)
+	e := newEnvWith(t, service.Config{Halloween: offSeason})
 
 	// Chosen before registering: kept in the account.
 	b := e.browser(t)
@@ -80,7 +99,7 @@ func TestThemeIsKeptInTheAccount(t *testing.T) {
 	b.register("KIUKI-25-3", "alice")
 	other := e.browser(t)
 	other.submit("/login", "/login", url.Values{"username": {"alice"}, "password": {"correct horse"}})
-	if _, body, _ := other.get("/"); !strings.Contains(htmlTag(body), `data-theme="light"`) {
+	if _, body, _ := other.get("/"); !strings.Contains(htmlTag(body), lightTheme) {
 		t.Fatal("the account's theme should follow the user to another browser")
 	}
 
@@ -90,12 +109,12 @@ func TestThemeIsKeptInTheAccount(t *testing.T) {
 	third := e.browser(t)
 	third.submit("/login", "/theme", url.Values{"theme": {"light"}, "back": {"/login"}})
 	third.submit("/login", "/login", url.Values{"username": {"alice"}, "password": {"correct horse"}})
-	if _, body, _ := third.get("/"); !strings.Contains(htmlTag(body), `data-theme="dark"`) {
+	if _, body, _ := third.get("/"); !strings.Contains(htmlTag(body), darkTheme) {
 		t.Fatal("the account's theme should win over the browser cookie")
 	}
 	// After logging out the browser keeps the account's theme.
 	third.submit("/", "/logout", url.Values{})
-	if _, body, _ := third.get("/login"); !strings.Contains(htmlTag(body), `data-theme="dark"`) {
+	if _, body, _ := third.get("/login"); !strings.Contains(htmlTag(body), darkTheme) {
 		t.Fatal("login should store the account's theme in the cookie")
 	}
 
@@ -104,13 +123,59 @@ func TestThemeIsKeptInTheAccount(t *testing.T) {
 	fourth := e.browser(t)
 	fourth.submit("/login", "/theme", url.Values{"theme": {"dark"}, "back": {"/login"}})
 	fourth.submit("/login", "/login", url.Values{"username": {"alice"}, "password": {"correct horse"}})
-	if _, body, _ := fourth.get("/"); strings.Contains(htmlTag(body), "data-theme") {
+	if _, body, _ := fourth.get("/"); !strings.Contains(htmlTag(body), systemTheme) {
 		t.Fatal("an account set to system should follow the device")
 	}
 }
 
+// In the Halloween season every page is drawn in a Halloween theme; the
+// viewer's choice still picks light or dark, and the switch still shows it.
+func TestHalloweenTheme(t *testing.T) {
+	e := newEnvWith(t, service.Config{Halloween: inSeason()})
+	b := e.browser(t)
+	if _, body, _ := b.get("/login"); !strings.Contains(htmlTag(body), `data-theme="halloween-light" data-theme-choice="system"`) {
+		t.Fatalf("system in season: %s", htmlTag(body))
+	}
+	b.submit("/login", "/theme", url.Values{"theme": {"light"}, "back": {"/login"}})
+	if _, body, _ := b.get("/login"); !strings.Contains(htmlTag(body), `data-theme="halloween-light" data-theme-choice="light"`) {
+		t.Fatalf("light in season: %s", htmlTag(body))
+	}
+	b.register("KIUKI-25-3", "alice")
+	b.submit("/", "/theme", url.Values{"theme": {"dark"}, "back": {"/"}})
+	_, body, _ := b.get("/g/KIUKI-25-3/schedule")
+	if !strings.Contains(htmlTag(body), `data-theme="halloween-dark" data-theme-choice="dark"`) {
+		t.Fatalf("dark in season: %s", htmlTag(body))
+	}
+	if !strings.Contains(body, `value="dark" aria-pressed="true"`) {
+		t.Error("the switch should still show dark as chosen")
+	}
+
+	// Out of season the same choice is plain dark.
+	off := newEnvWith(t, service.Config{Halloween: offSeason}).browser(t)
+	off.submit("/login", "/theme", url.Values{"theme": {"dark"}, "back": {"/login"}})
+	if _, body, _ := off.get("/login"); !strings.Contains(htmlTag(body), darkTheme) {
+		t.Fatalf("dark out of season: %s", htmlTag(body))
+	}
+}
+
+// Every page links the design system's stylesheets in order, the Halloween
+// layer last, in season or not.
+func TestStylesheetOrder(t *testing.T) {
+	for _, season := range []service.Season{offSeason, inSeason()} {
+		_, body, _ := newEnvWith(t, service.Config{Halloween: season}).browser(t).get("/login")
+		last := -1
+		for _, name := range []string{"tokens.css", "bundle.css", "site.css", "halloween.css"} {
+			i := strings.Index(body, `<link rel="stylesheet" href="/static/`+name+`?v=`)
+			if i < 0 || i < last {
+				t.Errorf("%s: missing or out of order", name)
+			}
+			last = i
+		}
+	}
+}
+
 func TestAPITheme(t *testing.T) {
-	e := newEnv(t)
+	e := newEnvWith(t, service.Config{Halloween: offSeason})
 	b := e.signUp(t, "api", store.RoleStudent)
 	tok := b.csrf()
 	me := func(method, body string) (int, map[string]any) {
@@ -133,7 +198,7 @@ func TestAPITheme(t *testing.T) {
 	if code, out := me(http.MethodPut, `{"theme": "dark"}`); code != http.StatusOK || out["theme"] != "dark" {
 		t.Fatalf("PUT dark: %d %v", code, out)
 	}
-	if _, body, _ := b.get("/"); !strings.Contains(htmlTag(body), `data-theme="dark"`) {
+	if _, body, _ := b.get("/"); !strings.Contains(htmlTag(body), darkTheme) {
 		t.Fatal("the API's choice should apply to the pages")
 	}
 	if code, out := me(http.MethodPut, `{"theme": "neon"}`); code != http.StatusUnprocessableEntity || out["code"] != "err.theme" {

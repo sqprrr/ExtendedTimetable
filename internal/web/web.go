@@ -129,8 +129,12 @@ type pageData struct {
 	CSRFToken string
 	// Back is the page the language and theme switches return to.
 	Back string
-	// Theme is the colour theme: "light", "dark" or "system".
+	// Theme is the colour theme the viewer chose: "light", "dark" or
+	// "system".
 	Theme string
+	// DataTheme is the theme the page is drawn in, for data-theme (see
+	// dataTheme).
+	DataTheme string
 	// Zone is the time zone the page's dates are in.
 	Zone zoneView
 	// NavGroup is the group the navigation leads to: the page's group, else
@@ -262,7 +266,7 @@ func (h *Handler) templateFuncs(l *i18n.Localizer) template.FuncMap {
 		"lang": l.Lang,
 		"t":    l.T,
 		"icon": h.icons.html,
-		// asset is a static file's cache-busting URL: /static/style.css?v=….
+		// asset is a static file's cache-busting URL: /static/site.css?v=….
 		"asset": func(name string) (string, error) { return h.static.url(name) },
 		// th is for translations that hold markup (links, <code>). The
 		// messages are ours; the values put into them are escaped.
@@ -471,6 +475,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, status int, pag
 	data.CSRFToken = auth.CSRFToken(r.Context())
 	data.Back = backPath(r)
 	data.Theme = h.theme(r)
+	data.DataTheme = dataTheme(data.Theme, h.svc.IsHalloween())
 	l := i18n.FromContext(r.Context())
 	loc := h.pageLocation(r)
 	data.Zone = h.zoneView(r, l, loc)

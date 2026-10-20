@@ -1,10 +1,18 @@
 {{define "layout"}}<!doctype html>
-<html lang="{{lang}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
+{{/* data-theme is light or dark, or their Halloween variants in season;
+   a "system" choice gets the light one and tokens.css darkens it when the
+   device asks. */}}
+<html lang="{{lang}}" data-theme="{{.DataTheme}}" data-theme-choice="{{.Theme}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{template "title" .}} · ExtendedTimetable</title>
-  <link rel="stylesheet" href="{{asset "style.css"}}">
+  {{/* The design system's tokens and components, the site's own pieces,
+     then the Halloween layer, which does nothing outside its themes. */}}
+  <link rel="stylesheet" href="{{asset "tokens.css"}}">
+  <link rel="stylesheet" href="{{asset "bundle.css"}}">
+  <link rel="stylesheet" href="{{asset "site.css"}}">
+  <link rel="stylesheet" href="{{asset "halloween.css"}}">
   {{/* htmx would inject an inline <style>, which the CSP blocks. */}}
   <meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
   <script src="{{asset "htmx.min.js"}}" defer></script>
