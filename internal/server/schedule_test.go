@@ -166,15 +166,10 @@ func TestSchedulePages(t *testing.T) {
 	}
 }
 
-// Today: the Now card shows the class in progress with its teacher (from
-// the subject page), how much of it is past and what comes after; phones
-// get the rest of the day in "Later today".
-func TestTodayPage(t *testing.T) {
-	now := time.Now().UTC()
-	src := &fakeCIST{events: []cist.Event{
-		{Start: now.Add(-10 * time.Minute), End: now.Add(85 * time.Minute), Subject: "ООПро", Type: "Лк", Room: "DL", Groups: "КІУКІ-25-3"},
-		{Start: now.Add(95 * time.Minute), End: now.Add(190 * time.Minute), Subject: "ВМ", Type: "Пз", Room: "165", Groups: "КІУКІ-25-3"},
-	}}
+// lectureWithTeacher syncs src's classes into KIUKI-25-3, gives subject
+// ООПро the lecturer Pavlenko O. V. and returns a student.
+func lectureWithTeacher(t *testing.T, src *fakeCIST) *browser {
+	t.Helper()
 	e := newScheduleEnv(t, src)
 	lead := e.signUp(t, "lead", store.RoleLeader)
 	stud := e.signUp(t, "stud", store.RoleStudent)
@@ -188,8 +183,60 @@ func TestTodayPage(t *testing.T) {
 	if code, _, _ := lead.submit(g+"/subjects/"+m[1]+"/edit", g+"/subjects/"+m[1], url.Values{"name": {"ООПро"}, "lecturer": {"Pavlenko O. V."}}); code != http.StatusSeeOther {
 		t.Fatalf("set the lecturer: %d", code)
 	}
+	return stud
+}
 
-	_, body, _ = stud.get(g)
+// The schedule's rows name the teacher and say when a class to come has no
+// meeting link; on phones the week arrows move to the top bar and a line
+// says when the next class after today is.
+func TestSchedulePageDetails(t *testing.T) {
+	now := time.Now().UTC()
+	src := &fakeCIST{events: []cist.Event{
+		{Start: now.Add(-10 * time.Minute), End: now.Add(85 * time.Minute), Subject: "ООПро", Type: "Лк", Room: "DL", Groups: "КІУКІ-25-3"},
+		{Start: now.Add(26 * time.Hour), End: now.Add(27 * time.Hour), Subject: "ВМ", Type: "Пз", Room: "165", Groups: "КІУКІ-25-3"},
+	}}
+	stud := lectureWithTeacher(t, src)
+	_, body, _ := stud.get("/g/KIUKI-25-3/schedule")
+
+	topbar := body[strings.Index(body, `<header class="topbar"`):]
+	topbar = topbar[:strings.Index(topbar, "</header>")]
+	if !strings.Contains(topbar, `<nav class="week-nav"`) || strings.Contains(topbar, `action="/lang"`) {
+		t.Errorf("the phone top bar should hold the week arrows, not the language:\n%s", topbar)
+	}
+	monday := now.AddDate(0, 0, -(int(now.Weekday())+6)%7)
+	if short := monday.Format("2") + "–"; !strings.Contains(topbar, `<span class="label">`+short) {
+		t.Errorf("top bar: no week label starting %s", short)
+	}
+	for _, want := range []string{
+		`<div class="toolbar hide-sm">`,
+		`<span class="meta-item">Pavlenko O. V.</span>`,
+		`<span class="no-link only-md">No link</span>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("schedule missing %s", want)
+		}
+	}
+	tomorrow := now.Add(26 * time.Hour)
+	if tomorrow.YearDay() == now.YearDay()+1 && monday.AddDate(0, 0, 7).After(tomorrow) {
+		if !strings.Contains(body, `<p class="meta only-sm">Next class after today: ВМ · tomorrow, `+tomorrow.Format("15:04")+`</p>`) {
+			t.Error("phones should say when the next class after today is")
+		}
+	}
+}
+
+// Today: the Now card shows the class in progress with its teacher (from
+// the subject page), how much of it is past and what comes after; phones
+// get the rest of the day in "Later today".
+func TestTodayPage(t *testing.T) {
+	now := time.Now().UTC()
+	src := &fakeCIST{events: []cist.Event{
+		{Start: now.Add(-10 * time.Minute), End: now.Add(85 * time.Minute), Subject: "ООПро", Type: "Лк", Room: "DL", Groups: "КІУКІ-25-3"},
+		{Start: now.Add(95 * time.Minute), End: now.Add(190 * time.Minute), Subject: "ВМ", Type: "Пз", Room: "165", Groups: "КІУКІ-25-3"},
+	}}
+	stud := lectureWithTeacher(t, src)
+	const g = "/g/KIUKI-25-3"
+
+	_, body, _ := stud.get(g)
 	for _, want := range []string{
 		`class="now-card is-now"`, "Now · 85 min left",
 		`<span class="meta-item">Pavlenko O. V.</span>`,

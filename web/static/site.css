@@ -64,6 +64,20 @@
   [data-theme^="halloween"] .sidebar-foot::before, [data-theme^="halloween"] .sidebar-foot::after { display: none; }
 }
 
+/* On the schedule the phone top bar holds the week arrows: its bats fly
+   right after the group code instead of over the arrows, and get smaller
+   when a long week label leaves them little room. */
+[data-theme^="halloween"] .topbar:has(.week-nav)::after { content: none; }
+[data-theme^="halloween"] .topbar:has(.week-nav) .topbar-group::after {
+  content: ""; flex: 0 1 auto; width: 46px; min-width: 0; height: 20px;
+  background: var(--halloween-violet);
+  -webkit-mask: var(--mask-bats) center / contain no-repeat; mask: var(--mask-bats) center / contain no-repeat;
+  animation: hw-drift 4s ease-in-out infinite alternate;
+}
+@media (forced-colors: active) {
+  [data-theme^="halloween"] .topbar-group::after { display: none; }
+}
+
 /* ---------- Pieces the bundle leaves to the app ---------- */
 .skip-link {
   position: absolute; z-index: 50; left: var(--space-8); top: -100px;
@@ -88,6 +102,9 @@ button.nav-item { width: 100%; background: none; cursor: pointer; font-family: i
 .bottom-nav { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 .bottom-nav a > span { max-width: 100%; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .toast { cursor: pointer; }
+
+/* The schedule's week arrows in the phone top bar */
+.topbar .week-nav .label { font-size: 14px; padding: 0; }
 
 /* Theme switch: a segmented control of form buttons */
 .theme-switch .segmented > button { height: 28px; padding: 0 8px; }
@@ -145,10 +162,11 @@ progress.bar::-moz-progress-bar { background: var(--hue, var(--accent)); border-
 /* Rows */
 .row-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }
 .row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-6); }
+.class-row .no-link { font-size: 13px; line-height: 22px; color: var(--text-tertiary); white-space: nowrap; }
 @media (max-width: 479.98px) {
   .class-row { grid-template-columns: 64px minmax(0, 1fr); }
   .class-row .row-actions { grid-column: 2; justify-content: flex-start; }
-  .class-row .row-actions:empty { display: none; }
+  .class-row .row-actions:not(:has(.btn)) { display: none; }
 }
 .hw-row.no-status { grid-template-columns: minmax(0, 1fr) auto; }
 .status-form { margin: 0; }

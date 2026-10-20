@@ -19,8 +19,9 @@ type weekView struct {
 	// Prev, Next and This are ?week= values for the navigation links.
 	Prev, Next, This string
 	IsThis           bool
-	// Label is the week's dates: "5–11 October".
-	Label string
+	// Label is the week's dates: "5–11 October"; ShortLabel is "5–11 Oct",
+	// for the phone top bar.
+	Label, ShortLabel string
 	// Count is the number of classes in the week.
 	Count int
 	// Day is the selected day (?day=, else today in this week, else the
@@ -28,6 +29,9 @@ type weekView struct {
 	Day string
 	// View is "week" (every day, the default) or "day" (only Day).
 	View string
+	// NextAfterToday is the first class after today, for phones, which
+	// show one day; nil when the week is another one or nothing is known.
+	NextAfterToday *service.ScheduleEvent
 }
 
 type scheduleDay struct {
@@ -84,15 +88,17 @@ func (h *Handler) showSchedule(w http.ResponseWriter, r *http.Request, g *servic
 		return
 	}
 	this := weekStart("", now, loc)
+	l := i18n.FromContext(r.Context())
 	wv := &weekView{
-		Start:  start,
-		Prev:   start.AddDate(0, 0, -7).Format(time.DateOnly),
-		Next:   start.AddDate(0, 0, 7).Format(time.DateOnly),
-		This:   this.Format(time.DateOnly),
-		IsThis: start.Equal(this),
-		Label:  h.weekLabel(i18n.FromContext(r.Context()), start),
-		Count:  len(sch.Events),
-		View:   "week",
+		Start:      start,
+		Prev:       start.AddDate(0, 0, -7).Format(time.DateOnly),
+		Next:       start.AddDate(0, 0, 7).Format(time.DateOnly),
+		This:       this.Format(time.DateOnly),
+		IsThis:     start.Equal(this),
+		Label:      weekLabel(l, start, "month.long."),
+		ShortLabel: weekLabel(l, start, "month.short."),
+		Count:      len(sch.Events),
+		View:       "week",
 	}
 	if view == "day" {
 		wv.View = "day"
@@ -126,18 +132,36 @@ func (h *Handler) showSchedule(w http.ResponseWriter, r *http.Request, g *servic
 	for i := range wv.Days {
 		wv.Days[i].Selected = wv.Days[i].Key == wv.Day
 	}
+	if wv.IsThis {
+		wv.NextAfterToday = nextAfterToday(sch, service.StartOfDay(now, loc).AddDate(0, 0, 1), start.AddDate(0, 0, 7))
+	}
 	h.render(w, r, status, "schedule", pageData{Group: g, Section: "schedule", Schedule: sch, Week: wv, Error: errMsg})
 }
 
 // weekLabel is a week's dates: "5–11 October", or "28 September – 4 October"
-// across two months.
-func (h *Handler) weekLabel(l *i18n.Localizer, start time.Time) string {
+// across two months; months is the locale prefix of the month names
+// ("month.long." or "month.short.").
+func weekLabel(l *i18n.Localizer, start time.Time, months string) string {
 	end := start.AddDate(0, 0, 6)
 	if start.Month() == end.Month() {
-		return l.T("schedule.week_range", "From", start.Day(), "To", end.Day(), "Month", l.T("month.long."+monthKey(end)))
+		return l.T("schedule.week_range", "From", start.Day(), "To", end.Day(), "Month", l.T(months+monthKey(end)))
 	}
-	return l.T("schedule.week_range_months", "From", start.Day(), "FromMonth", l.T("month.long."+monthKey(start)),
-		"To", end.Day(), "ToMonth", l.T("month.long."+monthKey(end)))
+	return l.T("schedule.week_range_months", "From", start.Day(), "FromMonth", l.T(months+monthKey(start)),
+		"To", end.Day(), "ToMonth", l.T(months+monthKey(end)))
+}
+
+// nextAfterToday is the first class of the week sch from tomorrow on, else
+// the next upcoming one when it falls after the week (weekEnd).
+func nextAfterToday(sch *service.Schedule, tomorrow, weekEnd time.Time) *service.ScheduleEvent {
+	for _, e := range sch.Events {
+		if !e.StartsAt.Before(tomorrow) {
+			return e
+		}
+	}
+	if len(sch.Upcoming) > 0 && !sch.Upcoming[0].StartsAt.Before(weekEnd) {
+		return sch.Upcoming[0]
+	}
+	return nil
 }
 
 // syncSchedule fetches the schedule from CIST now (leader and editors only). A failed

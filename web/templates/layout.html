@@ -110,9 +110,13 @@
     {{with .NavGroup}}<a class="group-code" href="/" title="{{t "nav.my_groups"}}">{{.Code}}</a>
     {{else}}<a class="wordmark" href="/">ExtendedTimetable</a>{{end}}
   </div>
-  {{template "langSwitchIcon" .}}
+  {{template "topbarEnd" .}}
 </header>
 {{end}}
+
+{{/* topbarEnd is the right end of the phone top bar: the language, or a
+   page's own controls. */}}
+{{define "topbarEnd"}}{{template "langSwitchIcon" .}}{{end}}
 
 {{/* bottomNav is the phone navigation: the four everyday sections and More. */}}
 {{define "bottomNav"}}
