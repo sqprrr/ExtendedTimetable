@@ -25,6 +25,10 @@ type Overview struct {
 	Notes    []*store.Note
 	// Today is today's classes and the class in progress or next.
 	Today *Schedule
+	// Now is the class in progress or the next one, nil when none is
+	// coming up; Later is the rest of today's classes after it.
+	Now   *NowClass
+	Later []*ScheduleEvent
 }
 
 // GroupOverview returns the front page of a group.
@@ -61,5 +65,7 @@ func (s *Service) GroupOverview(ctx context.Context, groupID int64) (*Overview, 
 	if err != nil {
 		return nil, err
 	}
-	return &Overview{Homework: views, Notes: notes, Today: today}, nil
+	now := s.now()
+	card := nowClass(today, now)
+	return &Overview{Homework: views, Notes: notes, Today: today, Now: card, Later: laterToday(today, card, now)}, nil
 }

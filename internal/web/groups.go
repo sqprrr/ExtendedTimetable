@@ -446,8 +446,8 @@ func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, http.StatusOK, "group", pageData{
-		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes,
-		Schedule: ov.Today, NowCard: newNowCard(i18n.FromContext(r.Context()), h.svc.Location(r.Context()), h.svc.Now(), ov.Today),
+		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes, Schedule: ov.Today, LaterToday: ov.Later,
+		NowCard: newNowCard(i18n.FromContext(r.Context()), h.svc.Location(r.Context()), h.svc.Now(), ov.Now),
 	})
 }
 

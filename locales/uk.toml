@@ -529,6 +529,8 @@ language = "Мова"
 
 [today]
 classes = "Пари сьогодні"
+later = "Пізніше сьогодні"
+all = "Усі"
 due_soon = "Незабаром здавати"
 read_more = "Читати далі"
 current_class = "Поточна пара"

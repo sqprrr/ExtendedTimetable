@@ -166,6 +166,61 @@ func TestSchedulePages(t *testing.T) {
 	}
 }
 
+// Today: the Now card shows the class in progress with its teacher (from
+// the subject page), how much of it is past and what comes after; phones
+// get the rest of the day in "Later today".
+func TestTodayPage(t *testing.T) {
+	now := time.Now().UTC()
+	src := &fakeCIST{events: []cist.Event{
+		{Start: now.Add(-10 * time.Minute), End: now.Add(85 * time.Minute), Subject: "ООПро", Type: "Лк", Room: "DL", Groups: "КІУКІ-25-3"},
+		{Start: now.Add(95 * time.Minute), End: now.Add(190 * time.Minute), Subject: "ВМ", Type: "Пз", Room: "165", Groups: "КІУКІ-25-3"},
+	}}
+	e := newScheduleEnv(t, src)
+	lead := e.signUp(t, "lead", store.RoleLeader)
+	stud := e.signUp(t, "stud", store.RoleStudent)
+	const g = "/g/KIUKI-25-3"
+	lead.submit(g+"/schedule", g+"/schedule/sync", url.Values{"week": {src.events[0].Start.Format(time.DateOnly)}})
+	_, body, _ := lead.get(g + "/links/new")
+	m := regexpOption("ООПро").FindStringSubmatch(body)
+	if m == nil {
+		t.Fatal("the sync should have created subject ООПро")
+	}
+	if code, _, _ := lead.submit(g+"/subjects/"+m[1]+"/edit", g+"/subjects/"+m[1], url.Values{"name": {"ООПро"}, "lecturer": {"Pavlenko O. V."}}); code != http.StatusSeeOther {
+		t.Fatalf("set the lecturer: %d", code)
+	}
+
+	_, body, _ = stud.get(g)
+	for _, want := range []string{
+		`class="now-card is-now"`, "Now · 85 min left",
+		`<span class="meta-item">Pavlenko O. V.</span>`,
+		`<progress class="bar bar-thin" value="10" max="100"></progress>`,
+		`<span class="text-tertiary">No meeting link</span>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Now card missing %s", want)
+		}
+	}
+	if src.events[1].Start.Day() != now.Day() {
+		return // the next class is tomorrow
+	}
+	next := src.events[1].Start.Format("15:04")
+	for _, want := range []string{
+		`<div class="only-md"><span class="meta">Next: ВМ · ` + next + `<span class="meta-item mono">`,
+		`<section class="card only-sm">`,
+		`<h2>Later today</h2>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Today missing %s", want)
+		}
+	}
+	// Later today holds only the class after the Now card's.
+	later := body[strings.Index(body, `<h2>Later today</h2>`):]
+	later = later[:strings.Index(later, "</section>")]
+	if !strings.Contains(later, "ВМ") || strings.Contains(later, "ООПро") {
+		t.Errorf("later today:\n%s", later)
+	}
+}
+
 func TestScheduleWithoutCISTLink(t *testing.T) {
 	e := newEnv(t) // KIUKI-25-3 without a CIST id
 	lead := e.signUp(t, "lead", store.RoleLeader)

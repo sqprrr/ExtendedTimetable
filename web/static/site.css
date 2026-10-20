@@ -138,6 +138,9 @@ progress.bar {
 progress.bar::-webkit-progress-bar { background: var(--sunken); border-radius: var(--radius-pill); }
 progress.bar::-webkit-progress-value { background: var(--hue, var(--accent)); border-radius: var(--radius-pill); }
 progress.bar::-moz-progress-bar { background: var(--hue, var(--accent)); border-radius: var(--radius-pill); }
+/* halloween.css stripes the Now card's bar as a <span>; the same for <progress>. */
+[data-theme^="halloween"] .now-time progress.bar::-webkit-progress-value { background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, var(--halloween-candy) 8px 16px); }
+[data-theme^="halloween"] .now-time progress.bar::-moz-progress-bar { background: repeating-linear-gradient(-45deg, var(--accent) 0 8px, var(--halloween-candy) 8px 16px); }
 
 /* Rows */
 .row-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }

@@ -213,8 +213,10 @@ type pageData struct {
 	// Schedule is the schedule page's week, or the overview's today.
 	Schedule *service.Schedule
 	Week     *weekView
-	// NowCard is Today's current or next class.
-	NowCard *nowCard
+	// NowCard is Today's current or next class; LaterToday the rest of
+	// today's classes after it.
+	NowCard    *nowCard
+	LaterToday []*service.ScheduleEvent
 }
 
 // hwItem is what the homeworkItem and progressPanel templates render: one

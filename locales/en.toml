@@ -514,6 +514,8 @@ language = "Language"
 
 [today]
 classes = "Classes today"
+later = "Later today"
+all = "All"
 due_soon = "Due soon"
 read_more = "Read more"
 current_class = "Current class"
