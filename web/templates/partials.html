@@ -1,8 +1,12 @@
 {{/* Shared pieces of the group pages. */}}
 
-{{/* icon inlines a Lucide icon from web/icons by name:
+{{/* icon inlines a Lucide icon from the sprite in web/icons by name:
    {{template "icon" "calendar-days"}}. */}}
 {{define "icon"}}{{icon .}}{{end}}
+
+{{/* noteByline is who posted a note and when: "Andrii K., leader · 5 Oct";
+   only the date once the author's account is gone. */}}
+{{define "noteByline"}}{{with .AuthorName}}{{.}}{{with $.AuthorRole}}, {{roleLabel .}}{{end}} · {{end}}{{shortDate .CreatedAt}}{{end}}
 
 {{/* subjectSelect is the subject picker of a section form. */}}
 {{define "subjectSelect"}}
@@ -136,10 +140,12 @@
     <div class="meta">
       {{with classType .E}}<span class="subject" data-hue="{{hue $.E.SubjectID $.E.SubjectHue}}">{{.}}</span>{{end}}
       {{with .E.Room}}<span class="meta-item mono">{{icon "map-pin"}}{{.}}</span>{{end}}
+      {{with .E.Teacher}}<span class="meta-item">{{.}}</span>{{end}}
     </div>
   </div>
   <div class="row-actions">
-    {{range .E.ClassLinks}}<a class="btn btn-secondary btn-sm" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{icon "video"}}{{t "action.join"}}{{with .Note}} · {{.}}{{end}}</a>{{end}}
+    {{range .E.ClassLinks}}<a class="btn btn-secondary btn-sm" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{icon "video"}}{{t "action.join"}}{{with .Note}} · {{.}}{{end}}</a>
+    {{- else}}{{if not .Past}}<span class="no-link only-md">{{t "schedule.no_link_short"}}</span>{{end}}{{end}}
   </div>
 </li>
 {{end}}
@@ -189,14 +195,10 @@
 </fieldset>
 {{end}}
 
-{{/* filterButtons applies a list filter without JavaScript and resets it;
-   called with the list's URL. */}}
-{{define "filterButtons"}}
-<div class="btn-row">
-  <button type="submit" class="btn btn-secondary btn-sm">{{t "hw.filter"}}</button>
-  {{if .Active}}<a class="btn btn-ghost btn-sm" href="{{.URL}}">{{t "hw.reset_filters"}}</a>{{end}}
-</div>
-{{end}}
+{{/* filterButtons submits a list's filter chips for browsers without
+   JavaScript; app.js submits them as soon as a choice changes, and the
+   first chip of each row resets it. */}}
+{{define "filterButtons"}}<noscript><div class="btn-row"><button type="submit" class="btn btn-secondary btn-sm">{{t "hw.filter"}}</button></div></noscript>{{end}}
 
 {{/* zoneNote says which time zone a schedule's times are in, when the
    viewer's clocks show another time than the university's. */}}

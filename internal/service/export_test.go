@@ -11,6 +11,12 @@ func LoginLimiterKeys(s *Service) int { return s.loginByUserAndIP.Len() + s.logi
 // ParseRecordingTitle reads a video title as the playlist sync does.
 var ParseRecordingTitle = parseRecordingTitle
 
+// PickNowClass and LaterToday are nowClass and laterToday.
+var (
+	PickNowClass = nowClass
+	LaterToday   = laterToday
+)
+
 // TelegramUsername reads the Telegram field of the group request form.
 var TelegramUsername = telegramUsername
 

@@ -104,7 +104,7 @@ func (h *Handler) sections() []*section {
 			load: func(ctx context.Context, h *Handler, groupID int64, d *pageData) error {
 				var err error
 				d.HomeworkFilter = parseHomeworkFilter(d.Query)
-				if d.HomeworkList, err = h.svc.HomeworkList(ctx, groupID, d.HomeworkFilter); err != nil {
+				if d.HomeworkList, d.HomeworkCounts, err = h.svc.HomeworkListWithCounts(ctx, groupID, d.HomeworkFilter); err != nil {
 					return err
 				}
 				d.HomeworkGroups = groupHomework(h.svc.Location(ctx), h.svc.Now(), d.HomeworkList, d.HomeworkFilter)
@@ -446,8 +446,8 @@ func (h *Handler) groupOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, http.StatusOK, "group", pageData{
-		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes,
-		Schedule: ov.Today, NowCard: newNowCard(i18n.FromContext(r.Context()), h.svc.Location(r.Context()), h.svc.Now(), ov.Today),
+		Group: g, Section: "overview", HomeworkList: ov.Homework, Notes: ov.Notes, Schedule: ov.Today, LaterToday: ov.Later,
+		NowCard: newNowCard(i18n.FromContext(r.Context()), h.svc.Location(r.Context()), h.svc.Now(), ov.Now),
 	})
 }
 

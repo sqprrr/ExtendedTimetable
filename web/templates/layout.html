@@ -1,5 +1,8 @@
 {{define "layout"}}<!doctype html>
-<html lang="{{lang}}"{{if ne .Theme "system"}} data-theme="{{.Theme}}"{{end}}>
+{{/* data-theme is light or dark, or their Halloween variants in season;
+   a "system" choice gets the light one and tokens.css darkens it when the
+   device asks. */}}
+<html lang="{{lang}}" data-theme="{{.DataTheme}}" data-theme-choice="{{.Theme}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -7,7 +10,12 @@
   <link rel="icon" href="{{asset "favicon.ico"}}" sizes="32x32">
   <link rel="icon" href="{{asset "favicon.svg"}}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{{asset "apple-touch-icon.png"}}">
-  <link rel="stylesheet" href="{{asset "style.css"}}">
+  {{/* The design system's tokens and components, the site's own pieces,
+     then the Halloween layer, which does nothing outside its themes. */}}
+  <link rel="stylesheet" href="{{asset "tokens.css"}}">
+  <link rel="stylesheet" href="{{asset "bundle.css"}}">
+  <link rel="stylesheet" href="{{asset "site.css"}}">
+  <link rel="stylesheet" href="{{asset "halloween.css"}}">
   {{/* htmx would inject an inline <style>, which the CSP blocks. */}}
   <meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
   <script src="{{asset "htmx.min.js"}}" defer></script>
@@ -63,7 +71,8 @@
     {{$g := print "/g/" .Code}}
     <a class="nav-item" href="{{$g}}"{{current $.Section "overview"}}>{{icon "house"}}<span>{{t "nav.today"}}</span></a>
     <a class="nav-item" href="{{$g}}/schedule"{{current $.Section "schedule"}}>{{icon "calendar-days"}}<span>{{t "nav.schedule"}}</span></a>
-    <a class="nav-item" href="{{$g}}/homework"{{current $.Section "homework"}}>{{icon "list-checks"}}<span>{{t "nav.homework"}}</span></a>
+    <a class="nav-item" href="{{$g}}/homework"{{current $.Section "homework"}}>{{icon "list-checks"}}<span>{{t "nav.homework"}}</span>
+      {{- with $.NavHomeworkDue}}{{$due := t "nav.homework_due" "Count" .}}<span class="count" title="{{$due}}" aria-hidden="true">{{.}}</span><span class="sr-only">, {{$due}}</span>{{end}}</a>
     <div class="nav-label">{{t "nav.group"}}</div>
     <a class="nav-item" href="{{$g}}/notes"{{current $.Section "notes"}}>{{icon "megaphone"}}<span>{{t "nav.notes"}}</span></a>
     <a class="nav-item" href="{{$g}}/links"{{current $.Section "links"}}>{{icon "link"}}<span>{{t "nav.links"}}</span></a>
@@ -105,9 +114,13 @@
     {{with .NavGroup}}<a class="group-code" href="/" title="{{t "nav.my_groups"}}">{{.Code}}</a>
     {{else}}<a class="wordmark" href="/">ExtendedTimetable</a>{{end}}
   </div>
-  {{template "langSwitchIcon" .}}
+  {{template "topbarEnd" .}}
 </header>
 {{end}}
+
+{{/* topbarEnd is the right end of the phone top bar: the language, or a
+   page's own controls. */}}
+{{define "topbarEnd"}}{{template "langSwitchIcon" .}}{{end}}
 
 {{/* bottomNav is the phone navigation: the four everyday sections and More. */}}
 {{define "bottomNav"}}

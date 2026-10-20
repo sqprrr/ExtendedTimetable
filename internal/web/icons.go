@@ -1,44 +1,55 @@
 package web
 
 import (
+	"encoding/xml"
 	"fmt"
 	"html/template"
 	"io/fs"
-	"path"
 	"strings"
 )
 
-// iconSet is the inner markup of each icon in web/icons, by name.
+// iconSet is the inner markup of each icon in the sprite, by name.
 type iconSet map[string]string
 
-// loadIcons reads every <name>.svg in fsys. Only the drawing inside the
-// outer <svg> is kept; the icon func supplies its own <svg> element.
+// sprite is web/icons/sprite.svg: one <symbol> per icon.
+type sprite struct {
+	Symbols []struct {
+		ID      string `xml:"id,attr"`
+		ViewBox string `xml:"viewBox,attr"`
+		Body    string `xml:",innerxml"`
+	} `xml:"symbol"`
+}
+
+// loadIcons reads the symbols of icons/sprite.svg in fsys. Only the drawing
+// inside each <symbol> is kept; the icon func supplies its own <svg>
+// element, so every symbol must be on the 24px grid it draws.
 func loadIcons(fsys fs.FS) (iconSet, error) {
-	files, err := fs.Glob(fsys, "icons/*.svg")
+	b, err := fs.ReadFile(fsys, "icons/sprite.svg")
 	if err != nil {
 		return nil, err
 	}
+	var sp sprite
+	if err := xml.Unmarshal(b, &sp); err != nil {
+		return nil, fmt.Errorf("icon sprite: %w", err)
+	}
 	icons := iconSet{}
-	for _, f := range files {
-		b, err := fs.ReadFile(fsys, f)
-		if err != nil {
-			return nil, err
-		}
-		src := string(b)
-		start := strings.Index(src, "<svg")
-		if start < 0 {
-			return nil, fmt.Errorf("icon %s: no <svg>", f)
-		}
-		open := strings.IndexByte(src[start:], '>')
-		end := strings.LastIndex(src, "</svg>")
-		if open < 0 || end < start+open {
-			return nil, fmt.Errorf("icon %s: malformed <svg>", f)
+	for _, s := range sp.Symbols {
+		switch {
+		case s.ID == "":
+			return nil, fmt.Errorf("icon sprite: a symbol has no id")
+		case s.ViewBox != "0 0 24 24":
+			return nil, fmt.Errorf("icon %s: viewBox %q, want 0 0 24 24", s.ID, s.ViewBox)
+		case icons[s.ID] != "":
+			return nil, fmt.Errorf("icon %s: defined twice", s.ID)
 		}
 		var body strings.Builder
-		for line := range strings.Lines(src[start+open+1 : end]) {
+		for line := range strings.Lines(s.Body) {
 			body.WriteString(strings.TrimSpace(line))
 		}
-		icons[strings.TrimSuffix(path.Base(f), ".svg")] = body.String()
+		icons[s.ID] = body.String()
+	}
+	if len(icons) == 0 {
+		return nil, fmt.Errorf("icon sprite: no symbols")
 	}
 	return icons, nil
 }

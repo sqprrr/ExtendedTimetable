@@ -24,7 +24,7 @@
     <label class="chip"><input type="radio" name="kind" value="{{.}}"{{if eq . $f.Kind}} checked{{end}}>{{kindLabel .}}</label>
     {{end}}
   </fieldset>
-  {{template "filterButtons" (filterButtons $f.Active (print $g "/resources"))}}
+  {{template "filterButtons" .}}
 </form>
 {{end}}
 {{with .Resources}}

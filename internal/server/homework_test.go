@@ -49,4 +49,16 @@ func TestHomeworkPageForLeadersAndStudents(t *testing.T) {
 	if _, body, _ = stud.get(list + "?status=done"); !strings.Contains(body, `<details class="group" open>`) {
 		t.Error("the done filter should open the Done group")
 	}
+
+	// The status chips count the student's statuses; the Filter button is
+	// only for browsers without JavaScript.
+	for _, want := range []string{
+		`value="not_started">Not started <span class="count">0</span></label>`,
+		`value="done" checked>Done <span class="count">1</span></label>`,
+		`<noscript><div class="btn-row"><button type="submit" class="btn btn-secondary btn-sm">Filter</button>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("filters missing %s", want)
+		}
+	}
 }

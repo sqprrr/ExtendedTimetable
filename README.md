@@ -80,6 +80,12 @@ notes, and a private homework tracker per student. See
   "Today", the week on the schedule and homework deadlines all follow it;
   when the user's clock differs from Kyiv's, Today and Schedule say so, and
   so does the deadline field.
+- **Themes:** light, dark or the device's ("system"), picked next to the
+  language and kept like it. From 20 October 00:00 to 2 November 23:59,
+  Kyiv time, pages wear the Halloween variants of the same choice; the
+  dates are `HalloweenSeason` in
+  [internal/service/season.go](internal/service/season.go), the one place to
+  change them for next year.
 
 - **Recordings from YouTube:** the leader or an editor adds the group's
   YouTube playlists (up to 10) on the Recordings page, and new videos show up as

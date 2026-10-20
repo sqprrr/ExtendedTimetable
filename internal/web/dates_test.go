@@ -58,30 +58,25 @@ func TestRelativeDates(t *testing.T) {
 	}
 }
 
+// The Now card's overline; the service picks the class (service.NowClass).
 func TestNowCard(t *testing.T) {
 	en := i18n.For("en")
 	now := time.Date(2026, 10, 7, 10, 40, 0, 0, time.UTC)
-	ev := func(id int64, start, end string, live bool) *service.ScheduleEvent {
-		s, _ := time.Parse(time.DateTime, "2026-10-07 "+start+":00")
-		e, _ := time.Parse(time.DateTime, "2026-10-07 "+end+":00")
-		return &service.ScheduleEvent{ScheduleEvent: store.ScheduleEvent{ID: id, StartsAt: s, EndsAt: e, SubjectBrief: "ООП"}, Now: live}
+	ev := &service.ScheduleEvent{ScheduleEvent: store.ScheduleEvent{StartsAt: time.Date(2026, 10, 7, 9, 30, 0, 0, time.UTC)}}
+	for _, c := range []struct {
+		class *service.NowClass
+		want  string
+	}{
+		{&service.NowClass{Event: ev, Live: true, Left: 25 * time.Minute}, "Now · 25 min left"},
+		{&service.NowClass{Event: ev, Live: true, Left: 30 * time.Second}, "Now · 1 min left"},
+		{&service.NowClass{Event: ev, Left: 5 * time.Minute}, "Next · in 5 min"},
+		{&service.NowClass{Event: ev, Left: 2 * time.Hour}, "Next · today, 09:30"},
+	} {
+		if got := newNowCard(en, time.UTC, now, c.class); got == nil || got.State != c.want || got.NowClass != c.class {
+			t.Errorf("%+v: %+v, want %q", c.class, got, c.want)
+		}
 	}
-	oop, math := ev(1, "09:30", "11:05", true), ev(2, "11:15", "12:50", false)
-
-	c := newNowCard(en, time.UTC, now, &service.Schedule{Events: []*service.ScheduleEvent{oop, math}, Upcoming: []*service.ScheduleEvent{oop}})
-	if c == nil || !c.Live || c.State != "Now · 25 min left" || c.After != math || c.Elapsed != 70*60 || c.Total != 95*60 {
-		t.Fatalf("live card: %+v", c)
-	}
-	c = newNowCard(en, time.UTC, now.Add(30*time.Minute), &service.Schedule{Events: []*service.ScheduleEvent{math}, Upcoming: []*service.ScheduleEvent{math}})
-	if c == nil || c.Live || c.State != "Next · in 5 min" {
-		t.Fatalf("next soon: %+v", c)
-	}
-	early := ev(1, "09:30", "11:05", false)
-	c = newNowCard(en, time.UTC, now.Add(-3*time.Hour), &service.Schedule{Upcoming: []*service.ScheduleEvent{early}})
-	if c == nil || c.State != "Next · today, 09:30" {
-		t.Fatalf("next later: %+v", c)
-	}
-	if c := newNowCard(en, time.UTC, now, &service.Schedule{}); c != nil {
+	if c := newNowCard(en, time.UTC, now, nil); c != nil {
 		t.Fatalf("nothing upcoming: %+v", c)
 	}
 }

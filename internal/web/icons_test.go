@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	assets "github.com/sqprrr/ExtendedTimetable/web"
 )
@@ -50,11 +51,30 @@ func TestTemplateIconsExist(t *testing.T) {
 	}
 }
 
-// The CSP allows only 'self': the stylesheet must not load anything from
-// elsewhere, and every font it names must ship.
+func TestIconSpriteErrors(t *testing.T) {
+	for name, svg := range map[string]string{
+		"no symbols":    `<svg xmlns="http://www.w3.org/2000/svg"></svg>`,
+		"no id":         `<svg><symbol viewBox="0 0 24 24"><path d="M1 1"/></symbol></svg>`,
+		"other grid":    `<svg><symbol id="a" viewBox="0 0 16 16"><path d="M1 1"/></symbol></svg>`,
+		"defined twice": `<svg><symbol id="a" viewBox="0 0 24 24"><path d="M1 1"/></symbol><symbol id="a" viewBox="0 0 24 24"><path d="M2 2"/></symbol></svg>`,
+		"not xml":       `<svg><symbol id="a" viewBox="0 0 24 24">`,
+	} {
+		if _, err := loadIcons(fstest.MapFS{"icons/sprite.svg": {Data: []byte(svg)}}); err == nil {
+			t.Errorf("%s: want an error", name)
+		}
+	}
+}
+
+// stylesheets are the stylesheets every page links, in order.
+var stylesheets = []string{"tokens.css", "bundle.css", "site.css", "halloween.css"}
+
+// The CSP allows only 'self': the stylesheets must not load anything from
+// elsewhere, and every file they name must ship. Inline data: images (the
+// Halloween masks) are allowed by img-src.
 func TestStylesheetIsSelfContained(t *testing.T) {
 	remote := regexp.MustCompile(`url\(\s*["']?(https?:)?//`)
-	for _, f := range []string{"static/style.css"} {
+	for _, name := range stylesheets {
+		f := "static/" + name
 		b, err := fs.ReadFile(assets.Static, f)
 		if err != nil {
 			t.Fatal(err)
@@ -64,6 +84,9 @@ func TestStylesheetIsSelfContained(t *testing.T) {
 			t.Errorf("%s loads something from another origin", f)
 		}
 		for _, m := range regexp.MustCompile(`url\("([^"]+)"\)`).FindAllStringSubmatch(css, -1) {
+			if strings.HasPrefix(m[1], "data:") {
+				continue
+			}
 			if _, err := fs.Stat(assets.Static, "static/"+m[1]); err != nil {
 				t.Errorf("%s: %s does not exist", f, m[1])
 			}

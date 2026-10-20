@@ -98,6 +98,18 @@ func (q *Queries) ListHomework(ctx context.Context, groupID int64) ([]*Homework,
 		homeworkSelect+`WHERE h.group_id = ? ORDER BY h.due_at IS NULL, h.due_at, h.id`, groupID)
 }
 
+// CountHomeworkDue counts the group's assignments due before before that
+// the user has not marked done.
+func (q *Queries) CountHomeworkDue(ctx context.Context, groupID, userID int64, before time.Time) (int, error) {
+	var n int
+	err := q.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM homework h
+		 LEFT JOIN homework_progress p ON p.homework_id = h.id AND p.user_id = ?
+		 WHERE h.group_id = ? AND h.due_at < ? AND (p.status IS NULL OR p.status <> 'done')`,
+		userID, groupID, before.Unix()).Scan(&n)
+	return n, err
+}
+
 // UpcomingHomework returns up to limit of the group's assignments due at or
 // after since, or without a deadline, in the order of ListHomework. Those the
 // user has marked done are left out; userID 0 leaves out none.

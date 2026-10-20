@@ -132,6 +132,20 @@ func (h *Handler) theme(r *http.Request) string {
 	return service.ThemeSystem
 }
 
+// dataTheme is the theme a page is drawn in for a theme choice: light or
+// dark, or halloween-light or halloween-dark in the Halloween season.
+// "system" is drawn light; tokens.css turns it dark when the device asks.
+func dataTheme(choice string, halloween bool) string {
+	t := "light"
+	if choice == "dark" {
+		t = "dark"
+	}
+	if halloween {
+		t = "halloween-" + t
+	}
+	return t
+}
+
 // morePage lists, on phones, what does not fit in the bottom bar: the other
 // sections, feedback, the language, theme and time zone, and logging out.
 func (h *Handler) morePage(w http.ResponseWriter, r *http.Request) {

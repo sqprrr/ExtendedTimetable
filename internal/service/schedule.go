@@ -400,6 +400,19 @@ func (e *ScheduleEvent) Title() string {
 	return e.SubjectBrief
 }
 
+// Teacher is who teaches the class, from its subject's page: the lecturer
+// for a lecture, the instructor for practice classes and labs; "" when it
+// is not set or the lesson type is unknown.
+func (e *ScheduleEvent) Teacher() string {
+	switch e.LessonType {
+	case store.LessonLecture:
+		return e.SubjectLecturer
+	case store.LessonPractice, store.LessonLab:
+		return e.SubjectInstructor
+	}
+	return ""
+}
+
 // Schedule is a stretch of a group's timetable.
 type Schedule struct {
 	Events []*ScheduleEvent

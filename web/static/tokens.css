@@ -1,0 +1,332 @@
+/* ExtendedTimetable 2 — generated from tokens.json */
+:root, [data-theme="light"] {
+  --bg: #f6f6f3;
+  --surface: #ffffff;
+  --sunken: #efefeb;
+  --text: #1b1c1f;
+  --text-secondary: #55575e;
+  --text-tertiary: #6e7078;
+  --line: #e6e6e1;
+  --line-control: #8b8d93;
+  --accent: #2f5bd0;
+  --accent-hover: #264bb0;
+  --accent-subtle: #edf1fc;
+  --on-accent: #ffffff;
+  --success: #1c7a43;
+  --success-subtle: #e7f4ec;
+  --warning: #8f5408;
+  --warning-subtle: #fbf1df;
+  --danger: #b3261e;
+  --danger-subtle: #fceceb;
+  --subject-blue: #2b5bb8;
+  --subject-blue-bg: #e8eefa;
+  --subject-teal: #0e6f68;
+  --subject-teal-bg: #e2f3f1;
+  --subject-green: #2f6f2a;
+  --subject-green-bg: #e8f3e4;
+  --subject-amber: #85570a;
+  --subject-amber-bg: #f8efdc;
+  --subject-orange: #a24a12;
+  --subject-orange-bg: #fbebe0;
+  --subject-rose: #a8325a;
+  --subject-rose-bg: #fbe8ee;
+  --subject-violet: #6b45b8;
+  --subject-violet-bg: #f0eafa;
+  --subject-slate: #4b5563;
+  --subject-slate-bg: #eceef1;
+  --halloween-pumpkin: #d9600f;
+  --halloween-violet: #6b3fa0;
+  --halloween-violet-subtle: #efe8f8;
+  --halloween-web: #b4aac3;
+  --halloween-candy: #f2b640;
+  --halloween-glow: rgba(217, 96, 15, 0.18);
+  --halloween-hill: #ddd4e8;
+  --halloween-moon: #f0d27a;
+  --shadow-xs: 0 1px 2px rgba(20, 22, 28, 0.08);
+  --shadow-pop: 0 1px 2px rgba(20, 22, 28, 0.06), 0 8px 24px rgba(20, 22, 28, 0.12);
+}
+[data-theme="dark"] {
+  --bg: #121316;
+  --surface: #1a1b1f;
+  --sunken: #222328;
+  --text: #ececee;
+  --text-secondary: #a6a8b0;
+  --text-tertiary: #8b8d95;
+  --line: #2b2c32;
+  --line-control: #6c6e76;
+  --accent: #86a5ff;
+  --accent-hover: #a3bbff;
+  --accent-subtle: #1c2540;
+  --on-accent: #0d1220;
+  --success: #62cf8f;
+  --success-subtle: #132a1d;
+  --warning: #f0b55c;
+  --warning-subtle: #2c2213;
+  --danger: #ff8e86;
+  --danger-subtle: #341b1a;
+  --subject-blue: #8fb0f5;
+  --subject-blue-bg: #1b2640;
+  --subject-teal: #5fcfc3;
+  --subject-teal-bg: #12302d;
+  --subject-green: #8ad27f;
+  --subject-green-bg: #1a2d18;
+  --subject-amber: #e9bd6a;
+  --subject-amber-bg: #2e2412;
+  --subject-orange: #f5a174;
+  --subject-orange-bg: #33201a;
+  --subject-rose: #f39ab7;
+  --subject-rose-bg: #36192a;
+  --subject-violet: #bea4f5;
+  --subject-violet-bg: #281f3d;
+  --subject-slate: #b4bcc8;
+  --subject-slate-bg: #23272e;
+  --halloween-pumpkin: #ff8a3d;
+  --halloween-violet: #a98bd9;
+  --halloween-violet-subtle: #271d35;
+  --halloween-web: #463c53;
+  --halloween-candy: #f2c94c;
+  --halloween-glow: rgba(255, 138, 61, 0.22);
+  --halloween-hill: #271e32;
+  --halloween-moon: #f6e7b0;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+[data-theme="halloween-light"] {
+  --bg: #f5f3f7;
+  --surface: #ffffff;
+  --sunken: #ece8f1;
+  --text: #1e1828;
+  --text-secondary: #574f66;
+  --text-tertiary: #6c657d;
+  --line: #e5e0ec;
+  --line-control: #857d92;
+  --accent: #b8460b;
+  --accent-hover: #963808;
+  --accent-subtle: #fdeee4;
+  --on-accent: #ffffff;
+  --success: #1c7a43;
+  --success-subtle: #e7f4ec;
+  --warning: #806000;
+  --warning-subtle: #fbf3d6;
+  --danger: #b3261e;
+  --danger-subtle: #fceceb;
+  --subject-blue: #2b5bb8;
+  --subject-blue-bg: #e8eefa;
+  --subject-teal: #0e6f68;
+  --subject-teal-bg: #e2f3f1;
+  --subject-green: #2f6f2a;
+  --subject-green-bg: #e8f3e4;
+  --subject-amber: #85570a;
+  --subject-amber-bg: #f8efdc;
+  --subject-orange: #a24a12;
+  --subject-orange-bg: #fbebe0;
+  --subject-rose: #a8325a;
+  --subject-rose-bg: #fbe8ee;
+  --subject-violet: #6b45b8;
+  --subject-violet-bg: #f0eafa;
+  --subject-slate: #4b5563;
+  --subject-slate-bg: #eceef1;
+  --halloween-pumpkin: #d9600f;
+  --halloween-violet: #6b3fa0;
+  --halloween-violet-subtle: #efe8f8;
+  --halloween-web: #b4aac3;
+  --halloween-candy: #f2b640;
+  --halloween-glow: rgba(217, 96, 15, 0.18);
+  --halloween-hill: #ddd4e8;
+  --halloween-moon: #f0d27a;
+  --shadow-xs: 0 1px 2px rgba(30, 20, 40, 0.08);
+  --shadow-pop: 0 1px 2px rgba(30, 20, 40, 0.06), 0 8px 24px rgba(30, 20, 40, 0.12);
+}
+[data-theme="halloween-dark"] {
+  --bg: #110d16;
+  --surface: #1a1520;
+  --sunken: #241d2c;
+  --text: #eee8f4;
+  --text-secondary: #b0a6bd;
+  --text-tertiary: #8f859d;
+  --line: #2c2535;
+  --line-control: #6f657c;
+  --accent: #ff8a3d;
+  --accent-hover: #ffa465;
+  --accent-subtle: #35200f;
+  --on-accent: #1a0d02;
+  --success: #62cf8f;
+  --success-subtle: #132a1d;
+  --warning: #f2c94c;
+  --warning-subtle: #2e2610;
+  --danger: #ff8e86;
+  --danger-subtle: #341b1a;
+  --subject-blue: #8fb0f5;
+  --subject-blue-bg: #1b2640;
+  --subject-teal: #5fcfc3;
+  --subject-teal-bg: #12302d;
+  --subject-green: #8ad27f;
+  --subject-green-bg: #1a2d18;
+  --subject-amber: #e9bd6a;
+  --subject-amber-bg: #2e2412;
+  --subject-orange: #f5a174;
+  --subject-orange-bg: #33201a;
+  --subject-rose: #f39ab7;
+  --subject-rose-bg: #36192a;
+  --subject-violet: #bea4f5;
+  --subject-violet-bg: #281f3d;
+  --subject-slate: #b4bcc8;
+  --subject-slate-bg: #23272e;
+  --halloween-pumpkin: #ff8a3d;
+  --halloween-violet: #a98bd9;
+  --halloween-violet-subtle: #271d35;
+  --halloween-web: #463c53;
+  --halloween-candy: #f2c94c;
+  --halloween-glow: rgba(255, 138, 61, 0.22);
+  --halloween-hill: #271e32;
+  --halloween-moon: #f6e7b0;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+:root {
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-64: 64px;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --bp-md: 768px;
+  --bp-lg: 1120px;
+  --sidebar-width: 248px;
+  --content-max: 960px;
+  --topbar-height: 56px;
+  --bottom-nav-height: 64px;
+  --control-height: 40px;
+  --button-height: 36px;
+  --icon-size: 18px;
+  --font-sans: Onest, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.t-display { font-family: var(--font-sans); font-size: 28px; line-height: 36px; font-weight: 600; letter-spacing: -0.01em; }
+.t-title { font-family: var(--font-sans); font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -0.005em; }
+.t-heading { font-family: var(--font-sans); font-size: 16px; line-height: 24px; font-weight: 600; }
+.t-body { font-family: var(--font-sans); font-size: 15px; line-height: 22px; font-weight: 400; }
+.t-body-sm { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 400; }
+.t-label { font-family: var(--font-sans); font-size: 13px; line-height: 18px; font-weight: 500; }
+.t-button { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 500; }
+.t-overline { font-family: var(--font-sans); font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; }
+.t-badge { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 500; }
+.t-nav { font-family: var(--font-sans); font-size: 11px; line-height: 14px; font-weight: 500; }
+.t-numeric { font-family: var(--font-sans); font-size: 32px; line-height: 36px; font-weight: 600; letter-spacing: -0.02em; }
+.t-mono { font-family: var(--font-mono); font-size: 13px; line-height: 18px; font-weight: 500; }
+
+/* ---------- Added by the site: not generated from tokens.json ---------- */
+/* Native controls and scrollbars follow the theme. */
+[data-theme="light"], [data-theme="halloween-light"] { color-scheme: light; }
+[data-theme="dark"], [data-theme="halloween-dark"] { color-scheme: dark; }
+
+/* A viewer who chose "system" gets the light variant with
+   data-theme-choice="system"; when the device asks for dark, these blocks
+   give it the dark values. They must equal the [data-theme="dark"] and
+   [data-theme="halloween-dark"] blocks above (internal/web checks). */
+@media (prefers-color-scheme: dark) {
+  [data-theme="light"][data-theme-choice="system"] {
+    color-scheme: dark;
+    --bg: #121316;
+    --surface: #1a1b1f;
+    --sunken: #222328;
+    --text: #ececee;
+    --text-secondary: #a6a8b0;
+    --text-tertiary: #8b8d95;
+    --line: #2b2c32;
+    --line-control: #6c6e76;
+    --accent: #86a5ff;
+    --accent-hover: #a3bbff;
+    --accent-subtle: #1c2540;
+    --on-accent: #0d1220;
+    --success: #62cf8f;
+    --success-subtle: #132a1d;
+    --warning: #f0b55c;
+    --warning-subtle: #2c2213;
+    --danger: #ff8e86;
+    --danger-subtle: #341b1a;
+    --subject-blue: #8fb0f5;
+    --subject-blue-bg: #1b2640;
+    --subject-teal: #5fcfc3;
+    --subject-teal-bg: #12302d;
+    --subject-green: #8ad27f;
+    --subject-green-bg: #1a2d18;
+    --subject-amber: #e9bd6a;
+    --subject-amber-bg: #2e2412;
+    --subject-orange: #f5a174;
+    --subject-orange-bg: #33201a;
+    --subject-rose: #f39ab7;
+    --subject-rose-bg: #36192a;
+    --subject-violet: #bea4f5;
+    --subject-violet-bg: #281f3d;
+    --subject-slate: #b4bcc8;
+    --subject-slate-bg: #23272e;
+    --halloween-pumpkin: #ff8a3d;
+    --halloween-violet: #a98bd9;
+    --halloween-violet-subtle: #271d35;
+    --halloween-web: #463c53;
+    --halloween-candy: #f2c94c;
+    --halloween-glow: rgba(255, 138, 61, 0.22);
+    --halloween-hill: #271e32;
+    --halloween-moon: #f6e7b0;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+  [data-theme="halloween-light"][data-theme-choice="system"] {
+    color-scheme: dark;
+    --bg: #110d16;
+    --surface: #1a1520;
+    --sunken: #241d2c;
+    --text: #eee8f4;
+    --text-secondary: #b0a6bd;
+    --text-tertiary: #8f859d;
+    --line: #2c2535;
+    --line-control: #6f657c;
+    --accent: #ff8a3d;
+    --accent-hover: #ffa465;
+    --accent-subtle: #35200f;
+    --on-accent: #1a0d02;
+    --success: #62cf8f;
+    --success-subtle: #132a1d;
+    --warning: #f2c94c;
+    --warning-subtle: #2e2610;
+    --danger: #ff8e86;
+    --danger-subtle: #341b1a;
+    --subject-blue: #8fb0f5;
+    --subject-blue-bg: #1b2640;
+    --subject-teal: #5fcfc3;
+    --subject-teal-bg: #12302d;
+    --subject-green: #8ad27f;
+    --subject-green-bg: #1a2d18;
+    --subject-amber: #e9bd6a;
+    --subject-amber-bg: #2e2412;
+    --subject-orange: #f5a174;
+    --subject-orange-bg: #33201a;
+    --subject-rose: #f39ab7;
+    --subject-rose-bg: #36192a;
+    --subject-violet: #bea4f5;
+    --subject-violet-bg: #281f3d;
+    --subject-slate: #b4bcc8;
+    --subject-slate-bg: #23272e;
+    --halloween-pumpkin: #ff8a3d;
+    --halloween-violet: #a98bd9;
+    --halloween-violet-subtle: #271d35;
+    --halloween-web: #463c53;
+    --halloween-candy: #f2c94c;
+    --halloween-glow: rgba(255, 138, 61, 0.22);
+    --halloween-hill: #271e32;
+    --halloween-moon: #f6e7b0;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-pop: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}

@@ -29,20 +29,22 @@
     <section class="now-card{{if .Live}} is-now{{end}}" aria-label="{{if .Live}}{{t "today.current_class"}}{{else}}{{t "today.next_class"}}{{end}}">
       <div class="now-state">{{.State}}</div>
       <div class="now-body">
-        <h2 class="now-title">{{.E.Title}}</h2>
+        <h2 class="now-title">{{.Event.Title}}</h2>
         <div class="meta">
-          {{with classType .E}}<span class="subject-chip" data-hue="{{hue $.NowCard.E.SubjectID $.NowCard.E.SubjectHue}}">{{.}}</span>{{end}}
-          {{with .E.Room}}<span class="meta-item mono">{{icon "map-pin"}}{{.}}</span>{{end}}
+          {{with classType .Event}}<span class="subject-chip" data-hue="{{hue $.NowCard.Event.SubjectID $.NowCard.Event.SubjectHue}}">{{.}}</span>{{end}}
+          {{with .Event.Room}}<span class="meta-item mono">{{icon "map-pin"}}{{.}}</span>{{end}}
+          {{with .Event.Teacher}}<span class="meta-item">{{.}}</span>{{end}}
         </div>
       </div>
       <div class="now-time">
-        {{if .Live}}<progress class="bar bar-thin" value="{{.Elapsed}}" max="{{.Total}}"></progress>{{end}}
-        <div class="ends"><span>{{clock .E.StartsAt}}</span><span>{{clock .E.EndsAt}}</span></div>
+        {{if .Live}}<progress class="bar bar-thin" value="{{.Elapsed}}" max="100"></progress>{{end}}
+        <div class="ends"><span>{{clock .Event.StartsAt}}</span><span>{{clock .Event.EndsAt}}</span></div>
       </div>
       <div class="now-foot">
-        <span class="meta">{{with .After}}{{t "today.after" "Title" .Title "Time" (clock .StartsAt)}}{{end}}</span>
+        {{/* On phones "Later today" follows right below. */}}
+        <div class="only-md">{{with .After}}<span class="meta">{{t "today.after" "Title" .Title "Time" (clock .StartsAt)}}{{with .Room}}<span class="meta-item mono">{{icon "map-pin"}}{{.}}</span>{{end}}</span>{{end}}</div>
         <div class="btn-row">
-          {{range $i, $l := .E.ClassLinks}}
+          {{range $i, $l := .Event.ClassLinks}}
           <a class="btn {{if eq $i 0}}btn-primary{{else}}btn-secondary{{end}}" href="{{$l.URL}}" target="_blank" rel="noopener noreferrer">{{icon "video"}}{{t "action.join"}}{{with $l.Note}} · {{.}}{{end}}</a>
           {{else}}
           <span class="text-tertiary">{{t "schedule.no_link"}}</span>
@@ -61,7 +63,9 @@
     {{end}}{{end}}
 
     {{with .Schedule}}{{if .HasSource}}
-    <section class="card">
+    {{/* Desktop: the whole day, past classes dimmed. Phones: what is left
+       after the Now card. */}}
+    <section class="card only-md">
       <div class="card-head">
         <h2>{{t "today.classes"}}</h2>
         <a class="action" href="{{$g}}/schedule"{{boost}}>{{t "overview.week_schedule"}}{{icon "chevron-right"}}</a>
@@ -74,6 +78,17 @@
       <p class="text-tertiary">{{t "overview.no_classes_today"}}</p>
       {{end}}
     </section>
+    {{with $.LaterToday}}
+    <section class="card only-sm">
+      <div class="card-head">
+        <h2>{{t "today.later"}}</h2>
+        <a class="action" href="{{$g}}/schedule"{{boost}}>{{t "nav.schedule"}}{{icon "chevron-right"}}</a>
+      </div>
+      <ul class="rows">
+        {{range .}}{{template "classRow" (classItem $.Schedule .)}}{{end}}
+      </ul>
+    </section>
+    {{end}}
     {{end}}{{end}}
   </div>
 
@@ -81,7 +96,7 @@
     <section class="card">
       <div class="card-head">
         <h2>{{t "today.due_soon"}}</h2>
-        <a class="action" href="{{$g}}/homework"{{boost}}>{{t "overview.all_homework"}}{{icon "chevron-right"}}</a>
+        <a class="action" href="{{$g}}/homework"{{boost}}><span class="only-md">{{t "overview.all_homework"}}</span><span class="only-sm">{{t "today.all"}}</span>{{icon "chevron-right"}}</a>
       </div>
       {{with .HomeworkList}}
       <ul class="rows">
@@ -98,7 +113,7 @@
         {{if .Pinned}}<span class="badge badge-accent">{{icon "pin"}}{{t "notes.pinned"}}</span>{{end}}
         <h2>{{.Title}}</h2>
       </div>
-      <div class="meta">{{shortDate .CreatedAt}}</div>
+      <div class="meta">{{template "noteByline" .}}</div>
       <div class="md clamp-3">{{markdown .BodyMD}}</div>
       <a class="read-more" href="{{$g}}/notes#note-{{.ID}}"{{boost}}>{{t "today.read_more"}}</a>
     </article>

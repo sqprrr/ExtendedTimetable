@@ -81,7 +81,7 @@ func TestRequestLog(t *testing.T) {
 	if !logging.ValidRequestID(id) {
 		t.Fatalf("X-Request-ID = %q", id)
 	}
-	b.get("/static/style.css") // debug level: not logged at info
+	b.get("/static/site.css") // debug level: not logged at info
 
 	recs := logs.records(t, "request")
 	if len(recs) != 1 {
@@ -104,13 +104,13 @@ func TestRequestLogLevels(t *testing.T) {
 	e := newEnv(t)
 	logs := captureLogs(t, slog.LevelDebug)
 	b := e.browser(t)
-	b.get("/static/style.css")
+	b.get("/static/site.css")
 	b.get("/nope")
 	byPath := map[string]map[string]any{}
 	for _, r := range logs.records(t, "request") {
 		byPath[r["path"].(string)] = r
 	}
-	if r := byPath["/static/style.css"]; r == nil || r["level"] != "DEBUG" || r["user"] != nil {
+	if r := byPath["/static/site.css"]; r == nil || r["level"] != "DEBUG" || r["user"] != nil {
 		t.Errorf("static file: %v", r)
 	}
 	if r := byPath["/nope"]; r == nil || r["level"] != "INFO" || r["status"] != float64(404) {
