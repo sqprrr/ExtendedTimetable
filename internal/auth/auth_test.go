@@ -52,11 +52,21 @@ func TestCSRF(t *testing.T) {
 	c := Cookies{Secure: true}
 	var seen string
 	h := c.CSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		seen = CSRFToken(r.Context())
+		if r.URL.Path != "/icon.png" {
+			seen = CSRFToken(r.Context())
+		}
 	}))
 
-	// A GET issues the token cookie.
+	// A response that does not embed the token (an icon) sets no cookie, so
+	// it cannot replace the one an open page's token matches.
 	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/icon.png", nil))
+	if cookies := rec.Result().Cookies(); len(cookies) != 0 {
+		t.Fatalf("icon set cookies: %+v", cookies)
+	}
+
+	// A page issues the token cookie.
+	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
 	cookies := rec.Result().Cookies()
 	if len(cookies) != 1 || cookies[0].Name != "__Host-extt_csrf" || !cookies[0].HttpOnly || !cookies[0].Secure {
