@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"bytes"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -52,11 +54,21 @@ func TestCSRF(t *testing.T) {
 	c := Cookies{Secure: true}
 	var seen string
 	h := c.CSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		seen = CSRFToken(r.Context())
+		if r.URL.Path != "/icon.png" {
+			seen = CSRFToken(r.Context())
+		}
 	}))
 
-	// A GET issues the token cookie.
+	// A response that does not embed the token (an icon) sets no cookie, so
+	// it cannot replace the one an open page's token matches.
 	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/icon.png", nil))
+	if cookies := rec.Result().Cookies(); len(cookies) != 0 {
+		t.Fatalf("icon set cookies: %+v", cookies)
+	}
+
+	// A page issues the token cookie.
+	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
 	cookies := rec.Result().Cookies()
 	if len(cookies) != 1 || cookies[0].Name != "__Host-extt_csrf" || !cookies[0].HttpOnly || !cookies[0].Secure {
@@ -132,6 +144,60 @@ func TestClientNetwork(t *testing.T) {
 	} {
 		if got := ClientNetwork(c.ip); got != c.want {
 			t.Errorf("ClientNetwork(%q) = %q, want %q", c.ip, got, c.want)
+		}
+	}
+}
+
+// A new token asked for after the response is written has lost its cookie:
+// tests panic, production logs an error.
+func TestCSRFTokenAfterWrite(t *testing.T) {
+	c := Cookies{Secure: true}
+	late := c.CSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("<form>"))
+		CSRFToken(r.Context())
+	}))
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Error("a late new token did not panic under go test")
+			}
+		}()
+		late.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+	}()
+
+	lateCSRFPanics = false
+	t.Cleanup(func() { lateCSRFPanics = true })
+	var logged bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logged, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	late.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(logged.String(), "level=ERROR") {
+		t.Errorf("a late new token logged no error: %q", logged.String())
+	}
+
+	// Asking early and again after writing is fine, as is asking late when
+	// the request had the cookie: there is nothing to set.
+	for _, withCookie := range []bool{false, true} {
+		rec := httptest.NewRecorder()
+		c.CSRF(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			first := ""
+			if !withCookie {
+				first = CSRFToken(r.Context())
+			}
+			w.WriteHeader(http.StatusOK)
+			if again := CSRFToken(r.Context()); !withCookie && again != first {
+				t.Errorf("token changed: %q, then %q", first, again)
+			}
+		})).ServeHTTP(rec, func() *http.Request {
+			req := httptest.NewRequest("GET", "/", nil)
+			if withCookie {
+				req.AddCookie(&http.Cookie{Name: c.CSRFName(), Value: strings.Repeat("a", 43)})
+			}
+			return req
+		}())
+		if n := len(rec.Result().Cookies()); n != map[bool]int{false: 1, true: 0}[withCookie] {
+			t.Errorf("with cookie %v: %d cookies set", withCookie, n)
 		}
 	}
 }

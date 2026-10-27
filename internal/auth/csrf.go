@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"log/slog"
 	"net/http"
+	"testing"
 	"time"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/metrics"
@@ -19,12 +20,73 @@ const (
 
 type csrfKey struct{}
 
-// CSRFToken returns the CSRF token for the request context, for embedding in
-// forms and htmx headers.
-func CSRFToken(ctx context.Context) string {
-	t, _ := ctx.Value(csrfKey{}).(string)
-	return t
+// csrfToken is a request's CSRF token. A request without the cookie gets a
+// new token, and the cookie for it is set only by a response that embeds
+// it: were every such response to set one, a request sent without cookies
+// (Safari fetching an icon or a stylesheet) would replace the cookie an
+// open page's token matches, and that page's next form would fail.
+type csrfToken struct {
+	value string
+	// w is the response a new token's cookie goes on, nil when the request
+	// had the cookie or once it is set.
+	w *csrfWriter
 }
+
+// CSRFToken returns the CSRF token for the request context, for embedding in
+// forms and htmx headers. For a new token it sets the cookie, so it must be
+// called before the response is written.
+func CSRFToken(ctx context.Context) string {
+	t, _ := ctx.Value(csrfKey{}).(*csrfToken)
+	if t == nil {
+		return ""
+	}
+	if w := t.w; w != nil {
+		t.w = nil
+		if w.wrote {
+			lateCSRFToken(ctx)
+		}
+		http.SetCookie(w, w.cookies.cookie(w.cookies.CSRFName(), t.value, time.Now().AddDate(1, 0, 0)))
+	}
+	return t.value
+}
+
+// lateCSRFToken reports a new token asked for after the response headers
+// went out: its cookie is lost, and the page's forms fail with "no CSRF
+// cookie". Under go test it panics, so no such handler passes the tests; in
+// production, where the response is half sent and a panic could no longer
+// become a 500, it logs an error.
+func lateCSRFToken(ctx context.Context) {
+	const msg = "CSRF token asked for after the response was written; its cookie is lost"
+	if lateCSRFPanics {
+		panic(msg)
+	}
+	slog.ErrorContext(ctx, msg)
+}
+
+var lateCSRFPanics = testing.Testing()
+
+// csrfWriter notes when the response headers go out, after which no cookie
+// can be set.
+type csrfWriter struct {
+	http.ResponseWriter
+	cookies Cookies
+	wrote   bool
+}
+
+func (w *csrfWriter) WriteHeader(code int) {
+	if code >= 200 { // 1xx answers are not the final headers
+		w.wrote = true
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *csrfWriter) Write(b []byte) (int, error) {
+	w.wrote = true
+	return w.ResponseWriter.Write(b)
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (w *csrfWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 // CSRF protects state-changing requests with a double-submit token: a random
 // value in an HttpOnly cookie that must be echoed in the form field or header.
@@ -62,11 +124,12 @@ func (c Cookies) CSRF(next http.Handler) http.Handler {
 				return
 			}
 		}
+		t := &csrfToken{value: token}
 		if token == "" {
-			token = NewToken()
-			http.SetCookie(w, c.cookie(c.CSRFName(), token, time.Now().AddDate(1, 0, 0)))
+			cw := &csrfWriter{ResponseWriter: w, cookies: c}
+			t.value, t.w, w = NewToken(), cw, cw
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), csrfKey{}, token)))
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), csrfKey{}, t)))
 	})
 	return cop.Handler(check)
 }
