@@ -20,8 +20,9 @@ import (
 
 // Video is a video of a playlist.
 type Video struct {
-	ID    string
-	Title string
+	ID          string
+	Title       string
+	Description string
 	// PublishedAt is when the video was published.
 	PublishedAt time.Time
 	Duration    time.Duration
@@ -139,6 +140,7 @@ func (c *Client) playlistVideos(ctx context.Context, playlistID string) ([]Video
 				ID      string `json:"id"`
 				Snippet struct {
 					Title                string    `json:"title"`
+					Description          string    `json:"description"`
 					PublishedAt          time.Time `json:"publishedAt"`
 					LiveBroadcastContent string    `json:"liveBroadcastContent"`
 				} `json:"snippet"`
@@ -157,7 +159,7 @@ func (c *Client) playlistVideos(ctx context.Context, playlistID string) ([]Video
 		for _, it := range res.Items {
 			d, _ := ParseDuration(it.ContentDetails.Duration)
 			byID[it.ID] = Video{
-				ID: it.ID, Title: it.Snippet.Title, PublishedAt: it.Snippet.PublishedAt.UTC(), Duration: d,
+				ID: it.ID, Title: it.Snippet.Title, Description: it.Snippet.Description, PublishedAt: it.Snippet.PublishedAt.UTC(), Duration: d,
 				Live: it.Snippet.LiveBroadcastContent == "live" || it.Snippet.LiveBroadcastContent == "upcoming",
 			}
 		}

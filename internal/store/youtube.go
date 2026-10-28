@@ -16,6 +16,8 @@ type YouTubeVideo struct {
 	ResourceID *int64
 	// TitleNumber is the number in the video's title, 0 if none.
 	TitleNumber int
+	// Part is the part of the class the video is, 0 if it is all of it.
+	Part        int
 	PublishedAt time.Time
 }
 
@@ -23,8 +25,8 @@ type YouTubeVideo struct {
 // group already has it.
 func (q *Queries) AddYouTubeVideo(ctx context.Context, v *YouTubeVideo) error {
 	_, err := q.db.ExecContext(ctx,
-		`INSERT INTO youtube_videos (group_id, video_id, resource_id, title_number, published_at) VALUES (?, ?, ?, ?, ?)`,
-		v.GroupID, v.VideoID, v.ResourceID, v.TitleNumber, v.PublishedAt.Unix())
+		`INSERT INTO youtube_videos (group_id, video_id, resource_id, title_number, part, published_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		v.GroupID, v.VideoID, v.ResourceID, v.TitleNumber, v.Part, v.PublishedAt.Unix())
 	return mapErr(err)
 }
 
@@ -56,6 +58,7 @@ type SyncedRecording struct {
 	Title       string
 	Date        string
 	TitleNumber int
+	Part        int
 	PublishedAt time.Time
 }
 
@@ -66,14 +69,14 @@ func (q *Queries) ListSyncedRecordings(ctx context.Context, groupID int64) ([]*S
 		var r SyncedRecording
 		var date, lessonType sql.NullString
 		var published int64
-		if err := row.Scan(&r.ResourceID, &r.SubjectID, &lessonType, &r.Title, &date, &r.TitleNumber, &published); err != nil {
+		if err := row.Scan(&r.ResourceID, &r.SubjectID, &lessonType, &r.Title, &date, &r.TitleNumber, &r.Part, &published); err != nil {
 			return nil, mapErr(err)
 		}
 		r.LessonType = LessonType(lessonType.String)
 		r.Date = date.String
 		r.PublishedAt = time.Unix(published, 0).UTC()
 		return &r, nil
-	}, `SELECT r.id, r.subject_id, r.lesson_type, r.title, r.date, v.title_number, v.published_at
+	}, `SELECT r.id, r.subject_id, r.lesson_type, r.title, r.date, v.title_number, v.part, v.published_at
 		FROM youtube_videos v JOIN resource_links r ON r.id = v.resource_id
 		WHERE v.group_id = ? AND r.group_id = v.group_id`, groupID)
 }
