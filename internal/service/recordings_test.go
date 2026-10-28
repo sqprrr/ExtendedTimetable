@@ -54,11 +54,15 @@ func (f *fakeYouTube) add(id, title string, length time.Duration) {
 }
 
 func (f *fakeYouTube) addTo(playlist, id, title string, length time.Duration) {
+	f.addDescribed(playlist, id, title, "", length)
+}
+
+func (f *fakeYouTube) addDescribed(playlist, id, title, description string, length time.Duration) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.added++
-	f.playlists[playlist] = append(f.playlists[playlist], youtube.Video{ID: id, Title: title, Duration: length,
-		PublishedAt: time.Date(2026, 10, 1, 12, 0, 0, f.added, time.UTC)})
+	f.playlists[playlist] = append(f.playlists[playlist], youtube.Video{ID: id, Title: title, Description: description,
+		Duration: length, PublishedAt: time.Date(2026, 10, 1, 12, 0, 0, f.added, time.UTC)})
 }
 
 func (f *fakeYouTube) fail(playlist string, err error) {
@@ -488,5 +492,82 @@ func TestRecordingSyncSurvivesPanickingSource(t *testing.T) {
 	}
 	if got := f.recordings(t); len(got) != 1 {
 		t.Fatalf("the other playlist's recording should be there: %v", got)
+	}
+}
+
+// Some uploaders title videos "КЕ пз2" and put the date in the description.
+// These are titles and descriptions from such a playlist.
+func TestParseRecordingDescription(t *testing.T) {
+	type want struct {
+		date, subject string
+		lt            store.LessonType
+		n, part       int
+	}
+	for _, c := range []struct {
+		title, description string
+		want               want
+	}{
+		{"КЕ пз2", "КЕ пз2 27.10.26", want{"2026-10-27", "КЕ", store.LessonPractice, 2, 0}},
+		{"МЗЦОІ лб1", "МЗЦОІ лб1 01.10.2026", want{"2026-10-01", "МЗЦОІ", store.LessonLab, 1, 0}},
+		{"Філософія семінар1", "Філософія семінар1 30.09.2026", want{"2026-09-30", "Філософія", store.LessonPractice, 1, 0}},
+		{"КЕ лб2", "КЕ лб2 08.10.26\nТільки спробуйте мені ото перемотать в кінець!", want{"2026-10-08", "КЕ", store.LessonLab, 2, 0}},
+		{"КЕ ЛБ 1 частина 2", "КЕ ЛБ 1 24.09.2026", want{"2026-09-24", "КЕ", store.LessonLab, 1, 2}},
+		{"СПро лк №3", "Запис з пари\n15.10.26", want{"2026-10-15", "СПро", store.LessonLecture, 3, 0}},
+		{"Запис", "ООП пз 4 22.10.2026", want{"2026-10-22", "ООП", store.LessonPractice, 4, 0}},
+		{"КЕ пз3 03.11.26", "", want{"2026-11-03", "КЕ", store.LessonPractice, 3, 0}},
+		// The old format wins, in the title or the description.
+		{"КІУКІ-25 2026 10 07 Філ ЛК №4", "Філ пз1 01.10.26", want{"2026-10-07", "Філ", store.LessonLecture, 4, 0}},
+		{"Філ", "КІУКІ-25 2026 10 07 Філ ЛК №4", want{"2026-10-07", "Філ", store.LessonLecture, 4, 0}},
+	} {
+		p, ok := service.ParseRecording(c.title, c.description)
+		w := c.want
+		if !ok || p.Date != w.date || p.Subject != w.subject || p.LessonType != w.lt || p.Number != w.n || p.Part != w.part {
+			t.Errorf("%q / %q: %+v %v, want %+v", c.title, c.description, p, ok, w)
+		}
+	}
+	for _, bad := range [][2]string{
+		{"КЕ пз2", ""},                     // no date
+		{"КЕ пз2", "КЕ пз2 31.02.26"},      // no such day
+		{"КЕ пз2", "Версія 1.2.3"},         // not a date
+		{"27.10.26", ""},                   // no subject
+		{"Організаційні питання", "дякую"}, // nothing
+	} {
+		if p, ok := service.ParseRecording(bad[0], bad[1]); ok {
+			t.Errorf("%q / %q should not parse: %+v", bad[0], bad[1], p)
+		}
+	}
+}
+
+// The parts of one class share its number.
+func TestSyncRecordingsFromDescriptions(t *testing.T) {
+	f := setupRecordings(t)
+	if _, err := f.svc.CreateSubject(f.lead, f.group.ID, service.SubjectInput{Name: "Комп'ютерна електроніка", ShortName: "КЕ"}); err != nil {
+		t.Fatal(err)
+	}
+	const h = time.Hour
+	f.yt.addDescribed(testPlaylist, "keaaaaaaaa2", "КЕ лб2", "КЕ лб2 08.10.26\nТільки спробуйте мені ото перемотать в кінець!", h)
+	f.yt.addDescribed(testPlaylist, "keaaaaaaaa1", "КЕ ЛБ 1 частина 2", "КЕ ЛБ 1 24.09.2026", h)
+	f.yt.addDescribed(testPlaylist, "keaaaaaaaa0", "КЕ ЛБ 1 частина 1", "КЕ ЛБ 1 24.09.2026", h)
+	f.yt.addDescribed(testPlaylist, "kebbbbbbbb1", "КЕ пз1", "КЕ пз1 27.10.26", h)
+	f.yt.addDescribed(testPlaylist, "fiaaaaaaaa1", "Філософія семінар1", "Філософія семінар1 30.09.2026", h)
+	f.yt.addDescribed(testPlaylist, "xxaaaaaaaa1", "КЕ пз2", "", h) // no date anywhere
+	if err := f.svc.AddPlaylist(f.lead, f.group.ID, testPlaylist); err != nil {
+		t.Fatal(err)
+	}
+	src, err := f.svc.RecordingsSourceFor(f.lead, f.group.ID)
+	if err != nil || src.Sync.Added != 5 || !slices.Equal(src.Sync.Unmatched, []string{"КЕ пз2"}) {
+		t.Fatalf("sync: %+v %v", src.Sync, err)
+	}
+	recs := f.recordings(t)
+	for id, w := range map[string]struct{ title, date string }{
+		"keaaaaaaaa0": {"Лабораторна №1, частина 1", "2026-09-24"},
+		"keaaaaaaaa1": {"Лабораторна №1, частина 2", "2026-09-24"},
+		"keaaaaaaaa2": {"Лабораторна №2", "2026-10-08"},
+		"kebbbbbbbb1": {"Практика №1", "2026-10-27"},
+		"fiaaaaaaaa1": {"Практика №1", "2026-09-30"},
+	} {
+		if r := recs["https://youtu.be/"+id]; r == nil || r.Title != w.title || r.Date != w.date {
+			t.Errorf("%s: %+v, want %+v", id, r, w)
+		}
 	}
 }

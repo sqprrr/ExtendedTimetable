@@ -218,7 +218,7 @@ never_synced = "Not synced yet."
 sync_failed = "The last sync ({{.When}}) failed: {{.Error}}."
 disabled = "The server has no YouTube API key (EXTT_YOUTUBE_KEY), so the playlist is not synced."
 unmatched = "Videos that could not be placed: {{.N}}"
-unmatched_hint = "No date in the title, or no subject with that short name. Rename the video or the subject and it is added on the next sync."
+unmatched_hint = "No date in the title or description (as \"КЕ пз2 27.10.26\"), or no subject with that short name. Fix the video or the subject and it is added on the next sync."
 
 [subjects]
 dl_hint = "The subject's page on dl.nure.ua, where attendance is marked."

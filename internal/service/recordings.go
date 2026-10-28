@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/sqprrr/ExtendedTimetable/internal/metrics"
 	"github.com/sqprrr/ExtendedTimetable/internal/store"
@@ -20,13 +21,18 @@ import (
 
 // Class recordings can come from YouTube playlists: the group's leader or an
 // editor adds them, and a sync adds each new video to the recordings. The
-// subject, lesson type and date come from the video's title, which the
+// subject, lesson type and date come from the video's title, which some
 // uploaders write as
 //
 //	КІУКІ-25 2026 10 07 Філ ЛК №4
 //
 // (anything, the date, the subject's short name, the lesson type, the
-// number). Recordings are titled "Лекція №4" and numbered by date within
+// number), and others as "КЕ пз2" with the date in the description:
+//
+//	КЕ пз2 27.10.26
+//
+// (the subject's short name, the lesson type and number, the date). A class
+// recorded in several videos says "частина 2". Recordings are titled "Лекція №4" and numbered by date within
 // their subject and lesson type, so mistakes in the uploaders' numbers do
 // not matter.
 
@@ -58,11 +64,14 @@ var (
 
 // recordingLessonTypes maps the lesson types written in video titles.
 var recordingLessonTypes = map[string]store.LessonType{
-	"ЛК": store.LessonLecture,
-	"ПЗ": store.LessonPractice,
-	"ПР": store.LessonPractice,
-	"ЛБ": store.LessonLab,
-	"ЛР": store.LessonLab,
+	"ЛК":       store.LessonLecture,
+	"ЛЕКЦІЯ":   store.LessonLecture,
+	"ПЗ":       store.LessonPractice,
+	"ПР":       store.LessonPractice,
+	"ПРАКТИКА": store.LessonPractice,
+	"СЕМІНАР":  store.LessonPractice,
+	"ЛБ":       store.LessonLab,
+	"ЛР":       store.LessonLab,
 }
 
 // recordingTitles are the titles synced recordings get, before " №N".
@@ -74,19 +83,117 @@ var recordingTitles = map[store.LessonType]string{
 
 // autoTitleRe matches the titles the sync gives; others were set by hand
 // and are kept.
-var autoTitleRe = regexp.MustCompile(`^(Лекція|Практика|Лабораторна) №\d+$`)
+var autoTitleRe = regexp.MustCompile(`^(Лекція|Практика|Лабораторна) №\d+(, частина \d+)?$`)
 
 var (
 	titleDateRe   = regexp.MustCompile(`(\d{4})[ ._-](\d{1,2})[ ._-](\d{1,2})(?:\s|$)`)
 	titleNumberRe = regexp.MustCompile(`№\s*(\d+)`)
+	// dayFirstDateRe is a date written "27.10.26" or "27.10.2026".
+	dayFirstDateRe = regexp.MustCompile(`(?:^|\s)(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})(?:\s|$)`)
+	// typeNumberRe is a lesson type with or without its number: "пз2",
+	// "ЛБ", "семінар1".
+	typeNumberRe = regexp.MustCompile(`^(\pL+)(\d*)$`)
+	partRe       = regexp.MustCompile(`(?i)частина\s*(\d+)`)
 )
 
-// recordingTitle is what a video's title says.
+// recordingTitle is what a video's title (and description) says.
 type recordingTitle struct {
 	Date       string // "YYYY-MM-DD"
-	Subject    string // the word after the date
+	Subject    string // the subject's short name
 	LessonType store.LessonType
 	Number     int // 0 if none
+	Part       int // 0 if the video is the whole class
+}
+
+// parseRecording reads a video's title and description: a line with the
+// date first ("КІУКІ-25 2026 10 07 Філ ЛК №4"), else one with the date last
+// ("КЕ пз2 27.10.26"), the title before the description. A line that is
+// only the date takes the subject from the title.
+func parseRecording(title, description string) (p recordingTitle, ok bool) {
+	part := func(line string) int {
+		for _, s := range []string{title, line} {
+			if m := partRe.FindStringSubmatch(s); m != nil {
+				n, _ := strconv.Atoi(m[1])
+				return n
+			}
+		}
+		return 0
+	}
+	lines := append([]string{title}, strings.Split(description, "\n")...)
+	for _, line := range lines {
+		if p, ok = parseRecordingTitle(line); ok {
+			p.Part = part(line)
+			return p, true
+		}
+	}
+	for _, line := range lines {
+		date, label, found := dayFirstDate(line)
+		if !found {
+			continue
+		}
+		if strings.TrimSpace(label) == "" {
+			label = title
+		}
+		if p, ok = parseRecordingLabel(label); ok {
+			p.Date, p.Part = date, part(line)
+			return p, true
+		}
+	}
+	return recordingTitle{}, false
+}
+
+// dayFirstDate finds a "27.10.26" or "27.10.2026" date in line, and returns
+// it as "YYYY-MM-DD" with the rest of the line.
+func dayFirstDate(line string) (date, rest string, ok bool) {
+	m := dayFirstDateRe.FindStringSubmatchIndex(line)
+	if m == nil {
+		return "", "", false
+	}
+	d, _ := strconv.Atoi(line[m[2]:m[3]])
+	mo, _ := strconv.Atoi(line[m[4]:m[5]])
+	y, _ := strconv.Atoi(line[m[6]:m[7]])
+	if y < 100 {
+		y += 2000
+	}
+	t := time.Date(y, time.Month(mo), d, 0, 0, 0, 0, time.UTC)
+	if t.Year() != y || int(t.Month()) != mo || t.Day() != d {
+		return "", "", false
+	}
+	return t.Format(time.DateOnly), line[:m[0]] + " " + line[m[1]:], true
+}
+
+// parseRecordingLabel reads "КЕ пз2", "КЕ ЛБ 1 частина 1" or "Філософія
+// семінар1": the subject, then the lesson type and its number, joined or
+// not. ok is false without a subject (a word with letters). Without a lesson type, it is a
+// practice class.
+func parseRecordingLabel(label string) (p recordingTitle, ok bool) {
+	fields := strings.Fields(label)
+	if len(fields) == 0 || !strings.ContainsFunc(fields[0], unicode.IsLetter) {
+		return p, false
+	}
+	p.Subject, p.LessonType = fields[0], store.LessonPractice
+	rest := fields[1:]
+	for i, f := range rest {
+		m := typeNumberRe.FindStringSubmatch(f)
+		if m == nil {
+			continue
+		}
+		lt, found := recordingLessonTypes[strings.ToUpper(m[1])]
+		if !found {
+			continue
+		}
+		p.LessonType = lt
+		number := m[2]
+		if number == "" && i+1 < len(rest) {
+			number = strings.TrimPrefix(rest[i+1], "№")
+		}
+		p.Number, _ = strconv.Atoi(number)
+		return p, true
+	}
+	if n := titleNumberRe.FindStringSubmatch(strings.Join(rest, " ")); n != nil {
+		p.Number, _ = strconv.Atoi(n[1])
+	}
+	return p, true
 }
 
 // parseRecordingTitle reads a video's title. ok is false without a date
@@ -489,8 +596,8 @@ func (s *Service) syncRecordings(ctx context.Context, g *store.Group) (*store.Re
 			if placed[v.ID] || v.Live || v.Duration < MinRecordingLength {
 				continue
 			}
-			p, ok := parseRecordingTitle(v.Title)
-			yv := &store.YouTubeVideo{GroupID: g.ID, VideoID: v.ID, TitleNumber: p.Number, PublishedAt: v.PublishedAt}
+			p, ok := parseRecording(v.Title, v.Description)
+			yv := &store.YouTubeVideo{GroupID: g.ID, VideoID: v.ID, TitleNumber: p.Number, Part: p.Part, PublishedAt: v.PublishedAt}
 			if id, found := byVideo[v.ID]; found {
 				yv.ResourceID = &id
 				if err := q.AddYouTubeVideo(ctx, yv); err != nil {
@@ -546,7 +653,9 @@ func (s *Service) syncRecordings(ctx context.Context, g *store.Group) (*store.Re
 // renumberRecordings titles the group's synced recordings "Лекція №N",
 // numbering each subject's lectures (practice classes, labs) by date. Two of
 // the same day go in the order of their titles' numbers, then of
-// publishing. Recordings someone renamed by hand keep their title.
+// publishing; the parts of one class (the same day and title number) share
+// its number: "Лабораторна №1, частина 2". Recordings someone renamed by
+// hand keep their title.
 func renumberRecordings(ctx context.Context, q *store.Queries, groupID int64) error {
 	recs, err := q.ListSyncedRecordings(ctx, groupID)
 	if err != nil {
@@ -558,21 +667,35 @@ func renumberRecordings(ctx context.Context, q *store.Queries, groupID int64) er
 			cmp.Compare(a.LessonType, b.LessonType),
 			cmp.Compare(a.Date, b.Date),
 			cmp.Compare(a.TitleNumber, b.TitleNumber),
+			cmp.Compare(a.Part, b.Part),
 			a.PublishedAt.Compare(b.PublishedAt),
 			cmp.Compare(a.ResourceID, b.ResourceID),
 		)
 	})
 	n := 0
 	for i, r := range recs {
-		if i == 0 || r.SubjectID != recs[i-1].SubjectID || r.LessonType != recs[i-1].LessonType {
+		var prev *store.SyncedRecording
+		if i > 0 {
+			prev = recs[i-1]
+		}
+		if prev == nil || r.SubjectID != prev.SubjectID || r.LessonType != prev.LessonType {
 			n = 0
 		}
-		n++
+		// A later part of the class before it keeps its number.
+		samePart := prev != nil && n > 0 && r.Part > 1 && prev.Part > 0 &&
+			r.Date == prev.Date && r.TitleNumber == prev.TitleNumber
+		if !samePart {
+			n++
+		}
 		name, ok := recordingTitles[r.LessonType]
 		if !ok || !autoTitleRe.MatchString(r.Title) {
 			continue
 		}
-		if want := name + " №" + strconv.Itoa(n); r.Title != want {
+		want := name + " №" + strconv.Itoa(n)
+		if r.Part > 0 {
+			want += ", частина " + strconv.Itoa(r.Part)
+		}
+		if r.Title != want {
 			if err := q.SetResourceLinkTitle(ctx, groupID, r.ResourceID, want); err != nil {
 				return err
 			}

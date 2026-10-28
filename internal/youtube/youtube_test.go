@@ -80,7 +80,7 @@ func TestPlaylistVideos(t *testing.T) {
 			fmt.Fprint(w, `{"items":[
 				{"id":"v4","snippet":{"title":"Live","publishedAt":"2026-10-07T10:00:00Z","liveBroadcastContent":"live"},"contentDetails":{"duration":"P0D"}},
 				{"id":"v2","snippet":{"title":"Second","publishedAt":"2026-10-02T09:00:00Z","liveBroadcastContent":"none"},"contentDetails":{"duration":"PT2M11S"}},
-				{"id":"v1","snippet":{"title":"First","publishedAt":"2026-10-01T09:00:00Z","liveBroadcastContent":"none"},"contentDetails":{"duration":"PT1H42M20S"}}
+				{"id":"v1","snippet":{"title":"First","description":"КЕ пз2 27.10.26\nдругий рядок","publishedAt":"2026-10-01T09:00:00Z","liveBroadcastContent":"none"},"contentDetails":{"duration":"PT1H42M20S"}}
 			]}`)
 		default:
 			http.NotFound(w, r)
@@ -99,7 +99,7 @@ func TestPlaylistVideos(t *testing.T) {
 	if len(got) != 3 || got[0].ID != "v1" || got[1].ID != "v2" || got[2].ID != "v4" {
 		t.Fatalf("videos (playlist order, deleted left out): %+v", got)
 	}
-	if got[0].Title != "First" || got[0].Duration != time.Hour+42*time.Minute+20*time.Second ||
+	if got[0].Title != "First" || got[0].Description != "КЕ пз2 27.10.26\nдругий рядок" || got[0].Duration != time.Hour+42*time.Minute+20*time.Second ||
 		!got[0].PublishedAt.Equal(time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)) || got[0].Live {
 		t.Errorf("first video: %+v", got[0])
 	}

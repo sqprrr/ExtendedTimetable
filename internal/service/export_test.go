@@ -11,6 +11,10 @@ func LoginLimiterKeys(s *Service) int { return s.loginByUserAndIP.Len() + s.logi
 // ParseRecordingTitle reads a video title as the playlist sync does.
 var ParseRecordingTitle = parseRecordingTitle
 
+// ParseRecording reads a video's title and description as the playlist
+// sync does.
+var ParseRecording = parseRecording
+
 // PickNowClass and LaterToday are nowClass and laterToday.
 var (
 	PickNowClass = nowClass
